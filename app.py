@@ -1,6 +1,6 @@
 from flask import Flask, render_template
 
-from tasks.banner import HelloWorld
+from tasks.banner import BannerTask
 
 app = Flask(__name__)
 
@@ -9,7 +9,7 @@ app = Flask(__name__)
 def main():
     return "Quay Service Tool Backend"
 
-app.add_resource(HelloWorld, '/hello')
+app.add_resource(BannerTask, '/banner')
 
 
 if __name__ == '__main__':

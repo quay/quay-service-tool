@@ -1,8 +1,8 @@
 from flask_restful import Resource, Api
 
 
-class HelloWorld(Resource):
+class BannerTask(Resource):
     def get(self):
-        return {'hello': 'world'}
+        return {'banner': 'Current banner'}
 
 
