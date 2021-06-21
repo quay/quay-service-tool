@@ -17,7 +17,12 @@ module.exports = merge(common('development'), {
     historyApiFallback: true,
     hot: true,
     overlay: true,
-    open: true
+    open: true,
+    proxy: {
+      "*": "http://localhost:5000",
+      "secure": false,
+      "changeOrigin": true
+    }
   },
   module: {
     rules: [
