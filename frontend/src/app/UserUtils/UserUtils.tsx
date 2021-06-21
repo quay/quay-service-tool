@@ -9,11 +9,14 @@ import {
   FormGroup,
   FormSelect,
   FormSelectOption,
+  Modal,
+  ModalVariant,
   PageSection,
   TextInput
 } from '@patternfly/react-core';
 import ReactMarkdown from 'react-markdown';
 import { useState } from 'react';
+import axios from 'axios';
 
 type Props = {
 
@@ -22,11 +25,40 @@ export const UserUtils : React.FunctionComponent = (props: Props) => {
 
   const [currentUsername, setCurrentUsername] = useState('');
   const [newUsername, setNewUsername] = useState('');
+  const [isModalOpen, setIsModalOpen] = useState(false);
+  const [message, setMessage] = useState('');
+
+  async function onRenameUser() {
+    if (currentUsername && newUsername) {
+       axios.put('/username', {
+        currentUsername,
+        newUsername
+      })
+      .then(function (response) {
+        setMessage('Succeeded');
+        setIsModalOpen(true);
+      })
+      .catch(function (error) {
+        setMessage(error.response.data);
+        setIsModalOpen(true);
+      });
+    }
+  }
 
   return (
     <div>
       <PageSection>
 
+        <Modal
+          isOpen={isModalOpen}
+          variant={ModalVariant.small}
+          aria-label="feedback modal"
+          showClose={true}
+          aria-describedby="no-header-example"
+          onClose={() => { setIsModalOpen(!isModalOpen)} }
+        >
+          <span>{message}</span>
+      </Modal>
         {/* Rename User*/}
         <Card>
           <CardTitle className={"text-uppercase"}> Rename User </CardTitle>
@@ -57,7 +89,7 @@ export const UserUtils : React.FunctionComponent = (props: Props) => {
               </FormGroup>
 
               <ActionGroup>
-                <Button variant="primary">Update Username</Button>
+                <Button variant="primary" onClick={onRenameUser}>Update Username</Button>
               </ActionGroup>
             </Form>
           </CardBody>

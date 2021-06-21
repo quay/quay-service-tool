@@ -85,6 +85,7 @@
     "react-dom": "^17.0.1",
     "react-markdown": "^5.0.3",
     "react-router-last-location": "^2.0.1",
-    "sirv-cli": "^1.0.10"
+    "sirv-cli": "^1.0.10",
+    "axios": "^0.21.1"
   }
 }
