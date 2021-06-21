@@ -20,7 +20,7 @@ interface FormSelectEntry {
   label: string
 }
 
-const SiteUtils: React.FunctionComponent = () => {
+const SiteUtils: React.FunctionComponent = (props) => {
 
   const availableMediaTypes: FormSelectEntry[] = [
     { value: "text/plan", label: "Text" },
@@ -35,6 +35,7 @@ const SiteUtils: React.FunctionComponent = () => {
     { value: "danger", label: "danger" },
   ]
 
+  const [banners, setBanners] = useState(props['banners']);
   const [message, setMessage] = useState('');
   const [mediaType, setMediaType] = useState('');
   const [severity, setSeverity] = useState('');

@@ -1,6 +1,7 @@
 import React from "react";
 import ReactDOM from "react-dom";
 import App from '@app/index';
+import axios from "axios";
 
 if (process.env.NODE_ENV !== "production") {
   const config = {
@@ -16,4 +17,10 @@ if (process.env.NODE_ENV !== "production") {
   axe(React, ReactDOM, 1000, config);
 }
 
-ReactDOM.render(<App />, document.getElementById("root") as HTMLElement);
+let banners = {};
+axios.get('banner').then(function (response) {
+  banners = response.data;
+  ReactDOM.render(<App banners={response.data}/>, document.getElementById("root") as HTMLElement);
+}).catch(function (error) {
+  console.log(error);
+});

@@ -6,12 +6,14 @@ import { AppLayout } from '@app/AppLayout/AppLayout';
 import { AppRoutes } from '@app/routes';
 import '@app/app.css';
 
-const App: React.FunctionComponent = () => (
-  <Router>
-    <AppLayout>
-      <AppRoutes />
-    </AppLayout>
-  </Router>
-);
+const App: React.FunctionComponent = (props) => {
+  return (
+    <Router>
+      <AppLayout >
+        <AppRoutes {...props}/>
+      </AppLayout>
+    </Router>
+  );
+}
 
 export default hot(App);
