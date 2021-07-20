@@ -10,7 +10,7 @@
     "prebuild": "npm run clean",
     "dr:surge": "node dr-surge.js",
     "build": "webpack --config webpack.prod.js && npm run dr:surge",
-    "start": "sirv dist --cors --single --host --port 8080",
+    "start": "sirv dist --cors --single --host 0.0.0.0 --port 3000 --proxy 127.0.0.1",
     "start:dev": "webpack serve --hot --color --progress --config webpack.dev.js",
     "test": "jest",
     "eslint": "eslint --ext .tsx,.js ./src/",

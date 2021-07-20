@@ -1,20 +1,17 @@
 import * as React from 'react';
 import {
   ActionGroup,
-  Banner, BannerProps, Button,
+  Button,
   Card,
   CardBody,
   CardTitle,
   Form,
   FormGroup,
-  FormSelect,
-  FormSelectOption,
   Modal,
   ModalVariant,
   PageSection,
   TextInput
 } from '@patternfly/react-core';
-import ReactMarkdown from 'react-markdown';
 import { useState } from 'react';
 import axios from 'axios';
 
@@ -33,7 +30,7 @@ export const UserUtils : React.FunctionComponent = (props: Props) => {
        axios.put('/username', {
         currentUsername,
         newUsername
-      })
+      }) 
       .then(function (response) {
         setMessage('Succeeded');
         setIsModalOpen(true);
@@ -48,7 +45,7 @@ export const UserUtils : React.FunctionComponent = (props: Props) => {
   return (
     <div>
       <PageSection>
-
+        
         <Modal
           isOpen={isModalOpen}
           variant={ModalVariant.small}
