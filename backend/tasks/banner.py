@@ -3,18 +3,19 @@ from flask_restful import Resource
 from flask import make_response, jsonify
 from flask_restful import reqparse
 from psycopg2.extras import RealDictCursor
+from pymysql.cursors import DictCursor
 import traceback
 import json
-
+import os
 
 class BannerTask(Resource):
     def get(self):
         try:
-            with request.db.cursor(cursor_factory=RealDictCursor) as cur:
-                cur.execute("SELECT * from messages")
-                result = cur.fetchall()
-                request.db.commit()
-                return make_response(json.dumps(result), 200)  
+            cur = request.db.cursor(cursor_factory=RealDictCursor) if os.environ.get('IS_LOCAL') else request.db.cursor(DictCursor)
+            cur.execute("SELECT * from messages")
+            result = cur.fetchall()
+            request.db.commit()
+            return make_response(json.dumps(result), 200)  
         except Exception as e:
             traceback.print_exc()
             return make_response(('Unable to fetch banners'), 500)
@@ -31,7 +32,6 @@ class BannerTask(Resource):
                 if message and severity:
                     cur.execute("SELECT id from mediatype WHERE name='text/markdown'")
                     result = cur.fetchone()
-                    print(result)
                     media_type_id = int(result[0])
                     cur.execute('INSERT INTO messages (content, media_type_id, severity) VALUES (%s, %s, %s)', (message, media_type_id, severity))
                     request.db.commit()
