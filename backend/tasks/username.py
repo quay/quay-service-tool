@@ -3,6 +3,7 @@ from flask_restful import Resource
 from flask import make_response
 from flask_restful import reqparse
 import traceback
+import re
 
 class UsernameTask(Resource):    
     def put(self):
@@ -13,19 +14,22 @@ class UsernameTask(Resource):
         new_user_name = args.get("newUsername")
         current_user_name = args.get("currentUsername")
         
+        if not re.match('^[a-zA-Z][a-zA-Z0-9]*$', new_user_name):
+            return make_response(('Usernames should only contain alphanumerical characters and only starts with a letter'), 400)
+        
         try:
             with request.db.cursor() as cur:
                 if new_user_name and current_user_name:
-                    cur.execute('SELECT * FROM public."user" WHERE username=%s',(new_user_name,))
-                    duplicatedNames = cur.rowcount
-                    cur.execute('SELECT * FROM public."user" WHERE username=%s',(current_user_name,))
-                    if duplicatedNames != 0:
-                        return make_response('existed username', 409)
-                    elif cur.rowcount == 0:
-                        return make_response(('could not find user ' + current_user_name), 404)
+                    cur.execute('SELECT * FROM user WHERE username=%s',(current_user_name,))
+                    if cur.rowcount == 0:
+                        return make_response(('Could not find user ' + current_user_name), 404)
+                    
+                    cur.execute('SELECT * FROM user WHERE username=%s',(new_user_name,))
+                    if cur.rowcount != 0:
+                        return make_response('Username already exists', 409)
                     else:
-                        cur.execute('Update public."user" SET username = %s WHERE username = %s', (new_user_name, current_user_name))
+                        cur.execute('Update user SET username = %s WHERE username = %s', (new_user_name, current_user_name))
                         request.db.commit()
-                        return make_response(('username is updated to ' + new_user_name), 200)
+                        return make_response(('Username has been updated to ' + new_user_name), 200)
         except Exception as e:
             traceback.print_exc() 

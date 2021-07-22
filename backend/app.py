@@ -20,7 +20,7 @@ api.add_resource(UsernameTask, '/username')
 
 @app.before_request
 def before_request():
-    request.db = psycopg2.connect(host=os.environ.get('DB_HOST'), port = os.environ.get('DB_PORT'), database=os.environ.get('DB_NAME'), user=os.environ.get('DB_USER'), password=password_decoded) if os.environ.get('IS_LOCAL') else pymysql.connect(host=os.environ.get('DB_HOST'), port = os.environ.get('DB_PORT'), database=os.environ.get('DB_NAME'), user=os.environ.get('DB_USER'), password=password_decoded)
+    request.db = psycopg2.connect(host=os.environ.get('DB_HOST'), port=os.environ.get('DB_PORT'), database=os.environ.get('DB_NAME'), user=os.environ.get('DB_USER'), password=password_decoded) if os.environ.get('IS_LOCAL') else pymysql.connect(host=os.environ.get('DB_HOST'), database=os.environ.get('DB_NAME'), user=os.environ.get('DB_USER'), password=password_decoded)
 
 @app.teardown_request
 def teardown_request(exception):

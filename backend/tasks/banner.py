@@ -4,6 +4,7 @@ from flask import make_response, jsonify
 from flask_restful import reqparse
 from psycopg2.extras import RealDictCursor
 from pymysql.cursors import DictCursor
+from utils import is_valid_severity
 import traceback
 import json
 import os
@@ -11,11 +12,11 @@ import os
 class BannerTask(Resource):
     def get(self):
         try:
-            cur = request.db.cursor(cursor_factory=RealDictCursor) if os.environ.get('IS_LOCAL') else request.db.cursor(DictCursor)
-            cur.execute("SELECT * from messages")
-            result = cur.fetchall()
-            request.db.commit()
-            return make_response(json.dumps(result), 200)  
+            with request.db.cursor(cursor_factory=RealDictCursor) if os.environ.get('IS_LOCAL') else request.db.cursor(DictCursor) as cur:
+                cur.execute("SELECT * from messages")
+                result = cur.fetchall()
+                request.db.commit()
+                return make_response(json.dumps(result), 200)  
         except Exception as e:
             traceback.print_exc()
             return make_response(('Unable to fetch banners'), 500)
@@ -27,6 +28,10 @@ class BannerTask(Resource):
         args = parser.parse_args()
         message = args.get("message")
         severity = args.get("severity")
+
+        if not is_valid_severity(severity):
+            return make_response(('Invalid severity value'), 400)
+
         try:
             with request.db.cursor() as cur:
                 if message and severity:
@@ -49,6 +54,10 @@ class BannerTask(Resource):
         message = args.get("message")
         severity = args.get("severity")
         id = args.get("id")
+        
+        if not is_valid_severity(severity):
+            return make_response(('Invalid severity value'), 400)
+        
         try:
             with request.db.cursor() as cur:
                 if message and severity:
