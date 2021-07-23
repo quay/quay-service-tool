@@ -2,8 +2,9 @@ from flask import request
 from flask_restful import Resource
 from flask import make_response
 from flask_restful import reqparse
-import traceback
 import re
+import logging
+logger = logging.getLogger(__name__)
 
 class UsernameTask(Resource):    
     def put(self):
@@ -32,4 +33,4 @@ class UsernameTask(Resource):
                         request.db.commit()
                         return make_response(('Username has been updated to ' + new_user_name), 200)
         except Exception as e:
-            traceback.print_exc() 
+            logger.exception("Unable to update the username: " + str(e))

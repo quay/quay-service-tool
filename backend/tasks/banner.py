@@ -1,13 +1,14 @@
 from flask import request
 from flask_restful import Resource
-from flask import make_response, jsonify
+from flask import make_response
 from flask_restful import reqparse
 from psycopg2.extras import RealDictCursor
 from pymysql.cursors import DictCursor
 from utils import is_valid_severity
-import traceback
 import json
 import os
+import logging
+logger = logging.getLogger(__name__)
 
 class BannerTask(Resource):
     def get(self):
@@ -18,7 +19,7 @@ class BannerTask(Resource):
                 request.db.commit()
                 return make_response(json.dumps(result), 200)  
         except Exception as e:
-            traceback.print_exc()
+            logger.exception("Unable to fetch banners: " + str(e))
             return make_response(('Unable to fetch banners'), 500)
     
     def post(self):
@@ -42,7 +43,7 @@ class BannerTask(Resource):
                     request.db.commit()
                     return make_response(('created'), 200)
         except Exception as e:
-            traceback.print_exc()
+            logger.exception("Unable to create a new banner: " + str(e))
             return make_response(('Unable to create a new banner'), 500)
     
     def put(self):
@@ -65,7 +66,7 @@ class BannerTask(Resource):
                     request.db.commit()
                     return make_response(('updated'), 200)
         except Exception as e:
-            traceback.print_exc()
+            logger.exception("Unable to update the banner: " + str(e))
             return make_response(('Unable to update the banner'), 500)
         
     def delete(self, id):
@@ -75,7 +76,7 @@ class BannerTask(Resource):
                 request.db.commit()
                 return make_response(('deleted'), 200)
         except Exception as e:
-            traceback.print_exc()
+            logger.exception("Unable to delete the banner: " + str(e))
             return make_response(('Unable to delete the banner'), 500)
 
 
