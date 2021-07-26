@@ -20,7 +20,7 @@ class BannerTask(Resource):
                 return make_response(json.dumps(result), 200)  
         except Exception as e:
             logger.exception("Unable to fetch banners: " + str(e))
-            return make_response(('Unable to fetch banners'), 500)
+            return make_response(json.dumps({'message': 'Unable to fetch banners'}), 500)
     
     def post(self):
         parser = reqparse.RequestParser()
@@ -31,7 +31,7 @@ class BannerTask(Resource):
         severity = args.get("severity")
 
         if not is_valid_severity(severity):
-            return make_response(('Invalid severity value'), 400)
+            return make_response(json.dumps({'message': 'Invalid severity value'}), 400)
 
         try:
             with request.db.cursor() as cur:
@@ -44,7 +44,7 @@ class BannerTask(Resource):
                     return make_response(('created'), 200)
         except Exception as e:
             logger.exception("Unable to create a new banner: " + str(e))
-            return make_response(('Unable to create a new banner'), 500)
+            return make_response(json.dumps({'message': 'Unable to create a new banner'}), 500)
     
     def put(self):
         parser = reqparse.RequestParser()
@@ -57,7 +57,7 @@ class BannerTask(Resource):
         id = args.get("id")
         
         if not is_valid_severity(severity):
-            return make_response(('Invalid severity value'), 400)
+            return make_response(json.dumps({'message': 'Invalid severity value'}), 400)
         
         try:
             with request.db.cursor() as cur:
@@ -67,7 +67,7 @@ class BannerTask(Resource):
                     return make_response(('updated'), 200)
         except Exception as e:
             logger.exception("Unable to update the banner: " + str(e))
-            return make_response(('Unable to update the banner'), 500)
+            return make_response(json.dumps({'message': 'Unable to update the banner'}), 500)
         
     def delete(self, id):
         try:
@@ -77,6 +77,6 @@ class BannerTask(Resource):
                 return make_response(('deleted'), 200)
         except Exception as e:
             logger.exception("Unable to delete the banner: " + str(e))
-            return make_response(('Unable to delete the banner'), 500)
+            return make_response(json.dumps({'message': 'Unable to delete the banner'}), 500)
 
 

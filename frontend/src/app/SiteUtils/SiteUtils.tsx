@@ -67,7 +67,7 @@ const SiteUtils: React.FunctionComponent = (props) => {
         });
       })
       .catch(function (error) {
-        setFeedbackMessage(error.response.data);
+        setFeedbackMessage(error.response.data.message);
         setIsModalOpen(true);
       })
       .finally(() => {
@@ -88,7 +88,7 @@ const SiteUtils: React.FunctionComponent = (props) => {
         });
       })
       .catch(function (error) {
-        setFeedbackMessage(error.response.data);
+        setFeedbackMessage(error.response.data.message);
         setIsModalOpen(true);
       })
       .finally(() => {
@@ -118,7 +118,7 @@ const SiteUtils: React.FunctionComponent = (props) => {
       });
     })
     .catch(function (error) {
-      setFeedbackMessage(error.response.data);
+      setFeedbackMessage(error.response.data.message);
       setIsModalOpen(true);
     });
   }

@@ -36,7 +36,7 @@ export const UserUtils : React.FunctionComponent = (props: Props) => {
         setIsModalOpen(true);
       })
       .catch(function (error) {
-        setMessage(error.response.data);
+        setMessage(error.response.data.message);
         setIsModalOpen(true);
       });
     }
