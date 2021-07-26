@@ -1,0 +1,68 @@
+---
+apiVersion: v1
+kind: Template
+metadata:
+  name: quayio-service-tool
+parameters:
+- name: DB_HOST_SECRET
+  value: "quayio-stage-57-rds"
+  required: true
+- name: DB_CREDS_SECRET
+  value: "quayio-stage-57-rds"
+  required: true
+- name: IMAGE
+  value: "quay.io/app-sre/quayio-service-tool"
+  required: true
+- name: IMAGE_TAG
+  value: ""
+  required: true
+- name: ACTIVE_DEADLINE_SECONDS
+  value: "600"
+  required: true
+objects:
+- apiVersion: batch/v1
+  kind: Job
+  metadata:
+    name: quayio-service-tool
+  spec:
+    template:
+      metadata:
+        labels:
+          app: quayio-service-tool
+      spec:
+        activeDeadlineSeconds: ${{ACTIVE_DEADLINE_SECONDS}}
+        backoffLimit: 1
+        completions: 1
+        parallelism: 1
+        restartPolicy: Never
+        containers:
+        - name: quayio-service-tool
+          image: ${IMAGE}:${IMAGE_TAG}
+          resources:
+            limits:
+              cpu: 100m
+              memory: 128Mi
+            requests:
+              cpu: 100m
+              memory: 128Mi
+          env:
+          - name: DB_HOST
+            valueFrom:
+              secretKeyRef:
+                name: ${{DB_HOST_SECRET}}
+                key: db.host
+          - name: DB_USER
+            valueFrom:
+              secretKeyRef:
+                name: ${{DB_CREDS_SECRET}}
+                key: db.user
+          - name: DB_PASSWORD
+            valueFrom:
+              secretKeyRef:
+                name: ${{DB_CREDS_SECRET}}
+                key: db.password
+          - name: DB_NAME
+            valueFrom:
+              secretKeyRef:
+                name: ${{DB_CREDS_SECRET}}
+                key: db.name

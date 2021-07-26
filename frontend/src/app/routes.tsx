@@ -21,6 +21,7 @@ export interface IAppRoute {
   title: string;
   isAsync?: boolean;
   routes?: undefined;
+  banners?: undefined;
 }
 
 export interface IAppRouteGroup {
@@ -103,22 +104,25 @@ const flattenedRoutes: IAppRoute[] = routes.reduce(
   [] as IAppRoute[]
 );
 
-const AppRoutes = (): React.ReactElement => (
-  <LastLocationProvider>
-    <Switch>
-      {flattenedRoutes.map(({ path, exact, component, title, isAsync }, idx) => (
-        <RouteWithTitleUpdates
-          path={path}
-          exact={exact}
-          component={component}
-          key={idx}
-          title={title}
-          isAsync={isAsync}
-        />
-      ))}
-      <PageNotFound title="404 Page Not Found" />
-    </Switch>
-  </LastLocationProvider>
-);
+const AppRoutes = (banners): React.ReactElement => {
+  return (
+    <LastLocationProvider>
+      <Switch>
+        {flattenedRoutes.map(({ path, exact, component, title, isAsync }, idx) => (
+          <RouteWithTitleUpdates
+            path={path}
+            exact={exact}
+            component={component}
+            key={idx}
+            title={title}
+            isAsync={isAsync}
+            {...banners}
+          />
+        ))}
+        <PageNotFound title="404 Page Not Found" />
+      </Switch>
+    </LastLocationProvider>
+  );
+};
 
 export { AppRoutes, routes };
