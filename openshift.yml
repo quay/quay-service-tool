@@ -37,6 +37,8 @@ objects:
           - name: config
             mountPath: "/config"
             readOnly: true
+          ports:
+          - containerPort: 5000
           resources:
             limits:
               cpu: 100m
@@ -73,7 +75,7 @@ objects:
     ports:
     - name: http
       port: 80
-      targetPort: 443
+      targetPort: 5000
     type: LoadBalancer
     selector:
       app: quayio-service-tool
