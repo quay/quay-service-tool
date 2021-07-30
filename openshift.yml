@@ -1,27 +1,23 @@
----
 apiVersion: v1
 kind: Template
 metadata:
   name: quayio-service-tool
 parameters:
-- name: DB_HOST_SECRET
-  value: "quayio-stage-57-rds"
-  required: true
-- name: DB_CREDS_SECRET
-  value: "quayio-stage-57-rds"
+- name: QUAY_SERVICE_TOOL_CONFIG_SECRET
+  value: "quay-service-tool-config"
   required: true
 - name: IMAGE
   value: "quay.io/app-sre/quayio-service-tool"
   required: true
 - name: IMAGE_TAG
-  value: ""
+  value: "latest"
   required: true
 - name: ACTIVE_DEADLINE_SECONDS
   value: "600"
   required: true
 objects:
-- apiVersion: batch/v1
-  kind: Job
+- apiVersion: apps/v1
+  kind: Deployment
   metadata:
     name: quayio-service-tool
   spec:
@@ -30,14 +26,17 @@ objects:
         labels:
           app: quayio-service-tool
       spec:
-        activeDeadlineSeconds: ${{ACTIVE_DEADLINE_SECONDS}}
-        backoffLimit: 1
-        completions: 1
-        parallelism: 1
-        restartPolicy: Never
+        volumes:
+        - name: config
+          secret:
+            secretName: ${{QUAY_SERVICE_TOOL_CONFIG_SECRET}}
         containers:
         - name: quayio-service-tool
           image: ${IMAGE}:${IMAGE_TAG}
+          volumeMounts:
+          - name: config
+            mountPath: "/config"
+            readOnly: true
           resources:
             limits:
               cpu: 100m
@@ -46,23 +45,48 @@ objects:
               cpu: 100m
               memory: 128Mi
           env:
-          - name: DB_HOST
+          - name: CONFIG_PATH
             valueFrom:
               secretKeyRef:
-                name: ${{DB_HOST_SECRET}}
-                key: db.host
-          - name: DB_USER
-            valueFrom:
-              secretKeyRef:
-                name: ${{DB_CREDS_SECRET}}
-                key: db.user
-          - name: DB_PASSWORD
-            valueFrom:
-              secretKeyRef:
-                name: ${{DB_CREDS_SECRET}}
-                key: db.password
-          - name: DB_NAME
-            valueFrom:
-              secretKeyRef:
-                name: ${{DB_CREDS_SECRET}}
-                key: db.name
+                name: ${{QUAY_SERVICE_TOOL_CONFIG_SECRET}}
+                key: config_path
+- apiVersion: v1
+  kind: Service
+  metadata:
+    name: quayio-service-tool
+    labels:
+      run: quayio-service-tool
+  spec:
+    ports:
+    - name: http
+      port: 80
+      targetPort: 5000
+    selector:
+      app: quayio-service-tool
+- apiVersion: v1
+  kind: Service
+  metadata:
+    name: quayio-service-tool-load-balancer
+    labels:
+      run: quayio-service-tool-load-balancer
+  spec:
+    ports:
+    - name: http
+      port: 80
+      targetPort: 443
+    type: LoadBalancer
+    selector:
+      app: quayio-service-tool
+- apiVersion: v1
+  kind: NetworkPolicy
+  apiVersion: networking.k8s.io/v1
+  metadata:
+    name: quayio-service-tool-allow-external
+  spec:
+    podSelector:
+      matchLabels:
+        quay-component: quayio-service-tool
+    ingress:
+      - {}
+    policyTypes:
+      - Ingress
