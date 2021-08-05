@@ -12,7 +12,7 @@ import yaml
 app = Flask(__name__, static_folder='/backend/static', static_url_path='/')
 api = Api(app)
 
-with open(os.environ.get('CONFIG_PATH')) as f:
+with open(os.environ.get('CONFIG_PATH') + "/config.yaml") as f:
     config = yaml.load(f, Loader=yaml.FullLoader)
     app.config.update(config)
 app.config['BASIC_AUTH_USERNAME'] = app.config.get('basic_auth', {}).get('username')

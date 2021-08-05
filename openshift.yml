@@ -10,10 +10,13 @@ parameters:
   value: "quay.io/app-sre/quayio-service-tool"
   required: true
 - name: IMAGE_TAG
-  value: "latest"
+  value: ""
   required: true
 - name: ACTIVE_DEADLINE_SECONDS
   value: "600"
+  required: true
+- name: CONFIG_MOUNT_PATH
+  value: "/config"
   required: true
 objects:
 - apiVersion: apps/v1
@@ -35,7 +38,7 @@ objects:
           image: ${IMAGE}:${IMAGE_TAG}
           volumeMounts:
           - name: config
-            mountPath: "/config"
+            mountPath: ${{CONFIG_MOUNT_PATH}}
             readOnly: true
           ports:
           - containerPort: 5000
@@ -48,10 +51,7 @@ objects:
               memory: 128Mi
           env:
           - name: CONFIG_PATH
-            valueFrom:
-              secretKeyRef:
-                name: ${{QUAY_SERVICE_TOOL_CONFIG_SECRET}}
-                key: config_path
+            value: ${{CONFIG_MOUNT_PATH}}
 - apiVersion: v1
   kind: Service
   metadata:
