@@ -1,4 +1,4 @@
-FROM node:16.3 as nodebuild
+FROM quay.io/bitnami/node:16 as nodebuild
 
 COPY ./frontend /frontend
 
