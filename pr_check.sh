@@ -1,7 +1,7 @@
 #!/bin/bash
 set -exv
 
-BASE_IMG="quayio-service-tool"
+BASE_IMG="quay-service-tool"
 
 IMG="${BASE_IMG}:pr-check"
 
