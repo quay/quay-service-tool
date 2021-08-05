@@ -6,7 +6,7 @@ set -exv
 
 CURRENT_DIR=$(dirname $0)
 
-BASE_IMG="quayio-service-tool"
+BASE_IMG="quay-service-tool"
 QUAY_IMAGE="quay.io/app-sre/${BASE_IMG}"
 IMG="${BASE_IMG}:latest"
 
