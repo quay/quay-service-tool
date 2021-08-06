@@ -23,7 +23,12 @@ objects:
   kind: Deployment
   metadata:
     name: quayio-service-tool
+    labels:
+      app: quayio-service-tool
   spec:
+    selector:
+      matchLabels:
+        app: quayio-service-tool
     template:
       metadata:
         labels:
