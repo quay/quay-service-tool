@@ -92,3 +92,15 @@ objects:
       - {}
     policyTypes:
       - Ingress
+- apiVersion: v1
+  kind: Route
+  metadata:
+    name: quayio-service-tool-route
+  spec:
+    to:
+      kind: Service
+      name: quayio-service-tool
+    tls:
+      termination: edge            
+      certificate: {{% b64encode %}}{{{ vault('app-interface/quayio-stage/quayio-stage/quay-config-secret', 'ssl.cert') }}}{{% endb64encode %}}
+      key: {{% b64encode %}}{{{ vault('app-interface/quayio-stage/quayio-stage/quay-config-secret', 'ssl.key') }}}{{% endb64encode %}}
