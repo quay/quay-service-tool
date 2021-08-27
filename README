@@ -1,0 +1,10 @@
+Quay Service tool
+=============================
+
+To run service-tool locally, make sure you have a quay instance running locally, then run
+```docker build -t service-tool .```
+```docker run service-tool```
+
+=============================
+To deploy service-tool on dev-rosa, login into https://console-openshift-console.apps.quaydev-rosa-1.czz9.p1.openshiftapps.com/dashboards, 
+create a project and run ```oc apply dev_rosa_deployment.yml```
