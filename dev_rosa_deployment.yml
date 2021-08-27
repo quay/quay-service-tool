@@ -1,0 +1,91 @@
+apiVersion: v1
+kind: Secret
+metadata:
+  name: quay-service-tool-config
+  namespace: test-quay-service-tool
+stringData:
+  config.yaml: |
+    basic_auth:
+      username: admin
+      password: password
+      force: true
+    db:
+      host: perftest1-quay-db.crukvbvrik6e.us-west-1.rds.amazonaws.com
+      user: quay
+      password: quaytestdbpassword
+      name: quay
+    is_local: false
+  config_path: /config/config.yaml
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: quayio-service-tool
+  namespace: test-quay-service-tool
+  labels:
+    app: quayio-service-tool
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: quayio-service-tool
+  template:
+    metadata:
+      labels:
+        app: quayio-service-tool
+    spec:
+      volumes:
+      - name: config
+        secret:
+          secretName: quay-service-tool-config
+      containers:
+      - name: quayio-service-tool
+        image: quay.io/taowen/service-tool:latest
+        volumeMounts:
+          - name: config
+            mountPath: "/config"
+            readOnly: true
+        ports:
+        - containerPort: 5000
+        resources:
+          limits:
+            cpu: 100m
+            memory: 128Mi
+          requests:
+            cpu: 100m
+            memory: 128Mi
+        env:
+        - name: CONFIG_PATH
+          valueFrom:
+            secretKeyRef:
+              name: quay-service-tool-config
+              key: config_path
+---
+# Service
+apiVersion: v1
+kind: Service
+metadata:
+  name: quayio-service-tool
+  labels:
+    run: quayio-service-tool
+spec:
+  ports:
+  - name: http
+    port: 5000
+    protocol: TCP
+  externalIPs:
+    - 80.11.12.10
+  selector:
+    app: quayio-service-tool
+---
+# Route
+apiVersion: route.openshift.io/v1
+kind: Route
+metadata:
+  name: quay-service-tool-route
+  namespace: test-quay-service-tool
+spec:
+  host: quay-service-tool-route.apps.quaydev-rosa-1.czz9.p1.openshiftapps.com
+  to:
+    kind: Service
+    name: quayio-service-tool
