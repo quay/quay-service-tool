@@ -15,6 +15,7 @@ api = Api(app)
 with open(os.environ.get('CONFIG_PATH') + "/config.yaml") as f:
     config = yaml.load(f, Loader=yaml.FullLoader)
     app.config.update(config)
+
 app.config['BASIC_AUTH_USERNAME'] = app.config.get('basic_auth', {}).get('username')
 app.config['BASIC_AUTH_PASSWORD'] = app.config.get('basic_auth', {}).get('password')
 app.config['BASIC_AUTH_FORCE'] = app.config.get('basic_auth', {}).get('force')
@@ -31,7 +32,7 @@ api.add_resource(UsernameTask, '/username')
 @app.before_request
 def before_request():
     if app.config.get('is_local'):
-        request.db = psycopg2.connect(host=os.environ.get('DB_HOST'), port=os.environ.get('DB_PORT'), database=os.environ.get('DB_NAME'), user=os.environ.get('DB_USER'), password=password_decoded)
+        request.db = psycopg2.connect(host=app.config.get('db', {}).get('host'), database=app.config.get('db', {}).get('name'), user=app.config.get('db', {}).get('user'), password=password_decoded)
     else:
         request.db = pymysql.connect(host=app.config.get('db', {}).get('host'), database=app.config.get('db', {}).get('name'), user=app.config.get('db', {}).get('user'), password=password_decoded)
 
