@@ -9,6 +9,7 @@ import { ProfileSettings } from '@app/Settings/Profile/ProfileSettings';
 import { NotFound } from '@app/NotFound/NotFound';
 import { useDocumentTitle } from '@app/utils/useDocumentTitle';
 import { LastLocationProvider, useLastLocation } from 'react-router-last-location';
+import HttpService from "../services/HttpService";
 
 let routeFocusTimer: number;
 export interface IAppRoute {
@@ -104,7 +105,23 @@ const flattenedRoutes: IAppRoute[] = routes.reduce(
   [] as IAppRoute[]
 );
 
+
 const AppRoutes = (banners): React.ReactElement => {
+
+    React.useEffect(() => {
+      const banners = [];
+      HttpService.axiosClient.get('banner')
+      .then(function (response) {
+        banners = response.data;
+        setBanners(banners);
+      })
+      .catch(function (error) {
+        console.log(error);
+      });
+  }, []);
+
+  const [banners, setBanners] = React.useState({'banners': []});
+
   return (
     <LastLocationProvider>
       <Switch>

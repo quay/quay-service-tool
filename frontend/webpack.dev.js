@@ -18,12 +18,20 @@ module.exports = merge(common('development'), {
     hot: true,
     overlay: true,
     open: true,
-    proxy: {
-      "*": "http://quay-service-tool-api:5000",
-      ignorePath: true,
-      secure: false,
-      changeOrigin: true
-    }
+    proxy: [
+      {
+        context: ["/auth**"],
+        target: "http://0.0.0.0:8081",
+        secure: false,
+        changeOrigin: false
+      },
+      {
+        context: ["!/auth**"],
+        target: "http://0.0.0.0:5000",
+        secure: false,
+        changeOrigin: false
+      }
+    ],
   },
   module: {
     rules: [

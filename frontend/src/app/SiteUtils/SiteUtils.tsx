@@ -12,12 +12,12 @@ import {
   TextArea,
   FormSelect,
   ActionGroup, FormSelectOption,
-  Banner, BannerProps, 
+  Banner, BannerProps,
   Split, SplitItem
 } from '@patternfly/react-core';
 import ReactMarkdown from 'react-markdown';
 import { useState } from 'react';
-import axios from 'axios';
+import HttpService from "../../services/HttpService";
 
 interface FormSelectEntry {
   value: string,
@@ -55,14 +55,15 @@ const SiteUtils: React.FunctionComponent = (props) => {
 
   async function onSaveBanner() {
     if (message && severity && !targetBannerId) {
-       axios.post('/banner', {
+       HttpService.axiosClient.post('/banner', {
         message,
         severity
       })
       .then(function (response) {
         setFeedbackMessage('Succeeded');
         setIsModalOpen(true);
-        axios.get('/banner').then(function (response) {
+        HttpService.axiosClient.get('/banner')
+          .then(function (response) {
           setBanners(response.data);
         });
       })
@@ -75,7 +76,7 @@ const SiteUtils: React.FunctionComponent = (props) => {
       });
     }
     else if (message && severity && targetBannerId) {
-      axios.put('/banner', {
+      HttpService.axiosClient.put('/banner', {
         id: targetBannerId,
         message,
         severity
@@ -83,7 +84,7 @@ const SiteUtils: React.FunctionComponent = (props) => {
       .then(function (response) {
         setFeedbackMessage('Succeeded');
         setIsModalOpen(true);
-        axios.get('/banner').then(function (response) {
+        HttpService.axiosClient.get('/banner').then(function (response) {
           setBanners(response.data);
         });
       })
@@ -109,11 +110,11 @@ const SiteUtils: React.FunctionComponent = (props) => {
 
   async function onDeleteBanner(id) {
     handleModalToggle();
-    axios.delete(`/banner/${id}`)
+    HttpService.axiosClient.delete(`/banner/${id}`)
     .then(function (response) {
       setFeedbackMessage('Succeeded');
       setIsModalOpen(true);
-      axios.get('/banner').then(function (response) {
+      HttpService.axiosClient.get('/banner').then(function (response) {
         setBanners(response.data);
       });
     })

@@ -13,7 +13,7 @@ import {
   TextInput
 } from '@patternfly/react-core';
 import { useState } from 'react';
-import axios from 'axios';
+import HttpService from "../../services/HttpService";
 
 type Props = {
 
@@ -27,10 +27,10 @@ export const UserUtils : React.FunctionComponent = (props: Props) => {
 
   async function onRenameUser() {
     if (currentUsername && newUsername) {
-       axios.put('/username', {
+       HttpService.axiosClient.put('/username', {
         currentUsername,
         newUsername
-      }) 
+      })
       .then(function (response) {
         setMessage('Succeeded');
         setIsModalOpen(true);
@@ -45,7 +45,7 @@ export const UserUtils : React.FunctionComponent = (props: Props) => {
   return (
     <div>
       <PageSection>
-        
+
         <Modal
           isOpen={isModalOpen}
           variant={ModalVariant.small}
