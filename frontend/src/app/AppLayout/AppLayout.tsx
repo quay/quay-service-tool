@@ -7,11 +7,14 @@ import {
   NavExpandable,
   Page,
   PageHeader,
+  PageHeaderTools,
   PageSidebar,
-  SkipToContent
+  SkipToContent,
+  Button
 } from '@patternfly/react-core';
 import { routes, IAppRoute, IAppRouteGroup } from '@app/routes';
 import logo from '@app/bgimages/RH_QuayIO2.svg';
+import UserService from "../../services/UserService";
 
 interface IAppLayout {
   children: React.ReactNode;
@@ -41,9 +44,30 @@ const AppLayout: React.FunctionComponent<IAppLayout> = ({ children }) => {
     );
   }
 
+  function UserLogout() {
+
+    function handleClick() {
+      UserService.logout();
+    }
+
+    return (
+      <div>
+        <Button
+          variant="tertiary"
+          onClick={handleClick}
+          isSmall
+          iconPosition={"right"}
+        >
+          Logout
+        </Button><br />
+      </div>
+    );
+  }
+
   const Header = (
     <PageHeader
       logo={<LogoImg />}
+      headerTools={<UserLogout />}
       showNavToggle
       isNavOpen={isNavOpen}
       onNavToggle={isMobileView ? onNavToggleMobile : onNavToggle}
