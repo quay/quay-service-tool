@@ -1,0 +1,11 @@
+basic_auth:
+  username: admin
+  password: password
+  force: true
+db:
+  host: 0.0.0.0
+  name: quay
+  port: 5432
+  user: quay
+  password: quay
+is_local: true
