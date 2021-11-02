@@ -29,6 +29,8 @@ const getToken = () => KeycloakInstance.token;
 
 const isLoggedIn = () => !!KeycloakInstance.token;
 
+const email = KeycloakInstance.email;
+
 const updateToken = (successCallback) =>
   KeycloakInstance.updateToken(5)
     .then(successCallback)
@@ -44,6 +46,7 @@ const UserService = {
   logout,
   isLoggedIn,
   getToken,
+  email,
   updateToken,
   username,
   hasRole,

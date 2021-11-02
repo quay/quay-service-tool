@@ -106,7 +106,7 @@ const flattenedRoutes: IAppRoute[] = routes.reduce(
 );
 
 
-const AppRoutes = (banners): React.ReactElement => {
+const AppRoutes = (): React.ReactElement => {
 
     React.useEffect(() => {
       const banners = [];

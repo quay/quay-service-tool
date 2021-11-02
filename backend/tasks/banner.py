@@ -1,4 +1,5 @@
 from flask import request
+from flask_login import login_required
 from flask_restful import Resource
 from flask import make_response
 from flask_restful import reqparse
@@ -8,9 +9,13 @@ from utils import is_valid_severity
 import json
 import os
 import logging
+
 logger = logging.getLogger(__name__)
 
+
 class BannerTask(Resource):
+
+    @login_required
     def get(self):
         try:
             with request.db.cursor(cursor_factory=RealDictCursor) if os.environ.get('IS_LOCAL') else request.db.cursor(DictCursor) as cur:
