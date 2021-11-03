@@ -19,25 +19,26 @@ api = Api(app)
 login_manager = LoginManager()
 login_manager.init_app(app)
 
+with open(os.environ.get('CONFIG_PATH') + "/config.yaml") as f:
+    config = yaml.load(f, Loader=yaml.FullLoader)
+    app.config.update(config)
 
 @login_manager.request_loader
 def load_user_from_request(request):
     api_key = request.headers.get('Authorization')
     bearer_token = api_key.replace('Bearer ', '', 1)
     # Configure client
-    keycloak_openid = KeycloakOpenID(server_url="http://localhost:8081/auth/",
-                                     client_id="quay-service-tool",
-                                     realm_name="Demo")
+    keycloak_openid = KeycloakOpenID(
+                        server_url=app.config.get('authentication', {}).get('url'),
+                        client_id=app.config.get('authentication', {}).get('clientid'),
+                        realm_name=app.config.get('authentication', {}).get('realm')
+                     )
     try:
         userinfo = keycloak_openid.userinfo(bearer_token)
         return Auth.authenticate_email(userinfo.get("email"))
     except Exception as e:
         return make_response("Error occured while authentication: ", str(e), 500)
 
-
-with open(os.environ.get('CONFIG_PATH') + "/config.yaml") as f:
-    config = yaml.load(f, Loader=yaml.FullLoader)
-    app.config.update(config)
 
 password_decoded = unquote(app.config.get('db', {}).get('password'))
 

@@ -14,7 +14,6 @@ const configure = () => {
     if (UserService.isLoggedIn()) {
       const cb = () => {
         config.headers.Authorization = `Bearer ${UserService.getToken()}`;
-        // config.headers.Authorization.email = `${UserService.email}`;
         return Promise.resolve(config);
       };
       return UserService.updateToken(cb);

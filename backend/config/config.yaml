@@ -5,3 +5,8 @@ db:
   user: quay
   password: quay
 is_local: true
+authentication:
+  url: http://localhost:8081/auth/
+  realm: Demo
+  clientid:  -service-tool
+

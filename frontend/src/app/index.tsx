@@ -9,6 +9,7 @@ import HttpService from "../services/HttpService";
 
 const App: React.FunctionComponent = (props) => {
 
+  const [banners, setBanners] = React.useState({'banners': []});
   React.useEffect(() => {
     const banners = [];
     HttpService.axiosClient.get('banner')
@@ -20,8 +21,6 @@ const App: React.FunctionComponent = (props) => {
         console.log(error);
       });
   }, []);
-
-  const [banners, setBanners] = React.useState({'banners': []});
 
   return (
     <Router>
