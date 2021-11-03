@@ -7,4 +7,4 @@ storybook-static
 .DS_Store
 .idea
 .env
-__pycache__
+**/__pycache__

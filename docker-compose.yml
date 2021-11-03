@@ -4,12 +4,19 @@ services:
   quay-service-tool-api:
     container_name: "quay-service-tool-api"
     build: ./backend
+    command: --reload # Appends to entrypoint - enables hot-reloading
     ports:
       - "5000:5000"
     volumes:
-      - ./backend:/app
+      - ./backend:/backend
     environment:
       FLASK_ENV: development
+      CONFIG_PATH: /backend/config
+      DB_HOST: quay-db
+      DB_PORT: 5432
+      DB_NAME: quay
+      DB_USER: quay
+      IS_LOCAL: true
 
   quay-service-tool-client:
     container_name: "quay-service-tool-client"
