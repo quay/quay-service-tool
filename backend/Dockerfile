@@ -1,18 +1,6 @@
-FROM quay.io/bitnami/node:16 as nodebuild
-
-COPY ./frontend /frontend
-
-WORKDIR /frontend
-
-RUN npm install
-
-RUN npm run build
-
 FROM quay.io/centos/centos:8
 
-COPY backend /backend
-
-COPY --from=nodebuild /frontend/dist /backend/static
+COPY . /backend
 
 WORKDIR /backend
 
