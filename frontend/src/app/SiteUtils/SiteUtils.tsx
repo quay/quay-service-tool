@@ -30,7 +30,7 @@ const SiteUtils: React.FunctionComponent = (props) => {
     { value: "text/plan", label: "Text" },
     { value: "text/markdown", label: "Markdown" },
   ]
-
+  const [banners, setBanners] = useState(props['banners']);
   const availableSeverityLevels: FormSelectEntry[] = [
     { value: "default", label: "default" },
     { value: "info", label: "info" },
@@ -38,20 +38,6 @@ const SiteUtils: React.FunctionComponent = (props) => {
     { value: "warning", label: "warning" },
     { value: "danger", label: "danger" },
   ]
-
-  React.useEffect(() => {
-    const banners = [];
-    HttpService.axiosClient.get('banner')
-    .then(function (response) {
-      banners = response.data;
-      setBanners(banners);
-    })
-    .catch(function (error) {
-      console.log(error);
-    });
-  }, []);
-
-  const [banners, setBanners] = React.useState({'banners': []});
   const [message, setMessage] = useState('');
   const [severity, setSeverity] = useState(availableSeverityLevels[0].value);
   const [isModalOpen, setIsModalOpen] = useState(false);

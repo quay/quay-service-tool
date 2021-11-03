@@ -1,10 +1,10 @@
 import Keycloak from "keycloak-js";
 
 const KeycloakInstance = new Keycloak( {
-                                "realm": "Demo",
-                                "url": "http://localhost:8081/auth/",
-                                "clientId": "quay-service-tool",
-                              });
+                                        "realm": process.env.AUTH_REALM,
+                                        "url": process.env.AUTH_URL,
+                                        "clientId": process.env.AUTH_CLIENTID,
+                                      });
 
 
 const initKeycloak = (onAuthenticatedCallback) => {

@@ -19,6 +19,9 @@ class Auth(Resource):
         if not email:
             return User()
 
+        if email.split("@")[1] != "redhat.com":
+            return User()
+
         with request.db.cursor(cursor_factory=RealDictCursor) if os.environ.get('IS_LOCAL') else request.db.cursor(DictCursor) as cur:
             # TODO: Add logic to select user
             cur.execute("SELECT * from \"user\" where email = %s", (email,))

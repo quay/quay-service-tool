@@ -106,21 +106,7 @@ const flattenedRoutes: IAppRoute[] = routes.reduce(
 );
 
 
-const AppRoutes = (): React.ReactElement => {
-
-    React.useEffect(() => {
-      const banners = [];
-      HttpService.axiosClient.get('banner')
-      .then(function (response) {
-        banners = response.data;
-        setBanners(banners);
-      })
-      .catch(function (error) {
-        console.log(error);
-      });
-  }, []);
-
-  const [banners, setBanners] = React.useState({'banners': []});
+const AppRoutes = (banners): React.ReactElement => {
 
   return (
     <LastLocationProvider>
