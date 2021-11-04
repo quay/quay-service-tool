@@ -5,12 +5,27 @@ import { BrowserRouter as Router } from 'react-router-dom';
 import { AppLayout } from '@app/AppLayout/AppLayout';
 import { AppRoutes } from '@app/routes';
 import '@app/app.css';
+import HttpService from "../services/HttpService";
 
 const App: React.FunctionComponent = (props) => {
+
+  const [banners, setBanners] = React.useState({'banners': []});
+  React.useEffect(() => {
+    const banners = [];
+    HttpService.axiosClient.get('banner')
+      .then(function (response) {
+        banners = response.data;
+        setBanners(banners);
+      })
+      .catch(function (error) {
+        console.log(error);
+      });
+  }, []);
+
   return (
     <Router>
       <AppLayout >
-        <AppRoutes {...props}/>
+        <AppRoutes {...banners}/>
       </AppLayout>
     </Router>
   );

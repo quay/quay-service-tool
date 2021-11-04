@@ -1,7 +1,8 @@
 import React from "react";
 import ReactDOM from "react-dom";
 import App from '@app/index';
-import axios from "axios";
+import HttpService from "./services/HttpService";
+import UserService from "./services/UserService";
 
 if (process.env.NODE_ENV !== "production") {
   const config = {
@@ -17,10 +18,7 @@ if (process.env.NODE_ENV !== "production") {
   axe(React, ReactDOM, 1000, config);
 }
 
-let banners = {};
-axios.get('banner').then(function (response) {
-  banners = response.data;
-  ReactDOM.render(<App banners={response.data}/>, document.getElementById("root") as HTMLElement);
-}).catch(function (error) {
-  console.log(error);
-});
+
+const renderApp = () => ReactDOM.render(<App />, document.getElementById("root") as HTMLElement);
+UserService.initKeycloak(renderApp);
+HttpService.configure();

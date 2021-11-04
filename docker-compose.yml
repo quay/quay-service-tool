@@ -1,9 +1,4 @@
-version: '3.9'
-
-networks:
-  default:
-    external: true
-    name: quay_default
+version: "3.3"
 
 services:
   quay-service-tool-api:

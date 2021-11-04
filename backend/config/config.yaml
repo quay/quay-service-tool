@@ -1,7 +1,3 @@
-basic_auth:
-  username: admin
-  password: password
-  force: true
 db:
   host: 0.0.0.0
   name: quay
@@ -9,3 +5,8 @@ db:
   user: quay
   password: quay
 is_local: true
+authentication:
+  url: http://localhost:8081/auth/
+  realm: Demo
+  clientid: your-client-id
+

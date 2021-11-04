@@ -3,7 +3,6 @@ import { Route, RouteComponentProps, Switch } from 'react-router-dom';
 import { accessibleRouteChangeHandler } from '@app/utils/utils';
 import { SiteUtils } from '@app/SiteUtils/SiteUtils';
 import { UserUtils } from '@app/UserUtils/UserUtils';
-import { Support } from '@app/Support/Support';
 import { GeneralSettings } from '@app/Settings/General/GeneralSettings';
 import { ProfileSettings } from '@app/Settings/Profile/ProfileSettings';
 import { NotFound } from '@app/NotFound/NotFound';
@@ -104,7 +103,9 @@ const flattenedRoutes: IAppRoute[] = routes.reduce(
   [] as IAppRoute[]
 );
 
+
 const AppRoutes = (banners): React.ReactElement => {
+
   return (
     <LastLocationProvider>
       <Switch>
