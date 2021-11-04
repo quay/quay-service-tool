@@ -1,5 +1,6 @@
 from flask import request
 from flask_restful import Resource
+from flask_login import login_required
 from flask import make_response
 from flask_restful import reqparse
 import json
@@ -7,7 +8,9 @@ import re
 import logging
 logger = logging.getLogger(__name__)
 
-class UsernameTask(Resource):    
+class UsernameTask(Resource):
+
+    @login_required
     def put(self):
         parser = reqparse.RequestParser()
         parser.add_argument('newUsername', type=str, help='new username')

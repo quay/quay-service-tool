@@ -2,6 +2,7 @@ from flask import Flask, request
 from flask_restful import Api
 from flask_login import LoginManager
 from flask import make_response
+from flask_login import login_required
 import pymysql
 import psycopg2
 from urllib.parse import unquote
@@ -44,6 +45,7 @@ password_decoded = unquote(app.config.get('db', {}).get('password'))
 
 
 @app.route("/")
+@login_required
 def main():
     return app.send_static_file('index.html')
 

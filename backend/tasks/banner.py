@@ -26,7 +26,8 @@ class BannerTask(Resource):
         except Exception as e:
             logger.exception("Unable to fetch banners: " + str(e))
             return make_response(json.dumps({'message': 'Unable to fetch banners'}), 500)
-    
+
+    @login_required
     def post(self):
         parser = reqparse.RequestParser()
         parser.add_argument('message', type=str, help='banner message')
@@ -50,7 +51,8 @@ class BannerTask(Resource):
         except Exception as e:
             logger.exception("Unable to create a new banner: " + str(e))
             return make_response(json.dumps({'message': 'Unable to create a new banner'}), 500)
-    
+
+    @login_required
     def put(self):
         parser = reqparse.RequestParser()
         parser.add_argument('message', type=str, help='banner message')
@@ -73,7 +75,8 @@ class BannerTask(Resource):
         except Exception as e:
             logger.exception("Unable to update the banner: " + str(e))
             return make_response(json.dumps({'message': 'Unable to update the banner'}), 500)
-        
+
+    @login_required
     def delete(self, id):
         try:
             with request.db.cursor() as cur:
