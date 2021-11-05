@@ -1,6 +1,20 @@
 version: "3.3"
 
+networks:
+  default:
+    external: true
+    name: quay_default
+
 services:
+  quay-service-tool-auth:
+    container_name: "quay-service-tool-auth"
+    image: jboss/keycloak
+    ports:
+      - '8082:8080'
+    environment:
+      - KEYCLOAK_USER=admin
+      - KEYCLOAK_PASSWORD=password
+
   quay-service-tool-api:
     container_name: "quay-service-tool-api"
     build: ./backend
@@ -10,13 +24,14 @@ services:
     volumes:
       - ./backend:/backend
     environment:
+      PYTHONUNBUFFERED: "TRUE"
       FLASK_ENV: development
       CONFIG_PATH: /backend/config
       DB_HOST: quay-db
       DB_PORT: 5432
       DB_NAME: quay
       DB_USER: quay
-      IS_LOCAL: true
+      IS_LOCAL: "True"
 
   quay-service-tool-client:
     container_name: "quay-service-tool-client"
@@ -29,3 +44,5 @@ services:
       - quay-service-tool-api
     environment:
       - NODE_ENV=development
+      - AUTH_URL=http://localhost:8082/auth/
+      - TARGET_URL=http://quay-service-tool-api:5000
