@@ -1,4 +1,4 @@
-from flask import Flask, request
+from flask import Flask, render_template
 from flask_restful import Api
 from flask_login import LoginManager
 from flask_login import login_required
@@ -41,7 +41,10 @@ password_decoded = unquote(app.config.get('db', {}).get('password'))
 @app.route("/")
 @login_required
 def main():
-    return app.send_static_file('index.html')
+    AUTH_URL = app.config.get('authentication', {}).get('url')
+    AUTH_REALM = app.config.get('authentication', {}).get('realm')
+    AUTH_CLIENTID = app.config.get('authentication', {}).get('clientid')
+    return render_template('index.html', AUTH_URL=AUTH_URL,  AUTH_REALM=AUTH_REALM, AUTH_CLIENTID=AUTH_CLIENTID)
 
 
 api.add_resource(BannerTask, '/banner', '/banner/<int:id>', endpoint='banner')
