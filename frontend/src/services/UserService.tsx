@@ -1,8 +1,8 @@
 import Keycloak from "keycloak-js";
 
-const AUTH_REALM = process.env.AUTH_REALM || "Demo";
-const AUTH_URL = process.env.AUTH_REALM || "http://localhost:8080/auth/";
-const AUTH_CLIENTID = process.env.AUTH_CLIENTID || "your-client-id";
+const AUTH_REALM = window.AUTH_REALM || process.env.AUTH_REALM;
+const AUTH_URL = window.AUTH_URL || process.env.AUTH_URL;
+const AUTH_CLIENTID = window.AUTH_CLIENTID || process.env.AUTH_CLIENTID;
 
 const KeycloakInstance = new Keycloak( {
                                         "realm": AUTH_REALM,

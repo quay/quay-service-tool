@@ -1,4 +1,4 @@
-from flask import Flask, render_template
+from flask import Flask, request, render_template
 from flask_restful import Api
 from flask_login import LoginManager
 from flask_login import login_required
@@ -24,22 +24,29 @@ with open(os.environ.get('CONFIG_PATH') + "/config.yaml") as f:
 
 @login_manager.request_loader
 def load_user_from_request(request):
-    api_key = request.headers.get('Authorization')
-    bearer_token = api_key.replace('Bearer ', '', 1)
-    keycloak_openid = KeycloakOpenID(
-                        server_url=app.config.get('authentication', {}).get('url'),
-                        client_id=app.config.get('authentication', {}).get('clientid'),
-                        realm_name=app.config.get('authentication', {}).get('realm')
-                     )
-    userinfo = keycloak_openid.userinfo(bearer_token)
-    return Auth.authenticate_email(userinfo.get("email"))
+    if request.path != "/":
+        try:
+            api_key = request.headers.get('Authorization')
+            bearer_token = api_key.replace('Bearer ', '', 1)
+            # Configure client
+            keycloak_openid = KeycloakOpenID(
+                                server_url=app.config.get('authentication', {}).get('url'),
+                                client_id=app.config.get('authentication', {}).get('clientid'),
+                                realm_name=app.config.get('authentication', {}).get('realm')
+                             )
+
+            userinfo = keycloak_openid.userinfo(bearer_token)
+            return Auth.authenticate_email(userinfo.get("email"))
+        except Exception as e:
+            return make_response("Error occured while authentication: ", str(e), 500)
+    else:
+        return User(is_authenticated=True)
 
 
 password_decoded = unquote(app.config.get('db', {}).get('password'))
 
 
 @app.route("/")
-@login_required
 def main():
     AUTH_URL = app.config.get('authentication', {}).get('url')
     AUTH_REALM = app.config.get('authentication', {}).get('realm')
