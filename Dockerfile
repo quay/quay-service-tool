@@ -14,17 +14,17 @@ COPY backend /backend
 
 COPY --from=nodebuild /frontend/dist /backend/static
 
-WORKDIR /backend
-
 RUN yum update -y
 RUN yum groupinstall "Development Tools" -y && \
     yum install openssl-devel libffi-devel bzip2-devel -y
 RUN yum install wget -y
 RUN wget https://www.python.org/ftp/python/3.9.0/Python-3.9.0.tgz
 RUN tar xvf Python-3.9.0.tgz
-RUN cd Python-3.9*/ && ./configure --enable-optimizations && make install
+RUN sudo cd Python-3.9*/ && ./configure --enable-optimizations && make install
 
 RUN ln -fs /usr/local/bin/python3.9 /usr/bin/python
+
+WORKDIR /backend
 
 RUN python -m pip install --no-cache-dir --upgrade setuptools pip && \
     python -m pip install --no-cache-dir -r requirements.txt --no-cache && \
