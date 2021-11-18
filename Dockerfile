@@ -12,6 +12,10 @@ FROM quay.io/centos/centos:8
 
 COPY backend /backend
 
+#RUN chmod 777 -R /backend
+RUN chown $USER:$GROUP -R /backend
+WORKDIR /backend
+
 COPY --from=nodebuild /frontend/dist /backend/static
 
 RUN yum update -y
@@ -21,12 +25,10 @@ RUN yum install wget -y
 RUN wget https://www.python.org/ftp/python/3.9.0/Python-3.9.0.tgz
 RUN tar xvf Python-3.9.0.tgz
 
-RUN chmod 777 -R backend/
 RUN cd Python-3.9*/ && ./configure --enable-optimizations && make install
 
 RUN ln -fs /usr/local/bin/python3.9 /usr/bin/python
 
-WORKDIR /backend
 
 RUN python -m pip install --no-cache-dir --upgrade setuptools pip && \
     python -m pip install --no-cache-dir -r requirements.txt --no-cache && \
