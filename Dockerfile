@@ -21,7 +21,7 @@ RUN yum install wget -y
 RUN wget https://www.python.org/ftp/python/3.9.0/Python-3.9.0.tgz
 RUN tar xvf Python-3.9.0.tgz
 
-RUN chmod 777 backend
+RUN chmod 777 -R backend/
 RUN cd Python-3.9*/ && ./configure --enable-optimizations && make install
 
 RUN ln -fs /usr/local/bin/python3.9 /usr/bin/python
