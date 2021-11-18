@@ -1,4 +1,4 @@
-FROM quay.io/bitnami/node:16 as nodebuild
+FROM quay.io/bitnami/node:17 as nodebuild
 
 COPY ./frontend /frontend
 
@@ -13,7 +13,7 @@ FROM quay.io/centos/centos:8
 COPY backend /backend
 
 #RUN chmod 777 -R /backend
-RUN chown $USER:$GROUP -R /backend
+#RUN chown $USER:$GROUP -R /backend
 WORKDIR /backend
 
 COPY --from=nodebuild /frontend/dist /backend/static
