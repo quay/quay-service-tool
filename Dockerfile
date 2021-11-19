@@ -1,8 +1,18 @@
-FROM quay.io/bitnami/node:16 as nodebuild
+FROM registry.redhat.io/rhel8/nodejs-16 as nodebuild
 
-COPY --chown=0:0 ./frontend /frontend
+ENV APP_ROOT=/frontend \
+    HOME=/frontend \
+    NPM_RUN=start \
+    PLATFORM="el8" \
+    NODEJS_VERSION=16 \
+    NPM_RUN=start \
+    NAME=nodejs
 
-WORKDIR /frontend
+COPY --chown=1001:0 ./frontend /frontend
+
+RUN chmod -R ug+rwx /frontend
+WORKDIR "$HOME"
+USER 1001
 
 RUN npm install
 
