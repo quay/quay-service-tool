@@ -1,11 +1,14 @@
 import Keycloak from "keycloak-js";
 
-const KeycloakInstance = new Keycloak( {
-                                        "realm": process.env.AUTH_REALM,
-                                        "url": process.env.AUTH_URL,
-                                        "clientId": process.env.AUTH_CLIENTID,
-                                      });
+const AUTH_REALM = window.AUTH_REALM || process.env.AUTH_REALM;
+const AUTH_URL = window.AUTH_URL || process.env.AUTH_URL;
+const AUTH_CLIENTID = window.AUTH_CLIENTID || process.env.AUTH_CLIENTID;
 
+const KeycloakInstance = new Keycloak( {
+                                        "realm": AUTH_REALM,
+                                        "url": AUTH_URL,
+                                        "clientId": AUTH_CLIENTID,
+                                      });
 
 const initKeycloak = (onAuthenticatedCallback) => {
   KeycloakInstance.init({
