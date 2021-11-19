@@ -1,6 +1,6 @@
 FROM quay.io/bitnami/node:16 as nodebuild
 
-COPY ./frontend /frontend
+COPY --chown=0:0 ./frontend /frontend
 
 WORKDIR /frontend
 
@@ -10,7 +10,7 @@ RUN npm run build
 
 FROM quay.io/centos/centos:8
 
-COPY backend /backend
+COPY --chown=0:0 backend /backend
 
 COPY --from=nodebuild /frontend/dist /backend/static
 
