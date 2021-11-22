@@ -1,4 +1,4 @@
-from flask import Flask, request, render_template
+from flask import Flask, request, render_template, make_response
 from flask_restful import Api
 from flask_login import LoginManager
 from flask_login import login_required
