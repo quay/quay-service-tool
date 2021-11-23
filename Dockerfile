@@ -20,7 +20,7 @@ RUN npm run build
 
 FROM registry.redhat.io/rhel8/python-39
 
-COPY --chown=0:0 backend /backend
+COPY backend /backend
 
 COPY --from=nodebuild /frontend/dist /backend/static
 
