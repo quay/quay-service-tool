@@ -8,6 +8,6 @@ is_local: true
 authentication:
   url: http://host.docker.internal:8081/auth
   realm: Test
-  clientid: your-client-id
+  clientid: test-client-id
 ENV: development
 DEBUG: true
