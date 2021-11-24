@@ -1,11 +1,13 @@
 db:
-  host: 0.0.0.0
+  host: host.docker.internal
   name: quay
   port: 5432
   user: quay
   password: quay
 is_local: true
 authentication:
-  url: http://localhost:8081/auth/
+  url: http://host.docker.internal:8081/auth
   realm: Test
-  clientid: your-client-id
+  clientid: test-client-id
+ENV: development
+DEBUG: true

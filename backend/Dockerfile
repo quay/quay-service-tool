@@ -1,12 +1,10 @@
-FROM quay.io/centos/centos:8
+FROM registry.redhat.io/rhel8/python-39
 
-COPY . /backend
+COPY --chown=0:0 backend /backend
 
 WORKDIR /backend
 
-RUN yum -y install python3
-RUN alternatives --set python /usr/bin/python3 && \
-    python -m pip install --no-cache-dir --upgrade setuptools pip && \
+RUN python -m pip install --no-cache-dir --upgrade setuptools pip && \
     python -m pip install --no-cache-dir -r requirements.txt --no-cache && \
     python -m pip freeze
 

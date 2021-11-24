@@ -11,11 +11,10 @@ implemented using React(Patternfly) on the frontend and Python(flask) on the bac
 
 The project expects the following environment variables in config.yaml:
 
-(To note: The below basic_auth key will not be needed once the tool uses SSO for login.)
-- basic_auth:
-  - username: Username to log into application. 
-  - password: Password for the above user.
-  - force: A boolean value. When set to True, forces app to use basic auth. 
+- authentication:
+  - url: Keycloak authentication url
+  - clientid: Keycloak client id
+  - realm: Keycloak realm, the client id belongs to
 - db:
   - host: The address where the database is hosted (Eg: 0.0.0.0)
   - name: The name of the database. 
@@ -24,30 +23,38 @@ The project expects the following environment variables in config.yaml:
   - password: The password for the database user.
 - is_local: A boolean value. When set to true, forces app to connect with postgres and if set to false, connects with mysql.
 
-Please set the environment variable `IS_LOCAL` to True (if running the tool locally), if not to False, like:
-```
- export IS_LOCAL=True
-```
-
-This variable is used to determine the database server connection.
-On local, the tool connects to the postgres server and on prod, to the mysql server. 
-
 Run the Quay app and its dependencies. Make sure that the quay-db is running.
-Pass the credentials for authenticating into the quay db to the `config.yaml`.
+Pass the database credentials for authenticating into the quay db to the `config.yaml`.
 
-Please find the reference for config.yaml at `backend\config.yaml`
+You can find the reference for config.yaml at `backend\config.yaml`
 
 Remove the `node_modules` folder under frontend (if exists)
 
-## Running
+## Quick Start
 
-### Setting up frontend server
+### Keycloak - Auth server
 
-Run `npm install` to install the node modules.
+You can get a keycloak server running using the command below. This starts the keycloak server on the port 8081.
 
-After successful execution of the command, run `npm run build` to build the application bundles.
+`docker run --name keycloak -p 8081:8080 -e KEYCLOAK_USER=admin -e KEYCLOAK_PASSWORD=password jboss/keycloak`
 
-### Running flask server
+You can refer to this document to set up a Keycloak realm, client and user - https://scalac.io/blog/user-authentication-keycloak-1/
+
+The details of the keycloak configuration needs to be updated in backend/config/config.yaml and frontend/.env.
+
+### Update package.json
+
+Change the `webpack.prod.js` at `frontend/package.json` to `webpack.dev.js` in the build command. 
+
+### Starting application
+
+Start the application using docker-compose.yml.
+
+`docker-compose up -d`
+
+## Starting servers individually
+
+### Backend
 
 Export the path of the `config.yaml` file in the `CONFIG_PATH` environment variable as:
 ```
@@ -60,24 +67,14 @@ Run the server using gunicorn in the `backend` directory as:
 ```
 This allows flask to serve requests on `http://0.0.0.0:5000`.
 
-### Development Environment
+### Frontend
 
-To note: Please use the below step in a development environment. This is not required in a production environment
+Run `npm install` to install the node modules.
 
-In the file `frontend/webpack.dev.js`, please change the url in the proxy dictionary to point to `http://0.0.0.0:5000`.
+After successful execution of the command, run `npm run build` to build the application bundles.
+
 You can run the below command to start the front-end server.
 ```
   npm run start:dev
 ```
-You can now access the application at: `http://0.0.0.0:9000`. Enter the basic auth credentials set in `config.yaml` to login to the application.
-
-### Production Environment
-
-To note: This step is not needed in a development environment
-
-Run the below command to copy react front end files to `backend/static` to be served by the flask server.
-```
-  cp -r dist /home/parallels/Documents/quay-service-tool/backend/static
-```
-
-You can now access the application at: `http://0.0.0.0:5000`. Enter the basic auth credentials set in `config.yaml` to login to the application.
+You can now access the application at: `http://0.0.0.0:9000`.

@@ -24,7 +24,7 @@ with open(os.environ.get('CONFIG_PATH') + "/config.yaml") as f:
 
 @login_manager.request_loader
 def load_user_from_request(request):
-    if request.path != "/":
+    if request.path != "/" and not app.config.get('is_local'):
         try:
             api_key = request.headers.get('Authorization')
             bearer_token = api_key.replace('Bearer ', '', 1)

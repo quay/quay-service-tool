@@ -1,22 +1,32 @@
-version: "3.3"
+version: "3.8"
+
+networks:
+  default:
+    external: true
+    name: quay_default
 
 services:
+  quay-service-tool-auth:
+    container_name: "quay-service-tool-auth"
+    image: jboss/keycloak
+    ports:
+      - '8081:8080'
+    environment:
+      - KEYCLOAK_USER=admin
+      - KEYCLOAK_PASSWORD=password
+
   quay-service-tool-api:
     container_name: "quay-service-tool-api"
     build: ./backend
     command: --reload # Appends to entrypoint - enables hot-reloading
-    ports:
-      - "5000:5000"
     volumes:
       - ./backend:/backend
     environment:
-      FLASK_ENV: development
+      ENV: development
+      DEBUG: "True"
+      PYTHONUNBUFFERED: "True"
       CONFIG_PATH: /backend/config
-      DB_HOST: quay-db
-      DB_PORT: 5432
-      DB_NAME: quay
-      DB_USER: quay
-      IS_LOCAL: true
+      IS_LOCAL: "True"
 
   quay-service-tool-client:
     container_name: "quay-service-tool-client"
@@ -27,5 +37,8 @@ services:
       - '9000:9000'
     depends_on:
       - quay-service-tool-api
+    env_file:
+      - ./frontend/.env
     environment:
       - NODE_ENV=development
+      - TARGET_URL=http://quay-service-tool-api:5000
