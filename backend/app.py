@@ -7,6 +7,7 @@ import psycopg2
 from urllib.parse import unquote
 from tasks.banner import BannerTask
 from tasks.username import UsernameTask
+from tasks.user import UserTask
 import yaml
 from keycloak.keycloak_openid import KeycloakOpenID
 from utils import *
@@ -24,7 +25,7 @@ with open(os.environ.get('CONFIG_PATH') + "/config.yaml") as f:
 
 @login_manager.request_loader
 def load_user_from_request(request):
-    if request.path != "/" and not app.config.get('is_local'):
+    if request.path != "/" and not app.config.get('is_local') and os.environ.get("TESTING") is None:
         try:
             api_key = request.headers.get('Authorization')
             bearer_token = api_key.replace('Bearer ', '', 1)
@@ -56,11 +57,12 @@ def main():
 
 api.add_resource(BannerTask, '/banner', '/banner/<int:id>', endpoint='banner')
 api.add_resource(UsernameTask, '/username')
+api.add_resource(UserTask, '/user/<user>')
 
 
 @app.before_request
 def before_request():
-    if app.config.get('is_local'):
+    if app.config.get('is_local') and os.environ.get("TESTING") is None:
         request.db = psycopg2.connect(host=app.config.get('db', {}).get('host'), database=app.config.get('db', {}).get('name'), user=app.config.get('db', {}).get('user'), password=password_decoded)
     else:
         request.db = pymysql.connect(host=app.config.get('db', {}).get('host'), database=app.config.get('db', {}).get('name'), user=app.config.get('db', {}).get('user'), password=password_decoded)
