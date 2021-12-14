@@ -30,6 +30,21 @@ You can find the reference for config.yaml at `backend\config.yaml`
 
 Remove the `node_modules` folder under frontend (if exists)
 
+## Testing
+
+### Backend Tests
+Add the following environment variables:
+`TESTING=true` - This will prepare certain configurations such as auth and database connections for testing.
+`CONFIG_PATH=<path to repo>/backend/config` - Configuration to be used for testing.
+
+To run the tests:
+`cd backend && export CONFIG_PATH="config" TESTING=true && pytest -v`
+
+### Frontend Tests
+
+Frontend tests are configured with the following npm script:
+`cd frontend && npm run test`
+
 ## Quick Start
 
 ### Keycloak - Auth server
