@@ -5,3 +5,11 @@ html, body, #root {
 .text-uppercase {
   text-transform: uppercase;
 }
+
+.success {
+  color: #4CAF50;
+}
+
+.failure {
+  color: #f44336;
+}
