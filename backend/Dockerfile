@@ -1,6 +1,6 @@
 FROM registry.redhat.io/rhel8/python-39
 
-COPY --chown=0:0 backend /backend
+COPY --chown=0:0 . /backend
 
 WORKDIR /backend
 

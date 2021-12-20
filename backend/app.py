@@ -1,7 +1,7 @@
 from flask import Flask, request, render_template, make_response
 from flask_restful import Api
 from flask_login import LoginManager
-from flask_login import login_required
+from keycloak import KeycloakOpenID
 import pymysql
 import psycopg2
 from urllib.parse import unquote
@@ -9,7 +9,7 @@ from tasks.banner import BannerTask
 from tasks.username import UsernameTask
 from tasks.user import UserTask
 import yaml
-from keycloak.keycloak_openid import KeycloakOpenID
+import logging
 from utils import *
 
 
@@ -26,20 +26,22 @@ with open(os.environ.get('CONFIG_PATH') + "/config.yaml") as f:
 @login_manager.request_loader
 def load_user_from_request(request):
     if request.path != "/" and not app.config.get('is_local') and os.environ.get("TESTING") is None:
-        # try:
-        api_key = request.headers.get('Authorization')
-        bearer_token = api_key.replace('Bearer ', '', 1)
-        # Configure client
-        keycloak_openid = KeycloakOpenID(
-                            server_url=app.config.get('authentication', {}).get('url'),
-                            client_id=app.config.get('authentication', {}).get('clientid'),
-                            realm_name=app.config.get('authentication', {}).get('realm')
-                         )
+        try:
+            api_key = request.headers.get('Authorization')
+            bearer_token = api_key.replace('Bearer ', '', 1)
+            keycloak_openid = KeycloakOpenID(
+                                            server_url=app.config.get('authentication', {}).get('url'),
+                                            client_id=app.config.get('authentication', {}).get('clientid'),
+                                            realm_name=app.config.get('authentication', {}).get('realm')
+                                        )
 
-        userinfo = keycloak_openid.userinfo(bearer_token)
-        return Auth.authenticate_email(userinfo.get("email"))
-        # except Exception as e:
-        #     return make_response("Error occured while authentication: ", str(e), 500)
+            keycloak_public_key = "-----BEGIN PUBLIC KEY-----\n" + keycloak_openid.public_key() + "\n-----END PUBLIC KEY-----"
+            options = {"verify_signature": True, "verify_aud": True, "verify_exp": True}
+            token_info = keycloak_openid.decode_token(bearer_token, key=keycloak_public_key, options=options)
+            return Auth.authenticate_email(token_info.get("email"))
+        except Exception as e:
+            logging.exception(e)
+            return make_response("Error occured while authentication: ", str(e), 500)
     else:
         return User(is_authenticated=True)
 
