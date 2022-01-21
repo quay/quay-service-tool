@@ -1,8 +1,6 @@
-from flask import request
-from flask_restful import Resource
-from psycopg2.extras import RealDictCursor
-from pymysql.cursors import DictCursor
 import os
+from flask_restful import Resource
+
 
 def is_valid_severity(severity):
     return severity in ["default", "success", "info", "danger", "warning"]
@@ -14,12 +12,13 @@ class User(object):
 
 class Auth(Resource):
 
-    def authenticate_email(email):
-        # Check for email in DB
-        if not email:
+    def authenticate_user(token_info, config):
+        if not token_info or not token_info.get("realm_access"):
             return User()
 
-        if email.split("@")[1] != "redhat.com":
+        realm_access = token_info["realm_access"]
+
+        if not realm_access.get("roles") or config["role"] not in realm_access["roles"]:
             return User()
 
         return User(is_authenticated=True)

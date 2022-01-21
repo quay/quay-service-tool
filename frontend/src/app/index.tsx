@@ -6,6 +6,7 @@ import { AppLayout } from '@app/AppLayout/AppLayout';
 import { AppRoutes } from '@app/routes';
 import '@app/app.css';
 import HttpService from "../services/HttpService";
+import UserService from "../services/UserService";
 
 const App: React.FunctionComponent = (props) => {
 
@@ -18,7 +19,12 @@ const App: React.FunctionComponent = (props) => {
         setBanners(banners);
       })
       .catch(function (error) {
-        console.log(error);
+        if (error.response.status == 401) {
+          UserService.logout();
+        }
+        else {
+          console.log(error);
+        }
       });
   }, []);
 

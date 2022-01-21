@@ -9,5 +9,6 @@ authentication:
   url: http://host.docker.internal:8081/auth
   realm: Test
   clientid: test-client-id
+  role: admin-access
 ENV: development
 DEBUG: true
