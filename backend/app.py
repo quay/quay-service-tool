@@ -38,7 +38,7 @@ def load_user_from_request(request):
             keycloak_public_key = "-----BEGIN PUBLIC KEY-----\n" + keycloak_openid.public_key() + "\n-----END PUBLIC KEY-----"
             options = {"verify_signature": True, "verify_aud": True, "verify_exp": True}
             token_info = keycloak_openid.decode_token(bearer_token, key=keycloak_public_key, options=options)
-            return Auth.authenticate_email(token_info.get("email"))
+            return Auth.authenticate_user(token_info, app.config.get('authentication'))
         except Exception as e:
             logging.exception(e)
             return make_response("Error occured while authentication: ", str(e), 500)
