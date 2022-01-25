@@ -23,6 +23,7 @@ with open(os.environ.get('CONFIG_PATH') + "/config.yaml") as f:
     config = yaml.load(f, Loader=yaml.FullLoader)
     app.config.update(config)
 
+
 @login_manager.request_loader
 def load_user_from_request(request):
     if request.path != "/" and not app.config.get('is_local') and os.environ.get("TESTING") is None:
