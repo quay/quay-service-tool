@@ -2,6 +2,8 @@ from flask import Flask, request, render_template, make_response
 from flask_restful import Api
 from flask_login import LoginManager
 from keycloak import KeycloakOpenID
+from prometheus_flask_exporter import PrometheusMetrics
+
 import pymysql
 import psycopg2
 from urllib.parse import unquote
@@ -15,6 +17,8 @@ from utils import *
 
 app = Flask(__name__, static_folder='/backend/static', static_url_path='/')
 api = Api(app)
+metrics = PrometheusMetrics(app)
+
 
 login_manager = LoginManager()
 login_manager.init_app(app)
