@@ -27,7 +27,7 @@ module.exports = merge(common('development'), {
       },
       {
         context: ["!/auth**"],
-        target: process.env.TARGET_URL || "http://0.0.0.0:5001",
+        target: process.env.TARGET_URL || "http://0.0.0.0:5000",
         secure: false,
         changeOrigin: false
       }
