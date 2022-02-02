@@ -62,7 +62,7 @@ def healthcheck():
             cur.execute('SELECT 1')
             return make_response(jsonify({'message': 'Healthy'}), 200)
     except Exception as e:
-        return make_response(jsonify({'message': 'DB is not up: {}'.format(str(e))}), 500)
+        return make_response(jsonify({'message': 'DB is not up: {}'.format(str(e))}), 503)
 
 
 @app.route("/")
