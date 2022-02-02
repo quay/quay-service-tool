@@ -92,7 +92,7 @@ objects:
   spec:
     podSelector:
       matchLabels:
-        quay-component: quayio-service-tool
+        app: quayio-service-tool
     ingress:
       - {}
     policyTypes:
