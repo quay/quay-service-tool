@@ -57,6 +57,16 @@ objects:
           env:
           - name: CONFIG_PATH
             value: ${{CONFIG_MOUNT_PATH}}
+          livenessProbe:
+            httpGet:
+              path: /healthcheck
+              port: 80
+            failureThreshold: 1
+          readinessProbe:
+            httpGet:
+              path: /healthcheck
+              port: 80
+            failureThreshold: 1
 - apiVersion: v1
   kind: Service
   metadata:
