@@ -1,4 +1,4 @@
-from flask import Flask, request, render_template, make_response
+from flask import Flask, request, render_template, make_response, jsonify
 from flask_restful import Api
 from flask_login import LoginManager
 from keycloak import KeycloakOpenID
@@ -53,6 +53,16 @@ def load_user_from_request(request):
 
 
 password_decoded = unquote(app.config.get('db', {}).get('password'))
+
+
+@app.route("/healthcheck")
+def healthcheck():
+    try:
+        with request.db.cursor(cursor_factory=psycopg2.extras.RealDictCursor) if os.environ.get('IS_LOCAL') else request.db.cursor(pymysql.cursors.DictCursor) as cur:
+            cur.execute('SELECT 1')
+            return make_response(jsonify({'message': 'Healthy'}), 200)
+    except Exception as e:
+        return make_response(jsonify({'message': 'DB is not up: {}'.format(str(e))}), 503)
 
 
 @app.route("/")
