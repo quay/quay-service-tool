@@ -61,11 +61,13 @@ objects:
             httpGet:
               path: /healthcheck
               port: 80
+              targetPort: 5000
             failureThreshold: 1
           readinessProbe:
             httpGet:
               path: /healthcheck
               port: 80
+              targetPort: 5000
             failureThreshold: 1
 - apiVersion: v1
   kind: Service
