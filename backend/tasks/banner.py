@@ -9,7 +9,6 @@ from utils import is_valid_severity
 import json
 import os
 import logging
-
 logger = logging.getLogger(__name__)
 
 
