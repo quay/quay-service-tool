@@ -27,7 +27,6 @@ login_manager.init_app(app)
 with open(os.environ.get('CONFIG_PATH') + "/config.yaml") as f:
     print("Reading config from: %s", os.environ.get('CONFIG_PATH') + "/config.yaml")
     config = yaml.load(f, Loader=yaml.FullLoader)
-    print("loading config: %s", config)
     app.config.update(config)
 
 
@@ -82,10 +81,13 @@ api.add_resource(UserTask, '/user/<user>')
 
 @app.before_request
 def before_request():
-    if app.config.get('is_local') and os.environ.get("TESTING") is None:
-        request.db = psycopg2.connect(host=app.config.get('db', {}).get('host'), database=app.config.get('db', {}).get('name'), user=app.config.get('db', {}).get('user'), password=password_decoded)
-    else:
-        request.db = pymysql.connect(host=app.config.get('db', {}).get('host'), database=app.config.get('db', {}).get('name'), user=app.config.get('db', {}).get('user'), password=password_decoded)
+    try:
+        if app.config.get('is_local') and os.environ.get("TESTING") is None:
+            request.db = psycopg2.connect(host=app.config.get('db', {}).get('host'), database=app.config.get('db', {}).get('name'), user=app.config.get('db', {}).get('user'), password=password_decoded)
+        else:
+            request.db = pymysql.connect(host=app.config.get('db', {}).get('host'), database=app.config.get('db', {}).get('name'), user=app.config.get('db', {}).get('user'), password=password_decoded)
+    except Exception as e:
+        return make_response(jsonify({'message': 'Not able to connect to database: {}'.format(str(e))}), 503)
 
 
 @app.teardown_request
