@@ -13,6 +13,7 @@ from tasks.user import UserTask
 import yaml
 import logging
 from utils import *
+logger = logging.getLogger(__name__)
 
 
 app = Flask(__name__, static_folder='/backend/static', static_url_path='/')
@@ -82,10 +83,13 @@ api.add_resource(UserTask, '/user/<user>')
 
 @app.before_request
 def before_request():
-    if app.config.get('is_local') and os.environ.get("TESTING") is None:
-        request.db = psycopg2.connect(host=app.config.get('db', {}).get('host'), database=app.config.get('db', {}).get('name'), user=app.config.get('db', {}).get('user'), password=password_decoded)
-    else:
-        request.db = pymysql.connect(host=app.config.get('db', {}).get('host'), database=app.config.get('db', {}).get('name'), user=app.config.get('db', {}).get('user'), password=password_decoded)
+    try:
+        if app.config.get('is_local') and os.environ.get("TESTING") is None:
+            request.db = psycopg2.connect(host=app.config.get('db', {}).get('host'), database=app.config.get('db', {}).get('name'), user=app.config.get('db', {}).get('user'), password=password_decoded)
+        else:
+            request.db = pymysql.connect(host=app.config.get('db', {}).get('host'), database=app.config.get('db', {}).get('name'), user=app.config.get('db', {}).get('user'), password=password_decoded)
+    except Exception as e:
+        logger.exception('DB is not up: {}'.format(str(e)))
 
 
 @app.teardown_request
