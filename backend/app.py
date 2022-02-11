@@ -25,6 +25,7 @@ login_manager.init_app(app)
 
 
 with open(os.environ.get('CONFIG_PATH') + "/config.yaml") as f:
+    print("Reading config from: %s", os.environ.get('CONFIG_PATH') + "/config.yaml")
     config = yaml.load(f, Loader=yaml.FullLoader)
     print("loading config: %s", config)
     app.config.update(config)
