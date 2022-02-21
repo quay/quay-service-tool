@@ -1,9 +1,5 @@
-db:
-  host: host.docker.internal
-  name: quay
-  port: 5432
-  user: quay
-  password: quay
+DATABASE_SECRET_KEY: 'randomkey'
+DB_URI: postgresql://quay:quay@host.docker.internal:5432/quay
 is_local: true
 authentication:
   url: http://host.docker.internal:8081/auth
