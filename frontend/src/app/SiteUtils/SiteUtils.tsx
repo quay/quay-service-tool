@@ -36,7 +36,7 @@ const SiteUtils: React.FunctionComponent = (props) => {
     const banners = [];
     HttpService.axiosClient.get('banner')
       .then(function (response) {
-        banners = response.data;
+        banners = response.data.messages
         setBanners(banners);
       })
       .catch(function (error) {
