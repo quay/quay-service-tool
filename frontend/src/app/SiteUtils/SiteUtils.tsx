@@ -11,58 +11,75 @@ import {
   PageSection,
   TextArea,
   FormSelect,
+  List,
+  ListItem,
+  Spinner,
   ActionGroup, FormSelectOption,
   Banner, BannerProps,
-  Split, SplitItem
+  Split, SplitItem, Alert
 } from '@patternfly/react-core';
 import ReactMarkdown from 'react-markdown';
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import HttpService from "../../services/HttpService";
 
-interface FormSelectEntry {
+type FormSelectEntry = {
   value: string,
   label: string
 }
 
-const SiteUtils: React.FunctionComponent = (props) => {
+type banner = {
+    id: number,
+    content: string,
+    uuid: string,
+    severity: string,
+    mediatype: {
+      id: number,
+      name: string,
+    }
+}
 
-  const availableMediaTypes: FormSelectEntry[] = [
-    { value: "text/plan", label: "Text" },
-    { value: "text/markdown", label: "Markdown" },
-  ]
+const availableSeverityLevels: FormSelectEntry[] = [
+  { value: "default", label: "default" },
+  { value: "info", label: "info" },
+  { value: "success", label: "success" },
+  { value: "warning", label: "warning" },
+  { value: "danger", label: "danger" },
+]
 
-  const [banners, setBanners] = useState(props['banners']);
-  if (banners === undefined) {
-    const banners = [];
-    HttpService.axiosClient.get('banner')
-      .then(function (response) {
-        banners = response.data.messages
-        setBanners(banners);
-      })
-      .catch(function (error) {
-        console.log(error);
-      });
-  }
+export const SiteUtils: React.FunctionComponent = (props) => {
 
-
-  const availableSeverityLevels: FormSelectEntry[] = [
-    { value: "default", label: "default" },
-    { value: "info", label: "info" },
-    { value: "success", label: "success" },
-    { value: "warning", label: "warning" },
-    { value: "danger", label: "danger" },
-  ]
+  const [banners, setBanners] = useState<banner[]>([]);
   const [message, setMessage] = useState('');
   const [severity, setSeverity] = useState(availableSeverityLevels[0].value);
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [feedbackMessage, setFeedbackMessage] = useState('');
   const [openConfirmationModal, setOpenConfirmationModal] = useState(false);
   const [targetBannerId, setTargetBannerId] = useState(null);
+  const [bannerLoading, setBannerLoading] = useState(true);
+  const [bannerLoadFailure, setBannerLoadFailure] = useState(false);
+
+  useEffect(() => {
+    loadBanners()
+  }, []);
 
   function resetBannerInput() {
     setTargetBannerId(null);
-    setSeverity('');
+    setSeverity(availableSeverityLevels[0].value);
     setMessage('');
+  }
+
+  async function loadBanners(){
+    setBannerLoading(true);
+    HttpService.axiosClient.get('banner')
+      .then(function (response) {
+        setBannerLoadFailure(false);
+        setBanners(response.data.messages);
+        setBannerLoading(false);
+      })
+      .catch(function (error) {
+        setBannerLoadFailure(true);
+        setBannerLoading(false);
+      })
   }
 
   async function onSaveBanner() {
@@ -74,10 +91,7 @@ const SiteUtils: React.FunctionComponent = (props) => {
       .then(function (response) {
         setFeedbackMessage('Succeeded');
         setIsModalOpen(true);
-        HttpService.axiosClient.get('/banner')
-          .then(function (response) {
-          setBanners(response.data);
-        });
+        loadBanners()
       })
       .catch(function (error) {
         setFeedbackMessage(error.response.data.message);
@@ -96,9 +110,7 @@ const SiteUtils: React.FunctionComponent = (props) => {
       .then(function (response) {
         setFeedbackMessage('Succeeded');
         setIsModalOpen(true);
-        HttpService.axiosClient.get('/banner').then(function (response) {
-          setBanners(response.data);
-        });
+        loadBanners()
       })
       .catch(function (error) {
         setFeedbackMessage(error.response.data.message);
@@ -126,9 +138,7 @@ const SiteUtils: React.FunctionComponent = (props) => {
     .then(function (response) {
       setFeedbackMessage('Succeeded');
       setIsModalOpen(true);
-      HttpService.axiosClient.get('/banner').then(function (response) {
-        setBanners(response.data);
-      });
+      loadBanners()
     })
     .catch(function (error) {
       setFeedbackMessage(error.response.data.message);
@@ -142,108 +152,117 @@ const SiteUtils: React.FunctionComponent = (props) => {
     setTargetBannerId(banner.id);
   }
 
-  if (banners === undefined) {
-    return null;
+  // Populate banner list depending on current state
+  let bannerBody: React.ReactElement | React.ReactElement[] | null = null
+  if (bannerLoading) {
+    bannerBody = (<Spinner role="loading-banners-icon" isSVG />)
+  } else if (bannerLoadFailure) {
+    bannerBody = (<Alert id="enable-user-alert" isInline title='Failed to load banners' variant='danger'/>)
+  } else if (banners.length > 0){
+    bannerBody = banners.map((banner) => (
+        <ListItem key={banner.uuid}>
+          <Split hasGutter>
+            <SplitItem isFilled>
+              <Banner variant={banner.severity as BannerProps["variant"]}>
+                <ReactMarkdown>{banner.content}</ReactMarkdown>
+              </Banner>
+            </SplitItem>
+            <SplitItem>
+              <Button variant="secondary" onClick={() => onEditBanner(banner)}>edit</Button>
+            </SplitItem>
+            <SplitItem>
+              <Button variant="danger" onClick={() => onClickDeleteButton(banner.id)}>delete</Button>
+            </SplitItem>
+          </Split>
+        </ListItem>
+      ))
+  } else {
+    bannerBody = (<div id="no-banners-found-message">No existing banners</div>)
   }
-  else {
-    return(
-      <PageSection>
-        <Modal
-            isOpen={isModalOpen}
-            variant={ModalVariant.small}
-            aria-label="feedback modal"
-            showClose={true}
-            aria-describedby="no-header-example"
-            onClose={() => { setIsModalOpen(!isModalOpen)} }
-          >{feedbackMessage}</Modal>
+
+  return (
+    <PageSection>
+      <Modal
+          isOpen={isModalOpen}
+          variant={ModalVariant.small}
+          aria-label="feedback modal"
+          showClose={true}
+          aria-describedby="no-header-example"
+          onClose={() => { setIsModalOpen(!isModalOpen)} }
+        >{feedbackMessage}</Modal>
+      <Card>
+        <CardTitle className={"text-uppercase"}> Add Site Banner </CardTitle>
+        <CardBody>
+          <Form>
+            <FormGroup label="Name" fieldId="banner-update" isRequired>
+              <TextArea
+                isRequired
+                type="text"
+                id="message-form"
+                name="message-form"
+                aria-describedby="simple-form-name-helper"
+                value={message}
+                onChange={(value) => setMessage(value)}
+                placeholder="Enter new message"
+                rows={4}
+              />
+            </FormGroup>
+
+            <FormGroup label="Severity" fieldId="severity">
+              <FormSelect
+                id="severity"
+                name="severity"
+                aria-label="Message Severity"
+                value={severity}
+                onChange={(value) => setSeverity(value)}
+              >
+                {availableSeverityLevels.map((s, index) => (
+                  <FormSelectOption key={index} value={s.value} label={s.label} />
+                ))}
+              </FormSelect>
+            </FormGroup>
+
+            {message && message.length > 0 &&
+              <FormGroup label="Preview" fieldId="preview">
+                <Banner variant={severity as BannerProps["variant"]}>
+                  <ReactMarkdown>{message}</ReactMarkdown>
+                </Banner>
+              </FormGroup>
+            }
+
+            <ActionGroup>
+              <Button variant="primary" onClick={onSaveBanner}>Save</Button>
+            </ActionGroup>
+          </Form>
+
+        </CardBody>
+      </Card>
+
         <Card>
-          <CardTitle className={"text-uppercase"}> Update Site Banner </CardTitle>
+          <CardTitle className={"text-uppercase"}> Existing Banners </CardTitle>
           <CardBody>
-            <Form>
-              <FormGroup label="Name" fieldId="banner-update" isRequired>
-                <TextArea
-                  isRequired
-                  type="text"
-                  id="simple-form-name"
-                  name="simple-form-name"
-                  aria-describedby="simple-form-name-helper"
-                  value={message}
-                  onChange={(value) => setMessage(value)}
-                  placeholder="Enter new message"
-                  rows={4}
-                />
-              </FormGroup>
-
-              <FormGroup label="Severity" fieldId="severity">
-                <FormSelect
-                  id="severity"
-                  name="severity"
-                  aria-label="Message Severity"
-                  value={severity}
-                  onChange={(value) => setSeverity(value)}
-                >
-                  {availableSeverityLevels.map((s, index) => (
-                    <FormSelectOption key={index} value={s.value} label={s.label} />
-                  ))}
-                </FormSelect>
-              </FormGroup>
-
-              {message && message.length > 0 &&
-                <FormGroup label="Preview" fieldId="preview">
-                  <Banner variant={severity as BannerProps["variant"]}>
-                    <ReactMarkdown>{message}</ReactMarkdown>
-                  </Banner>
-                </FormGroup>
-              }
-
-              <ActionGroup>
-                <Button variant="primary" onClick={onSaveBanner}>Save</Button>
-              </ActionGroup>
-            </Form>
-
+            <List isPlain isBordered>
+              {bannerBody}
+            </List>
           </CardBody>
         </Card>
 
-        {banners.length > 0 && banners.map((banner) => (
-          <Card>
-            <CardTitle className={"text-uppercase"}> Banner </CardTitle>
-            <CardBody>
-              <Split hasGutter>
-                <SplitItem isFilled>
-                  <Banner variant={banner.severity as BannerProps["variant"]}>
-                    <ReactMarkdown>{banner.content}</ReactMarkdown>
-                  </Banner>
-                </SplitItem>
-                <SplitItem>
-                  <Button variant="secondary" onClick={() => onEditBanner(banner)}>edit</Button>
-                </SplitItem>
-                <SplitItem>
-                  <Button variant="danger" onClick={() => onClickDeleteButton(banner.id)}>delete</Button>
-                </SplitItem>
-              </Split>
-            </CardBody>
-          </Card>
-        ))}
-
-        {openConfirmationModal && <Modal
-            variant={ModalVariant.small}
-            title=""
-            isOpen={openConfirmationModal}
-            onClose={handleModalToggle}
-            actions={[
-              <Button key="confirm" variant="primary" onClick={() => onDeleteBanner(targetBannerId)}>
-                Confirm
-              </Button>,
-              <Button key="cancel" variant="link" onClick={handleModalToggle}>
-                Cancel
-              </Button>
-            ]}
-          >
-            Are you sure you want to delete this banner?
-          </Modal>}
-      </PageSection>
-    )
-  }
+      {openConfirmationModal && <Modal
+          variant={ModalVariant.small}
+          title=""
+          isOpen={openConfirmationModal}
+          onClose={handleModalToggle}
+          actions={[
+            <Button key="confirm" variant="primary" onClick={() => onDeleteBanner(targetBannerId)}>
+              Confirm
+            </Button>,
+            <Button key="cancel" variant="link" onClick={handleModalToggle}>
+              Cancel
+            </Button>
+          ]}
+        >
+          Are you sure you want to delete this banner?
+        </Modal>}
+    </PageSection>
+  )
 }
-
-export { SiteUtils };
