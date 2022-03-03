@@ -28,14 +28,6 @@ async function typeUsername(view, username){
     });
 }
 
-async function typeQueue(view, queue){
-    let queueInput = view.find("input#queue").at(0);
-    await act(async () => {
-        queueInput.getDOMNode().setAttribute('value', queue);
-        queueInput.simulate('change', {currentTarget: queueInput});
-    });
-}
-
 // Clicking button triggers other async requests and updates state
 async function asyncClickButton(view, button){
     await act(async () => {
@@ -58,20 +50,11 @@ describe('Disable users tests', ()=>{
         expect(view.find('Alert#disable-user-alert').text().includes('Please enter a username')).toBe(true);
     })
 
-    it('Should alert error if queue is not provided', async () => {
-        const view = mount(<DisableUser />);
-        await typeUsername(view, 'test');
-        view.find('button#disable-user-submit').simulate('click');
-        expect(view.find('Alert#disable-user-alert').props()).toHaveProperty('variant', 'danger');
-        expect(view.find('Alert#disable-user-alert').text().includes('Please enter a queue name')).toBe(true);
-    })
-
     it('Should alert if given username isn\'t found in backend', async () => {
         let username = 'nonexistentusername';
         mocked(HttpService, true).axiosClient.get.mockRejectedValue({response: {status: 404, data:{message: `Could not find user ${username}`}}});
         const view = mount(<DisableUser />);
         await typeUsername(view, username);
-        await typeQueue(view, 'testqueue');
         await asyncClickButton(view, view.find('button#disable-user-submit'));
         expect(view.find('Alert#disable-user-alert').props()).toHaveProperty('variant', 'danger');
         expect(view.find('Alert#disable-user-alert').text().includes(`User ${username} does not exist`)).toBe(true);
@@ -82,7 +65,6 @@ describe('Disable users tests', ()=>{
         let username = "existingusername";
         const view = mount(<DisableUser />);
         await typeUsername(view, username);
-        await typeQueue(view, 'testqueue');
         await asyncClickButton(view, view.find('button#disable-user-submit'));
         expect(view.find('Alert#disable-user-alert').props()).toHaveProperty('variant', 'danger');
         expect(view.find('Alert#disable-user-alert').text().includes(`User ${username} is already disabled`)).toBe(true);
@@ -94,7 +76,6 @@ describe('Disable users tests', ()=>{
         mocked(HttpService, true).axiosClient.put.mockResolvedValue({data: {message: "User updated successfully", user: "existinguser",enabled: false}});
         const view = mount(<DisableUser />);
         await typeUsername(view, username);
-        await typeQueue(view, 'testqueue');
         await asyncClickButton(view, view.find('button#disable-user-submit'));
         expect(view.find('Modal').props()).toHaveProperty('isOpen', true);
         expect(view.find('Modal').props()).toHaveProperty('title', `Disable user ${username}?`);
