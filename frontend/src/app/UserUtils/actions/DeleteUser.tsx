@@ -36,6 +36,7 @@ export const DeleteUser: React.FunctionComponent = (props: Props) => {
     });
     const [username, setUsername] = useState('');
     const [showModal, setShowModal] = useState(false);
+    const [userenabled, setuserenabled] = useState(true);
 
     async function promptDeleteUser(){
         if(username.length == 0){
@@ -44,11 +45,9 @@ export const DeleteUser: React.FunctionComponent = (props: Props) => {
         }
         HttpService.axiosClient.get(`/user/${username}`)
             .then(function(response){
-                if(!response.data.enabled){
-                    setAlert({variant: "danger", show: true, title: `User ${username} is already deleted`});
-                } else {
-                    setShowModal(true);
-                }
+              setuserenabled(response.data.enabled);
+              setShowModal(true);
+
             })
             .catch((error) => {
                 const errMessage = error.response.status == 404 ? `User ${username} does not exist` : getErrorMessage(error);
@@ -56,8 +55,19 @@ export const DeleteUser: React.FunctionComponent = (props: Props) => {
             });
     }
 
-    async function deleteUser(){
-        HttpService.axiosClient.delete(`/user/${username}`)
+    async function enableAndDeleteUser() {
+      HttpService.axiosClient.put(`/user/${username}?enable=true`)
+          .then(function(response){
+            deleteUser();
+          })
+          .catch((error) => {
+            setShowModal(false);
+            setAlert({variant: "danger", show: true, title: getErrorMessage(error)})
+        });
+    }
+
+    async function deleteUser() {
+      HttpService.axiosClient.delete(`/user/${username}`)
           .then(function(response){
             setShowModal(false);
             setAlert({variant: "success", show: true, title: `User ${response.data.user} deleted`});
@@ -66,6 +76,17 @@ export const DeleteUser: React.FunctionComponent = (props: Props) => {
             setShowModal(false);
             setAlert({variant: "danger", show: true, title: getErrorMessage(error)})
         });
+    }
+
+
+    async function verifyAndDeleteUser(){
+        if (!userenabled) {
+          await enableAndDeleteUser();
+        }
+        else {
+          await deleteUser();
+        }
+
     }
 
     let modal: JSX.Element | null = null;
@@ -81,7 +102,7 @@ export const DeleteUser: React.FunctionComponent = (props: Props) => {
             onClose={() => setShowModal(false)}
             aria-describedby="no-header-example"
             >
-                <Button id="delete-user-confirm" variant="primary" onClick={deleteUser}>Delete User</Button>
+                <Button id="delete-user-confirm" variant="primary" onClick={verifyAndDeleteUser}>Delete User</Button>
             </Modal>
         );
     }
