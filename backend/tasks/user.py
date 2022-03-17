@@ -155,4 +155,9 @@ class UserTask(Resource):
             return make_response(json.dumps({"message": f"Could not find user {username}"}), 404)
 
         user.mark_namespace_for_deletion(found_user, all_queues, namespace_gc_queue, force=True)
-        return "", 204
+        return make_response(
+            json.dumps(
+                {"message": "User deleted successfully", "user": username}
+            ),
+            200,
+        )
