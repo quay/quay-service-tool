@@ -1,4 +1,4 @@
-FROM registry.redhat.io/rhel8/python-39
+FROM python:3.8.10
 
 COPY --chown=0:0 . /backend
 

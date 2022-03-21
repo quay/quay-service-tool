@@ -18,7 +18,7 @@ RUN npm install
 
 RUN npm run build
 
-FROM registry.redhat.io/rhel8/python-39
+FROM python:3.8.10
 
 COPY backend /backend
 
