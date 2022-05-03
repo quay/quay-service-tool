@@ -10,28 +10,10 @@ import UserService from "../services/UserService";
 
 const App: React.FunctionComponent = (props) => {
 
-  const [banners, setBanners] = React.useState({'banners': []});
-  React.useEffect(() => {
-    const banners = [];
-    HttpService.axiosClient.get('banner')
-      .then(function (response) {
-        banners = response.data;
-        setBanners(banners);
-      })
-      .catch(function (error) {
-        if (error.response.status == 401) {
-          UserService.logout();
-        }
-        else {
-          console.log(error);
-        }
-      });
-  }, []);
-
   return (
     <Router>
       <AppLayout >
-        <AppRoutes {...banners}/>
+        <AppRoutes/>
       </AppLayout>
     </Router>
   );
