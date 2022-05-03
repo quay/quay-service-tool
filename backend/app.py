@@ -15,7 +15,7 @@ from data import database
 import os
 
 logging.basicConfig()
-logging.root.setLevel(logging.INFO)
+logging.root.setLevel(logging.DEBUG)
 logger = logging.getLogger(__name__)
 
 app = Flask(__name__, static_folder='/backend/static', static_url_path='/')

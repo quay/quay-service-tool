@@ -1,3 +1,4 @@
+import logging
 from flask_login import login_required
 from flask_restful import Resource
 from flask import make_response
@@ -15,11 +16,13 @@ class BannerTask(Resource):
         try:
             messages = {"messages": [model_to_dict(m) for m in message.get_messages()]}
             response = json.dumps(messages)
-            AppLogger.log_info(args=None, response=response)
+            AppLogger.log_message(log_fn=logging.info, args=None, response=response)
             return make_response(response, 200)
         except Exception as e:
-            AppLogger.log_exception(
-                args=None, response=f"Unable to fetch banners: {str(e)}"
+            AppLogger.log_message(
+                log_fn=logging.exception,
+                args=None,
+                response=f"Unable to fetch banners: {str(e)}",
             )
             return make_response(
                 json.dumps({"message": "Unable to fetch banners"}), 500
@@ -36,7 +39,9 @@ class BannerTask(Resource):
 
         if not is_valid_severity(severity):
             response = "Invalid severity value"
-            AppLogger.log_error(args=json.dumps(args), response=response)
+            AppLogger.log_message(
+                log_fn=logging.error, args=json.dumps(args), response=response
+            )
             return make_response(json.dumps({"message": response}), 400)
 
         try:
@@ -51,10 +56,13 @@ class BannerTask(Resource):
                     ]
                 )
             response = "Banner created"
-            AppLogger.log_info(args=json.dumps(args), response=response)
+            AppLogger.log_message(
+                log_fn=logging.info, args=json.dumps(args), response=response
+            )
             return make_response(json.dumps({"message": response}), 201)
         except Exception as e:
-            AppLogger.log_exception(
+            AppLogger.log_message(
+                log_fn=logging.exception,
                 args=json.dumps(args),
                 response=f"Unable to create a new banner: {str(e)}",
             )
@@ -75,11 +83,15 @@ class BannerTask(Resource):
 
         if not is_valid_severity(severity):
             response = "Invalid severity value"
-            AppLogger.log_error(args=json.dumps(args), response=response)
+            AppLogger.log_message(
+                log_fn=logging.error, args=json.dumps(args), response=response
+            )
             return make_response(json.dumps({"message": response}), 400)
         if content == "" or severity == "":
             response = "Fields severity and message required"
-            AppLogger.log_error(args=json.dumps(args), response=response)
+            AppLogger.log_message(
+                log_fn=logging.error, args=json.dumps(args), response=response
+            )
             return make_response(json.dumps({"message": response}), 400)
 
         try:
@@ -88,10 +100,13 @@ class BannerTask(Resource):
                     Messages.id == id
                 ).execute()
             response = "updated"
-            AppLogger.log_info(args=json.dumps(args), response=response)
+            AppLogger.log_message(
+                log_fn=logging.info, args=json.dumps(args), response=response
+            )
             return make_response(response, 200)
         except Exception as e:
-            AppLogger.log_exception(
+            AppLogger.log_message(
+                log_fn=logging.exception,
                 args=json.dumps(args),
                 response=f"Unable to update the banner:  {str(e)}",
             )
@@ -105,11 +120,13 @@ class BannerTask(Resource):
             Messages.get(Messages.id == id)
         except Messages.DoesNotExist:
             response = "Banner not found"
-            AppLogger.log_exception(args=id, response=response)
+            AppLogger.log_message(log_fn=logging.exception, args=id, response=response)
             return make_response(response, 404)
         except Exception as e:
-            AppLogger.log_exception(
-                args=id, response=f"Unable to check banner existence: {str(e)}"
+            AppLogger.log_message(
+                log_fn=logging.exception,
+                args=id,
+                response=f"Unable to check banner existence: {str(e)}",
             )
             return make_response(
                 json.dumps({"message": "Unable to check banner existence"}), 500
@@ -119,11 +136,13 @@ class BannerTask(Resource):
             with db_transaction():
                 Messages.delete().where(Messages.id == id).execute()
             response = "deleted"
-            AppLogger.log_info(args=id, response=response)
+            AppLogger.log_message(log_fn=logging.info, args=id, response=response)
             return make_response(response, 200)
         except Exception as e:
-            AppLogger.log_exception(
-                args=id, response=f"Unable to delete the banner: {str(e)}"
+            AppLogger.log_message(
+                log_fn=logging.exception,
+                args=id,
+                response=f"Unable to delete the banner: {str(e)}",
             )
             return make_response(
                 json.dumps({"message": "Unable to delete the banner"}), 500
