@@ -2,7 +2,6 @@ from flask_restful import Resource, reqparse, inputs
 from flask_login import login_required
 from flask import make_response
 import json
-import logging
 
 from utils import create_transaction as tf, AppLogger
 from data.model import user, db_transaction

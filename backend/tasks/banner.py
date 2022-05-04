@@ -1,4 +1,3 @@
-import logging
 from flask_login import login_required
 from flask_restful import Resource
 from flask import make_response

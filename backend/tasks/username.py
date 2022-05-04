@@ -6,7 +6,6 @@ from data import model
 from data.model import InvalidUsernameException, user
 from utils import AppLogger
 import json
-import logging
 
 
 class UsernameTask(Resource):
