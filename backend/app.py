@@ -15,7 +15,7 @@ from data import database
 import os
 
 logging.basicConfig()
-logging.root.setLevel(logging.DEBUG)
+logging.root.setLevel(logging.INFO)
 logger = logging.getLogger(__name__)
 
 app = Flask(__name__, static_folder='/backend/static', static_url_path='/')
@@ -53,7 +53,7 @@ def load_user_from_request(request):
             logging.exception(e)
             return make_response("Error occured while authentication: ", str(e), 500)
     else:
-        return User(is_authenticated=True)
+        return User(email="local-dev@testing.com", username="Local Dev", is_authenticated=True)
 
 
 def create_transaction(db):
