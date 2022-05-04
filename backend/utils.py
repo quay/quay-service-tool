@@ -49,15 +49,15 @@ class AppLogger(object):
 
     @staticmethod
     def info(**kwargs):
-        AppLogger.log_message(**kwargs)
+        AppLogger.log_message(log_fn=logging.info, **kwargs)
 
     @staticmethod
     def error(**kwargs):
-        AppLogger.log_message(**kwargs)
+        AppLogger.log_message(log_fn=logging.error, **kwargs)
 
     @staticmethod
     def exception(**kwargs):
-        AppLogger.log_message(**kwargs)
+        AppLogger.log_message(log_fn=logging.error, **kwargs)
 
     @staticmethod
     def log_message(log_fn, args, response):

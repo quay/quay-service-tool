@@ -24,26 +24,26 @@ class UsernameTask(Resource):
             if curr_user is None:
                 response = f"Could not find user {current_user_name}"
                 AppLogger.error(
-                    log_fn=logging.error, args=json.dumps(args), response=response
+                    args=json.dumps(args), response=response
                 )
                 return make_response(json.dumps({"message": response}), 404)
             new_username_check = user.get_namespace_user(new_user_name)
             if new_username_check is not None:
                 response = "Username already exists"
                 AppLogger.error(
-                    log_fn=logging.error, args=json.dumps(args), response=response
+                    args=json.dumps(args), response=response
                 )
                 return make_response(json.dumps({"message": response}), 409)
             user.change_username(curr_user.id, new_user_name)
             response = f"Username has been updated to {new_user_name}"
             AppLogger.info(
-                log_fn=logging.info, args=json.dump(args), response=response
+                args=json.dump(args), response=response
             )
             return make_response(response, 200)
         except InvalidUsernameException:
             response = "Usernames should only contain alphanumerical characters and only starts with a letter"
             AppLogger.error(
-                log_fn=logging.error, args=json.dumps(args), response=response
+                args=json.dumps(args), response=response
             )
             return make_response(
                 json.dumps({"message": response}),
@@ -51,7 +51,6 @@ class UsernameTask(Resource):
             )
         except Exception as e:
             AppLogger.exception(
-                log_fn=logging.exception,
                 args=json.dumps(args),
                 response=f"Unable to update the username: {str(e)}",
             )
