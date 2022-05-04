@@ -16,10 +16,10 @@ class BannerTask(Resource):
         try:
             messages = {"messages": [model_to_dict(m) for m in message.get_messages()]}
             response = json.dumps(messages)
-            AppLogger.log_message(log_fn=logging.info, args=None, response=response)
+            AppLogger.info(log_fn=logging.info, args=None, response=response)
             return make_response(response, 200)
         except Exception as e:
-            AppLogger.log_message(
+            AppLogger.exception(
                 log_fn=logging.exception,
                 args=None,
                 response=f"Unable to fetch banners: {str(e)}",
@@ -39,7 +39,7 @@ class BannerTask(Resource):
 
         if not is_valid_severity(severity):
             response = "Invalid severity value"
-            AppLogger.log_message(
+            AppLogger.error(
                 log_fn=logging.error, args=json.dumps(args), response=response
             )
             return make_response(json.dumps({"message": response}), 400)
@@ -56,12 +56,12 @@ class BannerTask(Resource):
                     ]
                 )
             response = "Banner created"
-            AppLogger.log_message(
+            AppLogger.info(
                 log_fn=logging.info, args=json.dumps(args), response=response
             )
             return make_response(json.dumps({"message": response}), 201)
         except Exception as e:
-            AppLogger.log_message(
+            AppLogger.exception(
                 log_fn=logging.exception,
                 args=json.dumps(args),
                 response=f"Unable to create a new banner: {str(e)}",
@@ -83,13 +83,13 @@ class BannerTask(Resource):
 
         if not is_valid_severity(severity):
             response = "Invalid severity value"
-            AppLogger.log_message(
+            AppLogger.error(
                 log_fn=logging.error, args=json.dumps(args), response=response
             )
             return make_response(json.dumps({"message": response}), 400)
         if content == "" or severity == "":
             response = "Fields severity and message required"
-            AppLogger.log_message(
+            AppLogger.error(
                 log_fn=logging.error, args=json.dumps(args), response=response
             )
             return make_response(json.dumps({"message": response}), 400)
@@ -100,12 +100,12 @@ class BannerTask(Resource):
                     Messages.id == id
                 ).execute()
             response = "updated"
-            AppLogger.log_message(
+            AppLogger.info(
                 log_fn=logging.info, args=json.dumps(args), response=response
             )
             return make_response(response, 200)
         except Exception as e:
-            AppLogger.log_message(
+            AppLogger.exception(
                 log_fn=logging.exception,
                 args=json.dumps(args),
                 response=f"Unable to update the banner:  {str(e)}",
@@ -120,10 +120,10 @@ class BannerTask(Resource):
             Messages.get(Messages.id == id)
         except Messages.DoesNotExist:
             response = "Banner not found"
-            AppLogger.log_message(log_fn=logging.exception, args=id, response=response)
+            AppLogger.exception(log_fn=logging.exception, args=id, response=response)
             return make_response(response, 404)
         except Exception as e:
-            AppLogger.log_message(
+            AppLogger.exception(
                 log_fn=logging.exception,
                 args=id,
                 response=f"Unable to check banner existence: {str(e)}",
@@ -136,10 +136,10 @@ class BannerTask(Resource):
             with db_transaction():
                 Messages.delete().where(Messages.id == id).execute()
             response = "deleted"
-            AppLogger.log_message(log_fn=logging.info, args=id, response=response)
+            AppLogger.info(log_fn=logging.info, args=id, response=response)
             return make_response(response, 200)
         except Exception as e:
-            AppLogger.log_message(
+            AppLogger.exception(
                 log_fn=logging.exception,
                 args=id,
                 response=f"Unable to delete the banner: {str(e)}",

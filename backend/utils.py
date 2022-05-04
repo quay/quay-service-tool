@@ -48,10 +48,22 @@ def create_transaction(db):
 class AppLogger(object):
 
     @staticmethod
+    def info(**kwargs):
+        AppLogger.log_message(**kwargs)
+
+    @staticmethod
+    def error(**kwargs):
+        AppLogger.log_message(**kwargs)
+
+    @staticmethod
+    def exception(**kwargs):
+        AppLogger.log_message(**kwargs)
+
+    @staticmethod
     def log_message(log_fn, args, response):
         log_fn(
             f"{datetime.utcnow().strftime('%d %b, %Y, %H:%M:%S')} - "
-            f"{request.environ['REQUEST_METHOD']} - "
+            f"{request.method} - "
             f"{request.path} - "
             f"{current_user.username} - "
             f"{current_user.email} - "

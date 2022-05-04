@@ -53,7 +53,7 @@ class UserTask(Resource):
     def get(self, username):
         if username is None or len(username) == 0:
             response = "Parameter 'user' is required"
-            AppLogger.log_message(
+            AppLogger.error(
                 log_fn=logging.error, args=username, response=response
             )
             return make_response(json.dumps({"message": response}), 400)
@@ -61,7 +61,7 @@ class UserTask(Resource):
             found_user = user.get_namespace_user(username)
             if found_user is None:
                 response = f"Could not find user {username}"
-                AppLogger.log_message(
+                AppLogger.error(
                     log_fn=logging.error, args=username, response=response
                 )
                 return make_response(json.dumps({"message": response}), 404)
@@ -69,10 +69,10 @@ class UserTask(Resource):
             response = json.dumps(
                 {"username": found_user.username, "enabled": found_user.enabled}
             )
-            AppLogger.log_message(log_fn=logging.info, args=username, response=response)
+            AppLogger.info(log_fn=logging.info, args=username, response=response)
             return make_response(response, 200)
         except Exception as e:
-            AppLogger.log_message(
+            AppLogger.exception(
                 log_fn=logging.exception,
                 args=username,
                 response=f"Unable to fetch users: {str(e)}",
@@ -94,7 +94,7 @@ class UserTask(Resource):
         # Check params
         if enable is None or username is None:
             response = "Parameter 'enable' required"
-            AppLogger.log_message(
+            AppLogger.error(
                 log_fn=logging.error, args=username, response=response
             )
             return make_response(json.dumps({"message": response}), 400)
@@ -103,19 +103,19 @@ class UserTask(Resource):
             found_user = user.get_namespace_user(username)
             if found_user is None:
                 response = f"Could not find user {username}"
-                AppLogger.log_message(
+                AppLogger.error(
                     log_fn=logging.error, args=username, response=response
                 )
                 return make_response(json.dumps({"message": response}), 404)
             if found_user.enabled and enable:
                 response = f"User {username} already enabled"
-                AppLogger.log_message(
+                AppLogger.error(
                     log_fn=logging.error, args=username, response=response
                 )
                 return make_response(json.dumps({"message": response}), 400)
             if not found_user.enabled and not enable:
                 response = f"User {username} already disabled"
-                AppLogger.log_message(
+                AppLogger.error(
                     log_fn=logging.error, args=username, response=response
                 )
                 return make_response(json.dumps({"message": response}), 400)
@@ -166,7 +166,7 @@ class UserTask(Resource):
                     # Delete all queue items for the user's namespace.
                     dockerfile_build_queue.delete_namespaced_items(found_user.username)
         except Exception as e:
-            AppLogger.log_message(
+            AppLogger.exception(
                 log_fn=logging.exception,
                 args=username,
                 response=f"Unable to update enable status: {str(e)}",
@@ -182,7 +182,7 @@ class UserTask(Resource):
                 "enabled": enable,
             }
         )
-        AppLogger.log_message(log_fn=logging.info, args=username, response=response)
+        AppLogger.info(log_fn=logging.info, args=username, response=response)
         return make_response(response, 200)
 
     @login_required
@@ -190,7 +190,7 @@ class UserTask(Resource):
         found_user = user.get_namespace_user(username)
         if found_user is None:
             response = f"Could not find user {username}"
-            AppLogger.log_error(args=username, response=response)
+            AppLogger.error(log_fn=logging.error, args=username, response=response)
             return make_response(json.dumps({"message": response}), 404)
 
         user.mark_namespace_for_deletion(
@@ -199,5 +199,5 @@ class UserTask(Resource):
         response = json.dumps(
             {"message": "User deleted successfully", "user": username}
         )
-        AppLogger.log_message(log_fn=logging.info, args=username, response=response)
+        AppLogger.info(log_fn=logging.info, args=username, response=response)
         return make_response(response, 200)
