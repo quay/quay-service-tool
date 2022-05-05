@@ -3,7 +3,7 @@ from flask_login import login_required
 from flask import make_response
 import json
 
-from utils import create_transaction as tf, AppLogger
+from utils import create_transaction as tf, log_response
 from data.model import user, db_transaction
 from data.database import (
     Repository,
@@ -48,39 +48,34 @@ all_queues = [
 
 
 class UserTask(Resource):
+    @log_response
     @login_required
     def get(self, username):
         if username is None or len(username) == 0:
-            response = "Parameter 'user' is required"
-            AppLogger.error(
-                args=username, response=response
+            return make_response(
+                json.dumps({"message": "Parameter 'user' is required"}), 400
             )
-            return make_response(json.dumps({"message": response}), 400)
         try:
             found_user = user.get_namespace_user(username)
             if found_user is None:
-                response = f"Could not find user {username}"
-                AppLogger.error(
-                    args=username, response=response
+                return make_response(
+                    json.dumps({"message": f"Could not find user {username}"}), 404
                 )
-                return make_response(json.dumps({"message": response}), 404)
 
-            response = json.dumps(
-                {"username": found_user.username, "enabled": found_user.enabled}
+            return make_response(
+                json.dumps(
+                    {"username": found_user.username, "enabled": found_user.enabled}
+                ),
+                200,
             )
-            AppLogger.info(args=username, response=response)
-            return make_response(response, 200)
         except Exception as e:
-            AppLogger.exception(
-                args=username,
-                response=f"Unable to fetch users: {str(e)}",
-            )
             return make_response(
                 json.dumps({"message": f"Unable to fetch user {username}"}), 500
             )
 
     # Used for enabling a user, under the general put function
     # Trying to keep this as RESTful as possible, but may want to separate out into it's own 'enable' endpoint
+    @log_response
     @login_required
     def put(self, username):
         # Define params
@@ -91,32 +86,24 @@ class UserTask(Resource):
 
         # Check params
         if enable is None or username is None:
-            response = "Parameter 'enable' required"
-            AppLogger.error(
-                args=username, response=response
+            return make_response(
+                json.dumps({"message": "Parameter 'enable' required"}), 400
             )
-            return make_response(json.dumps({"message": response}), 400)
 
         try:
             found_user = user.get_namespace_user(username)
             if found_user is None:
-                response = f"Could not find user {username}"
-                AppLogger.error(
-                    args=username, response=response
+                return make_response(
+                    json.dumps({"message": f"Could not find user {username}"}), 404
                 )
-                return make_response(json.dumps({"message": response}), 404)
             if found_user.enabled and enable:
-                response = f"User {username} already enabled"
-                AppLogger.error(
-                    args=username, response=response
+                return make_response(
+                    json.dumps({"message": f"User {username} already enabled"}), 400
                 )
-                return make_response(json.dumps({"message": response}), 400)
             if not found_user.enabled and not enable:
-                response = f"User {username} already disabled"
-                AppLogger.error(
-                    args=username, response=response
+                return make_response(
+                    json.dumps({"message": f"User {username} already disabled"}), 400
                 )
-                return make_response(json.dumps({"message": response}), 400)
             with db_transaction():
                 found_user.enabled = enable
                 found_user.save()
@@ -164,37 +151,33 @@ class UserTask(Resource):
                     # Delete all queue items for the user's namespace.
                     dockerfile_build_queue.delete_namespaced_items(found_user.username)
         except Exception as e:
-            AppLogger.exception(
-                args=username,
-                response=f"Unable to update enable status: {str(e)}",
-            )
             return make_response(
                 json.dumps({"message": "Unable to update enable status"}), 500
             )
 
-        response = json.dumps(
-            {
-                "message": "User updated successfully",
-                "user": username,
-                "enabled": enable,
-            }
+        return make_response(
+            json.dumps(
+                {
+                    "message": "User updated successfully",
+                    "user": username,
+                    "enabled": enable,
+                }
+            ),
+            200,
         )
-        AppLogger.info(args=username, response=response)
-        return make_response(response, 200)
 
+    @log_response
     @login_required
     def delete(self, username):
         found_user = user.get_namespace_user(username)
         if found_user is None:
-            response = f"Could not find user {username}"
-            AppLogger.error(args=username, response=response)
-            return make_response(json.dumps({"message": response}), 404)
+            return make_response(
+                json.dumps({"message": f"Could not find user {username}"}), 404
+            )
 
         user.mark_namespace_for_deletion(
             found_user, all_queues, namespace_gc_queue, force=True
         )
-        response = json.dumps(
-            {"message": "User deleted successfully", "user": username}
+        return make_response(
+            json.dumps({"message": "User deleted successfully", "user": username}), 200
         )
-        AppLogger.info(args=username, response=response)
-        return make_response(response, 200)

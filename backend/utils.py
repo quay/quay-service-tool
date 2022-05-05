@@ -3,6 +3,7 @@ from flask import request
 from flask_login import current_user
 from datetime import datetime
 import logging
+import json
 
 logger = logging.getLogger(__name__)
 
@@ -45,28 +46,25 @@ def create_transaction(db):
     return db.transaction()
 
 
-class AppLogger(object):
-
-    @staticmethod
-    def info(**kwargs):
-        AppLogger.log_message(log_fn=logging.info, **kwargs)
-
-    @staticmethod
-    def error(**kwargs):
-        AppLogger.log_message(log_fn=logging.error, **kwargs)
-
-    @staticmethod
-    def exception(**kwargs):
-        AppLogger.log_message(log_fn=logging.error, **kwargs)
-
-    @staticmethod
-    def log_message(log_fn, args, response):
+def log_response(func):
+    def wrapper(*args, **kwargs):
+        response = func(*args, **kwargs)
+        log_fn = logging.error
+        if response.status_code == 500:
+            log_fn = logging.exception
+        if response.status_code == 200 or response.status_code == 201:
+            log_fn = logging.info
+        args = json.dumps(request.args) or json.dumps(request.json)
         log_fn(
             f"{datetime.utcnow().strftime('%d %b, %Y, %H:%M:%S')} - "
             f"{request.method} - "
             f"{request.path} - "
+            f"{response.status_code} - "
             f"{current_user.username} - "
             f"{current_user.email} - "
             f"{args} - "
-            f"{response}"
+            f"{response.data}"
         )
+        return response
+
+    return wrapper
