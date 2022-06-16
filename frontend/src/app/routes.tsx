@@ -20,7 +20,6 @@ export interface IAppRoute {
   title: string;
   isAsync?: boolean;
   routes?: undefined;
-  banners?: undefined;
 }
 
 export interface IAppRouteGroup {
@@ -104,7 +103,7 @@ const flattenedRoutes: IAppRoute[] = routes.reduce(
 );
 
 
-const AppRoutes = (banners): React.ReactElement => {
+const AppRoutes = (): React.ReactElement => {
 
   return (
     <LastLocationProvider>
@@ -117,7 +116,6 @@ const AppRoutes = (banners): React.ReactElement => {
             key={idx}
             title={title}
             isAsync={isAsync}
-            {...banners}
           />
         ))}
         <PageNotFound title="404 Page Not Found" />

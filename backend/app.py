@@ -4,8 +4,6 @@ from flask_login import LoginManager
 from keycloak import KeycloakOpenID
 from prometheus_flask_exporter import PrometheusMetrics
 
-import pymysql
-import psycopg2
 from urllib.parse import unquote
 from tasks.banner import BannerTask
 from tasks.username import UsernameTask
@@ -13,8 +11,12 @@ from tasks.user import UserTask
 import yaml
 import logging
 from utils import *
-logger = logging.getLogger(__name__)
+from data import database
+import os
 
+logging.basicConfig()
+logging.root.setLevel(logging.INFO)
+logger = logging.getLogger(__name__)
 
 app = Flask(__name__, static_folder='/backend/static', static_url_path='/')
 api = Api(app)
@@ -51,19 +53,30 @@ def load_user_from_request(request):
             logging.exception(e)
             return make_response("Error occured while authentication: ", str(e), 500)
     else:
-        return User(is_authenticated=True)
+        return User(email="local-dev@testing.com", username="Local Dev", is_authenticated=True)
 
 
-password_decoded = unquote(app.config.get('db', {}).get('password'))
+def create_transaction(db):
+    return db.transaction()
+conn_args = app.config.get("DB_CONNECTION_ARGS",{})
+conn_args["threadlocals"] = True
+conn_args["autorollback"] = True
+app.config["DB_CONNECTION_ARGS"] = conn_args
+app.config["DB_TRANSACTION_FACTORY"] = create_transaction
+database.configure(app.config)
 
 
 @app.route("/healthcheck")
 def healthcheck():
     try:
-        with request.db.cursor(cursor_factory=psycopg2.extras.RealDictCursor) if os.environ.get('IS_LOCAL') else request.db.cursor(pymysql.cursors.DictCursor) as cur:
-            cur.execute('SELECT 1')
-            return make_response(jsonify({'message': 'Healthy'}), 200)
+        database.db.connect()
+        database.db.execute_sql("SELECT 1")
+        database.db.close()
+        return make_response(jsonify({'message': 'Healthy'}), 200)
     except Exception as e:
+        if database.db.obj is not None and not database.db.is_closed():
+            logging.info("Closing database connection")
+            database.db.close()
         return make_response(jsonify({'message': 'DB is not up: {}'.format(str(e))}), 503)
 
 
@@ -77,24 +90,7 @@ def main():
 
 api.add_resource(BannerTask, '/banner', '/banner/<int:id>', endpoint='banner')
 api.add_resource(UsernameTask, '/username')
-api.add_resource(UserTask, '/user/<user>')
-
-
-@app.before_request
-def before_request():
-    try:
-        if app.config.get('is_local') and os.environ.get("TESTING") is None:
-            request.db = psycopg2.connect(host=app.config.get('db', {}).get('host'), database=app.config.get('db', {}).get('name'), user=app.config.get('db', {}).get('user'), password=password_decoded)
-        else:
-            request.db = pymysql.connect(host=app.config.get('db', {}).get('host'), database=app.config.get('db', {}).get('name'), user=app.config.get('db', {}).get('user'), password=password_decoded)
-    except Exception as e:
-        logger.exception('DB is not up: {}'.format(str(e)))
-
-
-@app.teardown_request
-def teardown_request(exception):
-    if hasattr(request, 'db'):
-        request.db.close()
+api.add_resource(UserTask, '/user/<username>')
 
 
 if __name__ == '__main__':

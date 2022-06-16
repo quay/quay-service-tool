@@ -1,7 +1,7 @@
 // Jest Snapshot v1, https://goo.gl/fbAQLP
 
-exports[`Disable users tests should render 1`] = `
-<DisableUser>
+exports[`Delete users tests should render 1`] = `
+<DeleteUser>
   <PageSection>
     <section
       className="pf-c-page__main-section"
@@ -20,7 +20,7 @@ exports[`Disable users tests should render 1`] = `
             <div
               className="pf-c-card__title text-uppercase"
             >
-               Disable User and Clean Build Queue 
+               Delete User
             </div>
           </CardTitle>
           <CardBody>
@@ -36,7 +36,7 @@ exports[`Disable users tests should render 1`] = `
                   noValidate={true}
                 >
                   <FormGroup
-                    fieldId="disable-username"
+                    fieldId="delete-username"
                     isRequired={true}
                     label="Username"
                   >
@@ -48,7 +48,7 @@ exports[`Disable users tests should render 1`] = `
                       >
                         <label
                           className="pf-c-form__label"
-                          htmlFor="disable-username"
+                          htmlFor="delete-username"
                         >
                           <span
                             className="pf-c-form__label-text"
@@ -69,9 +69,9 @@ exports[`Disable users tests should render 1`] = `
                         className="pf-c-form__group-control"
                       >
                         <TextInput
-                          id="disable-username"
+                          id="delete-username"
                           isRequired={true}
-                          name="disable-username"
+                          name="delete-username"
                           onChange={[Function]}
                           placeholder="Username"
                           type="text"
@@ -80,13 +80,13 @@ exports[`Disable users tests should render 1`] = `
                           <TextInputBase
                             aria-label={null}
                             className=""
-                            id="disable-username"
+                            id="delete-username"
                             innerRef={null}
                             isDisabled={false}
                             isLeftTruncated={false}
                             isReadOnly={false}
                             isRequired={true}
-                            name="disable-username"
+                            name="delete-username"
                             onChange={[Function]}
                             ouiaSafe={true}
                             placeholder="Username"
@@ -102,8 +102,8 @@ exports[`Disable users tests should render 1`] = `
                               data-ouia-component-type="PF4/TextInput"
                               data-ouia-safe={true}
                               disabled={false}
-                              id="disable-username"
-                              name="disable-username"
+                              id="delete-username"
+                              name="delete-username"
                               onBlur={[Function]}
                               onChange={[Function]}
                               onFocus={[Function]}
@@ -129,12 +129,12 @@ exports[`Disable users tests should render 1`] = `
                           className="pf-c-form__actions"
                         >
                           <Button
-                            id="disable-user-submit"
+                            id="delete-user-submit"
                             onClick={[Function]}
                             variant="primary"
                           >
                             <ButtonBase
-                              id="disable-user-submit"
+                              id="delete-user-submit"
                               innerRef={null}
                               onClick={[Function]}
                               variant="primary"
@@ -147,12 +147,12 @@ exports[`Disable users tests should render 1`] = `
                                 data-ouia-component-type="PF4/Button"
                                 data-ouia-safe={true}
                                 disabled={false}
-                                id="disable-user-submit"
+                                id="delete-user-submit"
                                 onClick={[Function]}
                                 role={null}
                                 type="button"
                               >
-                                Disable User
+                                Delete User
                               </button>
                             </ButtonBase>
                           </Button>
@@ -168,5 +168,5 @@ exports[`Disable users tests should render 1`] = `
       </Card>
     </section>
   </PageSection>
-</DisableUser>
+</DeleteUser>
 `;

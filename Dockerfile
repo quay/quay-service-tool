@@ -18,7 +18,9 @@ RUN npm install
 
 RUN npm run build
 
-FROM registry.redhat.io/rhel8/python-39
+FROM registry.redhat.io/rhel8/python-38
+
+ENV SERVICETOOL_RUN=/conf
 
 COPY backend /backend
 

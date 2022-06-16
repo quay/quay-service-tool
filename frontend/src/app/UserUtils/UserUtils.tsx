@@ -16,6 +16,7 @@ import { useState } from 'react';
 import HttpService from "../../services/HttpService";
 import { DisableUser } from './actions/DisableUser';
 import { EnableUser } from './actions/EnableUser';
+import { DeleteUser } from './actions/DeleteUser';
 
 type Props = {
 
@@ -30,9 +31,9 @@ export const UserUtils : React.FunctionComponent = (props: Props) => {
   async function onRenameUser() {
     if (currentUsername && newUsername) {
        HttpService.axiosClient.put('/username', {
-        currentUsername,
-        newUsername
-      })
+        currentUsername: currentUsername,
+        newUsername: newUsername
+    })
       .then(function (response) {
         setMessage('Succeeded');
         setIsModalOpen(true);
@@ -47,7 +48,6 @@ export const UserUtils : React.FunctionComponent = (props: Props) => {
   return (
     <div>
       <PageSection>
-
         <Modal
           isOpen={isModalOpen}
           variant={ModalVariant.small}
@@ -57,7 +57,7 @@ export const UserUtils : React.FunctionComponent = (props: Props) => {
           onClose={() => { setIsModalOpen(!isModalOpen)} }
         >
           <span>{message}</span>
-      </Modal>
+        </Modal>
         {/* Rename User*/}
         <Card>
           <CardTitle className={"text-uppercase"}> Rename User </CardTitle>
@@ -93,37 +93,33 @@ export const UserUtils : React.FunctionComponent = (props: Props) => {
             </Form>
           </CardBody>
         </Card>
-
       </PageSection>
-        {/* Email invoice */}
+      {/* Email invoice and send confirmation email are future items */}
+      {/* <PageSection>
+        <Card>
+              <CardTitle className={"text-uppercase"}> Email Invoice </CardTitle>
+              <CardBody>
+                <Form>
+                  <FormGroup label="Invoice ID" fieldId="invoice-id" isRequired>
+                    <TextInput
+                      isRequired
+                      type="text"
+                      id="invoice-id"
+                      name="invoice-id"
+                      value={currentUsername}
+                      onChange={(value) => setCurrentUsername(value)}
+                      placeholder="Invoice ID"
+                    />
+                  </FormGroup>
 
-  <PageSection>
-    <Card>
-          <CardTitle className={"text-uppercase"}> Email Invoice </CardTitle>
-          <CardBody>
-            <Form>
-              <FormGroup label="Invoice ID" fieldId="invoice-id" isRequired>
-                <TextInput
-                  isRequired
-                  type="text"
-                  id="invoice-id"
-                  name="invoice-id"
-                  value={currentUsername}
-                  onChange={(value) => setCurrentUsername(value)}
-                  placeholder="Invoice ID"
-                />
-              </FormGroup>
-
-              <ActionGroup>
-                <Button variant="primary">Email Invoice</Button>
-              </ActionGroup>
-            </Form>
-          </CardBody>
-        </Card>
-
-  </PageSection>
-  {/* Send Confirmation Email */}
-    <PageSection>
+                  <ActionGroup>
+                    <Button variant="primary">Email Invoice</Button>
+                  </ActionGroup>
+                </Form>
+              </CardBody>
+            </Card>
+      </PageSection>
+      <PageSection>
         <Card>
           <CardTitle className={"text-uppercase"}> Send Confirmation Email </CardTitle>
           <CardBody>
@@ -146,9 +142,10 @@ export const UserUtils : React.FunctionComponent = (props: Props) => {
             </Form>
           </CardBody>
         </Card>
-      </PageSection>
+      </PageSection> */}
       <DisableUser></DisableUser>
       <EnableUser></EnableUser>
+      <DeleteUser></DeleteUser>
     </div>
   );
 };
