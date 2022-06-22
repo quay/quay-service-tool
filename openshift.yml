@@ -34,6 +34,8 @@ parameters:
 - name: CLOUDWATCH_SECRET
   value: "quay-cloudwatch-iam-user"
   displayName: cloudwatch iam user creds secret
+- name: LOG_GROUP_NAME
+  value: "quay-service-tool-stage-audit"
 - name: QUAY_SYSLOG_CPU_LIMIT
   value: "1"
   displayName: "quay syslog CPU limit"
@@ -46,6 +48,24 @@ parameters:
 - name: QUAY_SYSLOG_MEMORY_REQUEST
   value: "1Gi"
   displayName: "quay syslog memory request"
+- name: QUAY_SYSLOG_READINESS_PROBE_INITIAL_DELAY_SECONDS
+  value: "15"
+  displayName: quay syslog readiness probe initial delay seconds
+- name: QUAY_SYSLOG_READINESS_PROBE_PERIOD_SECONDS
+  value: "30"
+  displayName: quay syslog readiness probe period seconds
+- name: QUAY_SYSLOG_READINESS_PROBE_TIMEOUT_SECONDS
+  value: "5"
+  displayName: quay syslog readiness probe timeout
+- name: QUAY_SYSLOG_LIVENESS_PROBE_INITIAL_DELAY_SECONDS
+  value: "30"
+  displayName: quay syslog liveness probe initial delay seconds
+- name: QUAY_SYSLOG_LIVENESS_PROBE_PERIOD_SECONDS
+  value: "15"
+  displayName: quay syslog liveness probe period seconds
+- name: QUAY_SYSLOG_LIVENESS_PROBE_TIMEOUT_SECONDS
+  value: "5"
+  displayName: quay syslog liveness probe timeout
 
 objects:
 - apiVersion: apps/v1
