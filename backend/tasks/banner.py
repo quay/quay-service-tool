@@ -47,6 +47,7 @@ class BannerTask(Resource):
                 )
             return make_response(json.dumps({"message": "Banner created"}), 201)
         except Exception as e:
+            print(e)
             return make_response(
                 json.dumps({"message": "Unable to create a new banner"}), 500
             )
