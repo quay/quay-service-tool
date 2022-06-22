@@ -33,6 +33,7 @@ parameters:
   value: "200"
 - name: CLOUDWATCH_SECRET
   value: "quay-cloudwatch-iam-user"
+  displayName: cloudwatch iam user creds secret
 - name: LOG_GROUP_NAME
   value: "quay-service-tool-stage-audit"
 - name: QUAY_SYSLOG_CPU_LIMIT
@@ -65,6 +66,7 @@ parameters:
 - name: QUAY_SYSLOG_LIVENESS_PROBE_TIMEOUT_SECONDS
   value: "5"
   displayName: quay syslog liveness probe timeout
+
 objects:
 - apiVersion: apps/v1
   kind: Deployment
@@ -86,6 +88,64 @@ objects:
           secret:
             secretName: ${{QUAY_SERVICE_TOOL_CONFIG_SECRET}}
         containers:
+        - name: syslog-cloudwatch-bridge
+          image: ${SYSLOG_IMAGE}:${SYSLOG_IMAGE_TAG}
+          ports:
+          - containerPort: ${{SYSLOG_PORT}}
+            protocol: UDP
+            name: syslog-udp-port
+          - containerPort: ${{SYSLOG_PORT}}
+            protocol: TCP
+            name: syslog-tcp-port
+          env:
+          - name: STREAM_NAME
+            valueFrom:
+              fieldRef:
+                apiVersion: v1
+                fieldPath: metadata.name
+          - name: TICKER_TIME
+            value: ${TICKER_TIME}
+          - name: PORT
+            value: ${SYSLOG_PORT}
+          - name: AWS_REGION
+            valueFrom:
+              secretKeyRef:
+                name: ${{CLOUDWATCH_SECRET}}
+                key: AWS_REGION
+          - name: AWS_ACCESS_KEY_ID
+            valueFrom:
+              secretKeyRef:
+                name: ${{CLOUDWATCH_SECRET}}
+                key: AWS_ACCESS_KEY_ID
+          - name: AWS_SECRET_ACCESS_KEY
+            valueFrom:
+              secretKeyRef:
+                name: ${{CLOUDWATCH_SECRET}}
+                key: AWS_SECRET_ACCESS_KEY
+          - name: LOG_GROUP_NAME
+            valueFrom:
+              secretKeyRef:
+                name: ${{CLOUDWATCH_SECRET}}
+                key: LOG_GROUP_NAME
+          resources:
+            limits:
+              cpu: ${{QUAY_SYSLOG_CPU_LIMIT}}
+              memory: ${{QUAY_SYSLOG_MEMORY_LIMIT}}
+            requests:
+              cpu: ${{QUAY_SYSLOG_CPU_REQUEST}}
+              memory: ${{QUAY_SYSLOG_MEMORY_REQUEST}}
+          readinessProbe:
+            tcpSocket:
+              port: ${{SYSLOG_PORT}}
+            initialDelaySeconds: ${{QUAY_SYSLOG_READINESS_PROBE_INITIAL_DELAY_SECONDS}}
+            periodSeconds: ${{QUAY_SYSLOG_READINESS_PROBE_PERIOD_SECONDS}}
+            timeoutSeconds: ${{QUAY_SYSLOG_READINESS_PROBE_TIMEOUT_SECONDS}}
+          livenessProbe:
+            tcpSocket:
+              port: ${{SYSLOG_PORT}}
+            initialDelaySeconds: ${{QUAY_SYSLOG_LIVENESS_PROBE_INITIAL_DELAY_SECONDS}}
+            periodSeconds: ${{QUAY_SYSLOG_LIVENESS_PROBE_PERIOD_SECONDS}}
+            timeoutSeconds: ${{QUAY_SYSLOG_LIVENESS_PROBE_TIMEOUT_SECONDS}}
         - name: quayio-service-tool
           image: ${IMAGE}:${IMAGE_TAG}
           volumeMounts:

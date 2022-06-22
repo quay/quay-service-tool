@@ -20,6 +20,8 @@ RUN npm run build
 
 FROM registry.redhat.io/rhel8/python-38
 
+ENV SERVICETOOL_RUN=/conf
+
 COPY backend /backend
 
 COPY --from=nodebuild /frontend/dist /backend/static

@@ -54,7 +54,6 @@ def log_response(func):
             log_fn = logging.exception
         if response.status_code == 200 or response.status_code == 201:
             log_fn = logging.info
-        args = json.dumps(request.args) or json.dumps(request.json)
         log_fn(
             f"{datetime.utcnow().strftime('%d %b, %Y, %H:%M:%S')} - "
             f"{request.method} - "
@@ -62,7 +61,7 @@ def log_response(func):
             f"{response.status_code} - "
             f"{current_user.username} - "
             f"{current_user.email} - "
-            f"{args} - "
+            f"{json.dumps(request.json)} - "
             f"{response.data}"
         )
         return response
