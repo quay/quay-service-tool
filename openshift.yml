@@ -148,6 +148,8 @@ objects:
             timeoutSeconds: ${{QUAY_SYSLOG_LIVENESS_PROBE_TIMEOUT_SECONDS}}
         - name: quayio-service-tool
           image: ${IMAGE}:${IMAGE_TAG}
+          command:
+            - /service-tool/entrypoint.sh
           volumeMounts:
           - name: config
             mountPath: ${{CONFIG_MOUNT_PATH}}
