@@ -66,7 +66,12 @@ parameters:
 - name: QUAY_SYSLOG_LIVENESS_PROBE_TIMEOUT_SECONDS
   value: "5"
   displayName: quay syslog liveness probe timeout
-
+- name: SYSLOG_SERVER
+  value: "localhost"
+  displayName: syslog server
+- name: SYSLOG_PROTO
+  value: "udp"
+  displayName: syslog protocol
 objects:
 - apiVersion: apps/v1
   kind: Deployment
@@ -166,6 +171,12 @@ objects:
           env:
           - name: CONFIG_PATH
             value: ${{CONFIG_MOUNT_PATH}}
+          - name: SYSLOG_SERVER
+            value: ${{SYSLOG_SERVER}}
+          - name: SYSLOG_PORT
+            value: ${SYSLOG_PORT}
+          - name: SYSLOG_PROTO
+            value: ${{SYSLOG_PROTO}}
           livenessProbe:
             httpGet:
               path: /healthcheck
