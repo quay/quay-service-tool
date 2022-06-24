@@ -20,19 +20,16 @@ RUN npm run build
 
 FROM registry.redhat.io/rhel8/python-38
 
-ENV SERVICETOOLDIR=/service-tool \
-    SERVICETOOL_PYTHONPATH=/service-tool/backend \
-    SERVICETOOL_RUN=/service-tool/conf
-
-RUN mkdir $SERVICETOOLDIR
-WORKDIR $SERVICETOOLDIR
+ENV SERVICETOOLDIR=/backend \
+    SERVICETOOL_RUN=/conf
 
 COPY backend /backend
-COPY --chown=1001:0 conf /conf
+COPY --chown=1001:0 ./conf /conf
 COPY --from=nodebuild /frontend/dist /backend/static
 
 RUN chmod -R ug+rwx $SERVICETOOLDIR
 
+WORKDIR "$SERVICETOOLDIR"
 RUN python -m pip install --no-cache-dir --upgrade setuptools pip && \
     python -m pip install --no-cache-dir -r requirements.txt --no-cache && \
     python -m pip freeze
@@ -40,4 +37,4 @@ RUN python -m pip install --no-cache-dir --upgrade setuptools pip && \
 EXPOSE 5000
 USER 1001
 
-ENTRYPOINT ["dumb-init", "--", "/service-tool/conf/entrypoint.sh"]
+ENTRYPOINT ["dumb-init", "--", "/conf/entrypoint.sh"]
