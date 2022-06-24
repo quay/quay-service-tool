@@ -23,11 +23,12 @@ FROM registry.redhat.io/rhel8/python-38
 ENV SERVICETOOLDIR=/backend \
     SERVICETOOL_RUN=/conf
 
-COPY backend /backend
+COPY --chown=1001:0 ./backend /backend
 COPY --chown=1001:0 ./conf /conf
 COPY --from=nodebuild /frontend/dist /backend/static
 
 RUN chmod -R ug+rwx $SERVICETOOL_RUN
+RUN chmod -R ug+rwx $SERVICETOOLDIR
 
 WORKDIR "$SERVICETOOLDIR"
 RUN python -m pip install --no-cache-dir --upgrade setuptools pip && \
