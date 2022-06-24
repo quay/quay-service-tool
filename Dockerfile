@@ -25,7 +25,7 @@ ENV SERVICETOOLDIR=/backend \
 
 COPY --chown=1001:0 ./backend /backend
 COPY --chown=1001:0 ./conf /conf
-COPY --from=nodebuild /frontend/dist /backend/static
+COPY --from=nodebuild --chown=1001:0 /frontend/dist /backend/static
 
 RUN chmod -R ug+rwx $SERVICETOOL_RUN
 RUN chmod -R ug+rwx $SERVICETOOLDIR
