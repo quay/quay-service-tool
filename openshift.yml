@@ -149,7 +149,7 @@ objects:
         - name: quayio-service-tool
           image: ${IMAGE}:${IMAGE_TAG}
           command:
-            - /backend/conf/entrypoint.sh
+            - /service-tool/conf/entrypoint.sh
           volumeMounts:
           - name: config
             mountPath: ${{CONFIG_MOUNT_PATH}}
