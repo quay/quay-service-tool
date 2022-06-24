@@ -25,6 +25,7 @@ ENV SERVICETOOL_RUN=/backend/conf
 
 COPY backend /backend
 COPY conf /backend/conf
+RUN chmod -R 777 /backend/conf
 
 COPY --from=nodebuild /frontend/dist /backend/static
 
