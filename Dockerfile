@@ -27,7 +27,7 @@ COPY backend /backend
 COPY --chown=1001:0 ./conf /conf
 COPY --from=nodebuild /frontend/dist /backend/static
 
-RUN chmod -R ug+rwx $SERVICETOOLDIR
+RUN chmod -R ug+rwx $SERVICETOOL_RUN
 
 WORKDIR "$SERVICETOOLDIR"
 RUN python -m pip install --no-cache-dir --upgrade setuptools pip && \
