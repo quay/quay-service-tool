@@ -15,13 +15,9 @@ The project expects the following environment variables in config.yaml:
   - url: Keycloak authentication url
   - clientid: Keycloak client id
   - realm: Keycloak realm, the client id belongs to
-- db:
-  - host: The address where the database is hosted (Eg: 0.0.0.0)
-  - name: The name of the database. 
-  - port: The port that is used to connect with the database.
-  - user: The name of the user that is used to make a build a secure database connection.
-  - password: The password for the database user.
+- DB_URI: databaseEngine://databaseUser:databasePassword@databaseHost:databasePort/databaseName
 - is_local: A boolean value. When set to true, forces app to connect with postgres and if set to false, connects with mysql.
+- ENV: Development/Production environment.
 
 Run the Quay app and its dependencies. Make sure that the quay-db is running.
 Pass the database credentials for authenticating into the quay db to the `config.yaml`.
@@ -71,9 +67,11 @@ Start the application using docker-compose.yml.
 
 ### Backend
 
+The application uses: Python 3.8.0. So, please create a Python Environment - 3.8.0 and install the requirements from [here](https://github.com/quay/quay-service-tool/blob/main/backend/requirements.txt).
+
 Export the path of the `config.yaml` file in the `CONFIG_PATH` environment variable as:
 ```
-  export CONFIG_PATH=/home/parallels/Documents/quay-service-tool/backend
+  export CONFIG_PATH=/home/parallels/Documents/quay-service-tool/backend/config
 ```
 
 Run the server using gunicorn in the `backend` directory as:
