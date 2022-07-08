@@ -20,5 +20,10 @@ if (process.env.NODE_ENV !== "production") {
 
 
 const renderApp = () => ReactDOM.render(<App />, document.getElementById("root") as HTMLElement);
-UserService.initKeycloak(renderApp);
+if (process.env.NODE_ENV !== "production") {
+  renderApp();
+}
+else {
+  UserService.initKeycloak(renderApp);
+}
 HttpService.configure();

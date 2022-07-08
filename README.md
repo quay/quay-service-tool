@@ -43,20 +43,6 @@ Frontend tests are configured with the following npm script:
 
 ## Quick Start
 
-### Keycloak - Auth server
-
-You can get a keycloak server running using the command below. This starts the keycloak server on the port 8081.
-
-`docker run --name keycloak -p 8081:8080 -e KEYCLOAK_USER=admin -e KEYCLOAK_PASSWORD=password jboss/keycloak`
-
-You can refer to this document to set up a Keycloak realm, client and user - https://scalac.io/blog/user-authentication-keycloak-1/
-
-The details of the keycloak configuration needs to be updated in backend/config/config.yaml and frontend/.env.
-
-### Update package.json
-
-Change the `webpack.prod.js` at `frontend/package.json` to `webpack.dev.js` in the build command. 
-
 ### Starting application
 
 Start the application using docker-compose.yml.
@@ -91,3 +77,15 @@ You can run the below command to start the front-end server.
   npm run start:dev
 ```
 You can now access the application at: `http://0.0.0.0:9000`.
+
+### Keycloak - Auth server
+
+You can get a keycloak server running using the command below. This starts the keycloak server on the port 8081.
+You can skip this if you are running locally and don't require user authentication to the application.
+
+
+`docker run --name keycloak -p 8081:8080 -e KEYCLOAK_USER=admin -e KEYCLOAK_PASSWORD=password jboss/keycloak`
+
+You can refer to this document to set up a Keycloak realm, client and user - https://scalac.io/blog/user-authentication-keycloak-1/
+
+The details of the keycloak configuration needs to be updated in backend/config/config.yaml and frontend/.env.
