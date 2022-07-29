@@ -11,13 +11,18 @@ const _axios = axios.create();
 
 const configure = () => {
   _axios.interceptors.request.use((config) => {
-    if (UserService.isLoggedIn()) {
+    if (process.env.NODE_ENV !== "production") {
+      return config;
+    }
+    else if (UserService.isLoggedIn()) {
       const cb = () => {
         config.headers.Authorization = `Bearer ${UserService.getToken()}`;
         return Promise.resolve(config);
       };
       return UserService.updateToken(cb);
     }
+  },function(error) {
+    return Promise.reject(error);
   });
 };
 
