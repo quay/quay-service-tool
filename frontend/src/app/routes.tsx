@@ -3,6 +3,7 @@ import { Route, RouteComponentProps, Switch } from 'react-router-dom';
 import { accessibleRouteChangeHandler } from '@app/utils/utils';
 import { SiteUtils } from '@app/SiteUtils/SiteUtils';
 import { UserUtils } from '@app/UserUtils/UserUtils';
+import { ExportCompliance } from '@app/ExportCompliance/ExportCompliance';
 import { GeneralSettings } from '@app/Settings/General/GeneralSettings';
 import { ProfileSettings } from '@app/Settings/Profile/ProfileSettings';
 import { NotFound } from '@app/NotFound/NotFound';
@@ -33,7 +34,7 @@ const routes: AppRouteConfig[] = [
   {
     component: SiteUtils,
     exact: true,
-    label: 'Site Uitls',
+    label: 'Site Utils',
     path: '/',
     title: 'Quay Service Tool | Site Utils',
   },
@@ -43,7 +44,15 @@ const routes: AppRouteConfig[] = [
     isAsync: true,
     label: 'User Utils',
     path: '/user',
-    title: 'Quay Service Tool| User Utils',
+    title: 'Quay Service Tool | User Utils',
+  },
+  {
+    component: ExportCompliance,
+    exact: true,
+    isAsync: true,
+    label: 'Export Compliance',
+    path: '/export-compliance',
+    title: 'Quay Service Tool | Export Compliance',
   },
   {
     label: 'Settings',

@@ -7,6 +7,7 @@ from prometheus_flask_exporter import PrometheusMetrics
 from urllib.parse import unquote
 from tasks.banner import BannerTask
 from tasks.username import UsernameTask
+from tasks.useremail import UseremailTask
 from tasks.user import UserTask
 import yaml
 import logging
@@ -91,6 +92,7 @@ def main():
 api.add_resource(BannerTask, '/banner', '/banner/<int:id>', endpoint='banner')
 api.add_resource(UsernameTask, '/username')
 api.add_resource(UserTask, '/user/<username>')
+api.add_resource(UseremailTask, '/fetchuser/<useremail>')
 
 
 if __name__ == '__main__':
