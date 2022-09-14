@@ -21,7 +21,7 @@ module.exports = merge(common('development'), {
     proxy: [
       {
         context: ["/auth**"],
-        target: process.env.AUTH_URL || "http://0.0.0.0:8081",
+        target: process.env.AUTH_URL || "http://localhost:8081",
         secure: false,
         changeOrigin: false
       },

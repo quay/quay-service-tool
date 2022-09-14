@@ -36,18 +36,23 @@ with open(os.environ.get('CONFIG_PATH') + "/config.yaml") as f:
 
 @login_manager.request_loader
 def load_user_from_request(request):
-    if request.path != "/" and not app.config.get('is_local') and os.environ.get("TESTING") is None:
+    if request.path != "/" and \
+            ((not app.config.get('is_local') and os.environ.get("TESTING") is None) or \
+            # used to test authentication on dev env
+            (app.config.get('is_local') and app.config.get('test_auth'))):
         try:
             api_key = request.headers.get('Authorization')
             bearer_token = api_key.replace('Bearer ', '', 1)
             keycloak_openid = KeycloakOpenID(
                                             server_url=app.config.get('authentication', {}).get('url'),
                                             client_id=app.config.get('authentication', {}).get('clientid'),
-                                            realm_name=app.config.get('authentication', {}).get('realm')
+                                            realm_name=app.config.get('authentication', {}).get('realm'),
                                         )
 
             keycloak_public_key = "-----BEGIN PUBLIC KEY-----\n" + keycloak_openid.public_key() + "\n-----END PUBLIC KEY-----"
             options = {"verify_signature": True, "verify_aud": True, "verify_exp": True}
+            if app.config.get('is_local'):
+                options['verify_aud'] = False
             token_info = keycloak_openid.decode_token(bearer_token, key=keycloak_public_key, options=options)
             return Auth.authenticate_user(token_info, app.config.get('authentication'))
         except Exception as e:
