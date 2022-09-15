@@ -9,22 +9,22 @@ import {
 import {useState} from "react";
 import HttpService from "src/services/HttpService";
 
-export const ExportCompliance: React.FunctionComponent = (props) => {
-  const [userName, setUserName] = useState('');
+export const FetchUserFromEmail: React.FunctionComponent = (props) => {
+  const [userEmail, setUserEmail] = useState('');
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [message, setMessage] = useState('');
   const [response, setResponse] = useState(false);
 
-  const userNameOnChange = (value) => {
-    setUserName(value);
+  const userEmailOnChange = (value) => {
+    setUserEmail(value);
     if (value == '') {
       setResponse('');
     }
   }
 
   async function fetchUser() {
-    if (userName != '') {
-       HttpService.axiosClient.get(`/federateduser/${userName}`)
+    if (userEmail != '') {
+       HttpService.axiosClient.get(`/quayuseremail/${userEmail}`)
       .then(function (response) {
         setResponse(response.data);
       })
@@ -50,25 +50,25 @@ export const ExportCompliance: React.FunctionComponent = (props) => {
         <span>{message}</span>
       </Modal>
       <Card>
-        <CardTitle className={'text-uppercase'}> Fetch User details </CardTitle>
+        <CardTitle className={'text-uppercase'}> Fetch User details from users Quay.io Email </CardTitle>
         <CardBody>
           <Form>
-            <FormGroup label="User name" fieldId="user-name" isRequired>
+            <FormGroup label="User email" fieldId="user-email" isRequired>
               <TextInput
                 isRequired
                 type="text"
-                id="user-name"
-                name="user-name"
-                value={userName}
-                onChange={(value) => userNameOnChange(value)}
-                placeholder="User name"
+                id="user-email"
+                name="user-email"
+                value={userEmail}
+                onChange={(value) => userEmailOnChange(value)}
+                placeholder="User email"
               />
             </FormGroup>
 
             { response ? (
               <TextContent>
                 <TextList component={TextListVariants.dl}>
-                  <TextListItem component={TextListItemVariants.dt}>Quay.io Username</TextListItem>
+                  <TextListItem component={TextListItemVariants.dt}>Quay.io User name</TextListItem>
                   <TextListItem component={TextListItemVariants.dd}>
                     {response.username}
                   </TextListItem>

@@ -7,8 +7,8 @@ from prometheus_flask_exporter import PrometheusMetrics
 from urllib.parse import unquote
 from tasks.banner import BannerTask
 from tasks.username import UsernameTask
-from tasks.useremail import UseremailTask
-from tasks.user import UserTask
+from tasks.federateduser import FederatedUserTask
+from tasks.user import UserTask, FetchUserFromEmailTask, FetchUserFromNameTask
 import yaml
 import logging
 from utils import *
@@ -97,7 +97,9 @@ def main():
 api.add_resource(BannerTask, '/banner', '/banner/<int:id>', endpoint='banner')
 api.add_resource(UsernameTask, '/username')
 api.add_resource(UserTask, '/user/<username>')
-api.add_resource(UseremailTask, '/fetchuser/<useremail>')
+api.add_resource(FetchUserFromNameTask, '/quayusername/<quayusername>')
+api.add_resource(FetchUserFromEmailTask, '/quayuseremail/<quayuseremail>')
+api.add_resource(FederatedUserTask, '/federateduser/<username>')
 
 
 if __name__ == '__main__':

@@ -9,7 +9,7 @@ import {
 import {useState} from "react";
 import HttpService from "src/services/HttpService";
 
-export const ExportCompliance: React.FunctionComponent = (props) => {
+export const FetchUserFromName: React.FunctionComponent = (props) => {
   const [userName, setUserName] = useState('');
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [message, setMessage] = useState('');
@@ -24,7 +24,7 @@ export const ExportCompliance: React.FunctionComponent = (props) => {
 
   async function fetchUser() {
     if (userName != '') {
-       HttpService.axiosClient.get(`/federateduser/${userName}`)
+       HttpService.axiosClient.get(`/quayusername/${userName}`)
       .then(function (response) {
         setResponse(response.data);
       })
@@ -50,7 +50,7 @@ export const ExportCompliance: React.FunctionComponent = (props) => {
         <span>{message}</span>
       </Modal>
       <Card>
-        <CardTitle className={'text-uppercase'}> Fetch User details </CardTitle>
+        <CardTitle className={'text-uppercase'}> Fetch User details from users Quay.io Username </CardTitle>
         <CardBody>
           <Form>
             <FormGroup label="User name" fieldId="user-name" isRequired>
@@ -68,9 +68,9 @@ export const ExportCompliance: React.FunctionComponent = (props) => {
             { response ? (
               <TextContent>
                 <TextList component={TextListVariants.dl}>
-                  <TextListItem component={TextListItemVariants.dt}>Quay.io Username</TextListItem>
+                  <TextListItem component={TextListItemVariants.dt}>User email</TextListItem>
                   <TextListItem component={TextListItemVariants.dd}>
-                    {response.username}
+                    {response.email}
                   </TextListItem>
 
                   <TextListItem component={TextListItemVariants.dt}>Enabled</TextListItem>

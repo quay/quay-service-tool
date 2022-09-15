@@ -181,3 +181,61 @@ class UserTask(Resource):
         return make_response(
             json.dumps({"message": "User deleted successfully", "user": username}), 200
         )
+
+
+class FetchUserFromNameTask(Resource):
+    @log_response
+    @login_required
+    def get(self, quayusername):
+        if quayusername is None:
+            return make_response(
+                json.dumps({"message": "Parameter 'quay username' is required"}), 400
+            )
+        try:
+            found_user = user.get_namespace_user(quayusername)
+            if found_user is None:
+                return make_response(
+                    json.dumps({"message": f"Could not find user {quayusername}"}), 404
+                )
+
+            return make_response(
+                json.dumps({
+                    "email": found_user.email,
+                    "enabled": found_user.enabled,
+                    "last_accessed": str(found_user.last_accessed)
+                }),
+                200,
+            )
+        except Exception as e:
+            return make_response(
+                json.dumps({"message": f"Unable to fetch user {quayusername}"}), 500
+            )
+
+
+class FetchUserFromEmailTask(Resource):
+    @log_response
+    @login_required
+    def get(self, quayuseremail):
+        if quayuseremail is None:
+            return make_response(
+                json.dumps({"message": "Parameter 'quay useremail' is required"}), 400
+            )
+        try:
+            found_user = user.find_user_by_email(quayuseremail)
+            if found_user is None:
+                return make_response(
+                    json.dumps({"message": f"Could not find user {quayuseremail}"}), 404
+                )
+
+            return make_response(
+                json.dumps({
+                    "username": found_user.username,
+                    "enabled": found_user.enabled,
+                    "last_accessed": str(found_user.last_accessed)
+                }),
+                200,
+            )
+        except Exception as e:
+            return make_response(
+                json.dumps({"message": f"Unable to fetch user {quayuseremail}"}), 500
+            )
