@@ -14,7 +14,7 @@ RUN chmod -R ug+rwx /frontend
 WORKDIR "$HOME"
 USER 1001
 
-RUN npm install
+RUN npm install --legacy-peer-deps
 
 RUN npm run build
 
