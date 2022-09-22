@@ -91,7 +91,10 @@ def main():
     AUTH_URL = app.config.get('authentication', {}).get('url')
     AUTH_REALM = app.config.get('authentication', {}).get('realm')
     AUTH_CLIENTID = app.config.get('authentication', {}).get('clientid')
-    return render_template('index.html', AUTH_URL=AUTH_URL,  AUTH_REALM=AUTH_REALM, AUTH_CLIENTID=AUTH_CLIENTID)
+    ADMIN_ROLE = app.config.get('authentication', {}).get('roles', {}).get('ADMIN_ROLE')
+    EXPORT_COMPLIANCE_ROLE = app.config.get('authentication', {}).get('roles', {}).get('EXPORT_COMPLIANCE_ROLE')
+    return render_template('index.html', AUTH_URL=AUTH_URL,  AUTH_REALM=AUTH_REALM, AUTH_CLIENTID=AUTH_CLIENTID,
+                           ADMIN_ROLE=ADMIN_ROLE, EXPORT_COMPLIANCE_ROLE=EXPORT_COMPLIANCE_ROLE,)
 
 
 api.add_resource(BannerTask, '/banner', '/banner/<int:id>', endpoint='banner')

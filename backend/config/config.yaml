@@ -6,13 +6,14 @@ is_local: true
 
 # Used to test authentication in local env
 test_auth: true
-
 authentication:
   url: http://host.docker.internal:8081/auth
   # If keycloak is run outside a container
 #  url: http://localhost:8081/auth/
   realm: Test
   clientid: test-client-id
-  roles: ['admin-role', 'export-compliance-role']
+  roles:
+    ADMIN_ROLE: 'admin-role'
+    EXPORT_COMPLIANCE_ROLE: 'export-compliance-role'
 ENV: development
 DEBUG: true
