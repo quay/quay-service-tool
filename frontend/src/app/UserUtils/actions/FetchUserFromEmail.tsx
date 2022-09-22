@@ -69,19 +69,37 @@ export const FetchUserFromEmail: React.FunctionComponent = (props) => {
               <TextContent>
                 <TextList component={TextListVariants.dl}>
                   <TextListItem component={TextListItemVariants.dt}>Quay.io User name</TextListItem>
-                  <TextListItem component={TextListItemVariants.dd}>
-                    {response.username}
-                  </TextListItem>
+                  <TextListItem component={TextListItemVariants.dd}>{response.username}</TextListItem>
 
                   <TextListItem component={TextListItemVariants.dt}>Enabled</TextListItem>
-                  <TextListItem component={TextListItemVariants.dd}>
-                    {response.enabled ? 'True' : 'False'}
-                  </TextListItem>
+                  <TextListItem component={TextListItemVariants.dd}>{response.enabled.toString()}</TextListItem>
+
+                  <TextListItem component={TextListItemVariants.dt}>Is Paid User</TextListItem>
+                  <TextListItem component={TextListItemVariants.dd}>{response.paid_user.toString()}</TextListItem>
 
                   <TextListItem component={TextListItemVariants.dt}>Last Accessed</TextListItem>
-                  <TextListItem component={TextListItemVariants.dd}>
-                    {response.last_accessed}
-                  </TextListItem>
+                  <TextListItem component={TextListItemVariants.dd}>{response.last_accessed}</TextListItem>
+
+                  <TextListItem component={TextListItemVariants.dt}>Is Organization</TextListItem>
+                  <TextListItem component={TextListItemVariants.dd}>{response.is_organization.toString()}</TextListItem>
+
+                  <TextListItem component={TextListItemVariants.dt}>Company</TextListItem>
+                  <TextListItem component={TextListItemVariants.dd}>{response.company}</TextListItem>
+
+                  <TextListItem component={TextListItemVariants.dt}>Creation date</TextListItem>
+                  <TextListItem component={TextListItemVariants.dd}>{response.creation_date}</TextListItem>
+
+                  <TextListItem component={TextListItemVariants.dt}>Last Accessed on</TextListItem>
+                  <TextListItem component={TextListItemVariants.dd}>{response.last_accessed}</TextListItem>
+
+                  <TextListItem component={TextListItemVariants.dt}>Invoice Email</TextListItem>
+                  <TextListItem component={TextListItemVariants.dd}>{response.invoice_email}</TextListItem>
+
+                  <TextListItem component={TextListItemVariants.dt}>Private Repositories count</TextListItem>
+                  <TextListItem component={TextListItemVariants.dd}>{response.private_repo_count}</TextListItem>
+
+                  <TextListItem component={TextListItemVariants.dt}>Public Repositories count</TextListItem>
+                  <TextListItem component={TextListItemVariants.dd}>{response.public_repo_count}</TextListItem>
                 </TextList>
               </TextContent>) : null
             }

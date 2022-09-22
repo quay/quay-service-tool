@@ -41,9 +41,10 @@ const updateToken = (successCallback) =>
 
 const username = () => KeycloakInstance.tokenParsed?.preferred_username;
 
-const hasRole = (roles) => roles.some((role) => KeycloakInstance.hasRealmRole(role));
+const hasRealmRole = (role) => KeycloakInstance.hasRealmRole(role);
 
 const UserService = {
+  Keycloak,
   initKeycloak,
   login,
   logout,
@@ -52,7 +53,7 @@ const UserService = {
   email,
   updateToken,
   username,
-  hasRole,
+  hasRealmRole
 };
 
 export default UserService;

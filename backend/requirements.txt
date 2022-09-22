@@ -1,4 +1,4 @@
-git+https://github.com/quay/quay@fd190ad98468bbeb911bc2327faec14e84764265#egg=quay
+git+https://github.com/quay/quay@adf709568eb84a473b2924b1e5adedf457c86813#egg=quay
 aniso8601==9.0.1
 anyio==3.3.4
 cached-property==1.5.2

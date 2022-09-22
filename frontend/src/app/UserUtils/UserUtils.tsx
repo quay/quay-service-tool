@@ -14,7 +14,6 @@ import {
 } from '@patternfly/react-core';
 import { useState } from 'react';
 import HttpService from "../../services/HttpService";
-import { DisableUser } from './actions/DisableUser';
 import { EnableUser } from './actions/EnableUser';
 import { DeleteUser } from './actions/DeleteUser';
 import {FetchUserFromEmail} from "./actions/FetchUserFromEmail";
@@ -145,10 +144,10 @@ export const UserUtils : React.FunctionComponent = (props: Props) => {
           </CardBody>
         </Card>
       </PageSection> */}
-      <DisableUser></DisableUser>
       <EnableUser></EnableUser>
       <DeleteUser></DeleteUser>
       <FetchUserFromEmail></FetchUserFromEmail>
+
       <FetchUserFromName></FetchUserFromName>
     </div>
   );

@@ -198,11 +198,22 @@ class FetchUserFromNameTask(Resource):
                     json.dumps({"message": f"Could not find user {quayusername}"}), 404
                 )
 
+            private_repo_count = user.get_private_repo_count(found_user.username)
+            public_repo_count = user.get_public_repo_count(found_user.username)
+
             return make_response(
                 json.dumps({
                     "email": found_user.email,
                     "enabled": found_user.enabled,
-                    "last_accessed": str(found_user.last_accessed)
+                    "paid_user": True if found_user.stripe_id else False,
+                    "last_accessed": str(found_user.last_accessed),
+                    "is_organization": found_user.organization,
+                    "company": found_user.company,
+                    "creation_date": str(found_user.creation_date),
+                    "last_accessed": str(found_user.last_accessed),
+                    "invoice_email": found_user.invoice_email,
+                    "private_repo_count": private_repo_count,
+                    "public_repo_count": public_repo_count,
                 }),
                 200,
             )
@@ -226,12 +237,22 @@ class FetchUserFromEmailTask(Resource):
                 return make_response(
                     json.dumps({"message": f"Could not find user {quayuseremail}"}), 404
                 )
+            private_repo_count = user.get_private_repo_count(found_user.username)
+            public_repo_count = user.get_public_repo_count(found_user.username)
 
             return make_response(
                 json.dumps({
                     "username": found_user.username,
                     "enabled": found_user.enabled,
-                    "last_accessed": str(found_user.last_accessed)
+                    "paid_user": True if found_user.stripe_id else False,
+                    "last_accessed": str(found_user.last_accessed),
+                    "is_organization": found_user.organization,
+                    "company": found_user.company,
+                    "creation_date": str(found_user.creation_date),
+                    "last_accessed": str(found_user.last_accessed),
+                    "invoice_email": found_user.invoice_email,
+                    "private_repo_count": private_repo_count,
+                    "public_repo_count": public_repo_count,
                 }),
                 200,
             )

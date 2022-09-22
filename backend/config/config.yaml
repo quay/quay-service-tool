@@ -13,6 +13,6 @@ authentication:
 #  url: http://localhost:8081/auth/
   realm: Test
   clientid: test-client-id
-  role: admin-access
+  roles: ['admin-role', 'export-compliance-role']
 ENV: development
 DEBUG: true

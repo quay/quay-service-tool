@@ -1,6 +1,7 @@
 import * as React from 'react';
 import { Route, RouteComponentProps, Switch } from 'react-router-dom';
 import { accessibleRouteChangeHandler } from '@app/utils/utils';
+import UserService from "src/services/UserService";
 import { SiteUtils } from '@app/SiteUtils/SiteUtils';
 import { UserUtils } from '@app/UserUtils/UserUtils';
 import { ExportCompliance } from '@app/ExportCompliance/ExportCompliance';
@@ -21,6 +22,7 @@ export interface IAppRoute {
   title: string;
   isAsync?: boolean;
   routes?: undefined;
+  permission?: string;
 }
 
 export interface IAppRouteGroup {
@@ -30,6 +32,9 @@ export interface IAppRouteGroup {
 
 export type AppRouteConfig = IAppRoute | IAppRouteGroup;
 
+const AdminPerms = process.env.ADMIN_ROLE || window.ADMIN_ROLE;
+const ExportPerms = process.env.EXPORT_COMPLIANCE_ROLE || window.EXPORT_COMPLIANCE_ROLE;
+
 const routes: AppRouteConfig[] = [
   {
     component: SiteUtils,
@@ -37,6 +42,7 @@ const routes: AppRouteConfig[] = [
     label: 'Site Utils',
     path: '/',
     title: 'Quay Service Tool | Site Utils',
+    permission: AdminPerms,
   },
   {
     component: UserUtils,
@@ -45,6 +51,7 @@ const routes: AppRouteConfig[] = [
     label: 'User Utils',
     path: '/user',
     title: 'Quay Service Tool | User Utils',
+    permission: AdminPerms,
   },
   {
     component: ExportCompliance,
@@ -53,6 +60,7 @@ const routes: AppRouteConfig[] = [
     label: 'Export Compliance',
     path: '/export-compliance',
     title: 'Quay Service Tool | Export Compliance',
+    permission: ExportPerms
   },
   {
     label: 'Settings',

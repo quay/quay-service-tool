@@ -26,7 +26,7 @@ class Auth(Resource):
 
         realm_access = token_info["realm_access"]
 
-        if not realm_access.get("roles") or config["role"] not in realm_access["roles"]:
+        if not realm_access.get("roles") or not (set(realm_access["roles"]) & set(config["roles"])):
             return User()
 
         return User(
