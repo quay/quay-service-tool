@@ -1,5 +1,6 @@
 from flask_restful import Resource
-from flask import request
+from flask import request, make_response
+from flask import current_app as app
 from flask_login import current_user
 from datetime import datetime
 import logging
@@ -13,10 +14,11 @@ def is_valid_severity(severity):
 
 
 class User(object):
-    def __init__(self, is_authenticated=False, email=None, username=None):
+    def __init__(self, is_authenticated=False, email=None, username=None, realm_access=None):
         self.email = email
         self.username = username
         self.is_authenticated = is_authenticated
+        self.realm_access = realm_access
 
 
 class Auth(Resource):
@@ -33,6 +35,7 @@ class Auth(Resource):
             email=token_info["email"],
             username=token_info["name"],
             is_authenticated=True,
+            realm_access=realm_access,
         )
 
 
@@ -66,4 +69,47 @@ def log_response(func):
         )
         return response
 
+    return wrapper
+
+
+def verify_admin_permissions(func):
+    def wrapper(*args, **kwargs):
+        if not current_user or not current_user.realm_access:
+            return make_response(json.dumps({"message": "No RBAC defined for user"}), 401)
+
+        ADMIN_ROLE = app.config.get('authentication', {}).get('roles', {}).get('ADMIN_ROLE')
+        if ADMIN_ROLE not in current_user.realm_access.get('roles', None):
+            return make_response(json.dumps({"message": "Require ADMIN permissions to perform action"}), 401)
+
+        response = func(*args, **kwargs)
+        return response
+    return wrapper
+
+
+def verify_export_compliance_permissions(func):
+    def wrapper(*args, **kwargs):
+        if not current_user or not current_user.realm_access:
+            return make_response(json.dumps({"message": "No RBAC defined for user"}), 401)
+
+        EXPORT_COMPLIANCE_ROLE = app.config.get('authentication', {}).get('roles', {}).get('EXPORT_COMPLIANCE_ROLE')
+        if EXPORT_COMPLIANCE_ROLE not in current_user.realm_access.get('roles', None):
+            return make_response(json.dumps({"message": "Require EXPORT_COMPLIANCE_ROLE permissions to perform action"}), 401)
+
+        response = func(*args, **kwargs)
+        return response
+    return wrapper
+
+
+def verify_admin_or_export_perm(func):
+    def wrapper(*args, **kwargs):
+        if not current_user or not current_user.realm_access:
+            return make_response(json.dumps({"message": "No RBAC defined for user"}), 401)
+
+        ADMIN_ROLE = app.config.get('authentication', {}).get('roles', {}).get('ADMIN_ROLE')
+        EXPORT_COMPLIANCE_ROLE = app.config.get('authentication', {}).get('roles', {}).get('EXPORT_COMPLIANCE_ROLE')
+        if not (set([ADMIN_ROLE, EXPORT_COMPLIANCE_ROLE]) & set(current_user.realm_access.get('roles', None))):
+            return make_response(json.dumps({"message": f"Not enough permissions to perform action"}), 401)
+
+        response = func(*args, **kwargs)
+        return response
     return wrapper

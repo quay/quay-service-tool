@@ -3,7 +3,7 @@ from flask_restful import Resource
 from flask import make_response
 from flask_restful import reqparse
 from playhouse.shortcuts import model_to_dict
-from utils import is_valid_severity, log_response
+from utils import is_valid_severity, log_response, verify_admin_permissions
 import json
 from data.model import message, db_transaction
 from data.database import Messages
@@ -11,6 +11,7 @@ from data.database import Messages
 
 class BannerTask(Resource):
     @log_response
+    @verify_admin_permissions
     @login_required
     def get(self):
         try:
@@ -22,6 +23,7 @@ class BannerTask(Resource):
             )
 
     @log_response
+    @verify_admin_permissions
     @login_required
     def post(self):
         parser = reqparse.RequestParser()
@@ -53,6 +55,7 @@ class BannerTask(Resource):
             )
 
     @log_response
+    @verify_admin_permissions
     @login_required
     def put(self):
         parser = reqparse.RequestParser()
@@ -83,6 +86,7 @@ class BannerTask(Resource):
             )
 
     @log_response
+    @verify_admin_permissions
     @login_required
     def delete(self, id):
         try:

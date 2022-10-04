@@ -3,7 +3,7 @@ from flask_login import login_required
 from flask import make_response
 import json
 
-from utils import create_transaction as tf, log_response
+from utils import create_transaction as tf, log_response, verify_admin_permissions, verify_export_compliance_permissions, verify_admin_or_export_perm
 from data.model import user, db_transaction
 from data.database import (
     Repository,
@@ -49,6 +49,7 @@ all_queues = [
 
 class UserTask(Resource):
     @log_response
+    @verify_admin_or_export_perm
     @login_required
     def get(self, username):
         if username is None or len(username) == 0:
@@ -76,6 +77,7 @@ class UserTask(Resource):
     # Used for enabling a user, under the general put function
     # Trying to keep this as RESTful as possible, but may want to separate out into it's own 'enable' endpoint
     @log_response
+    @verify_admin_or_export_perm
     @login_required
     def put(self, username):
         # Define params
@@ -167,6 +169,7 @@ class UserTask(Resource):
         )
 
     @log_response
+    @verify_admin_or_export_perm
     @login_required
     def delete(self, username):
         found_user = user.get_namespace_user(username)
@@ -185,6 +188,7 @@ class UserTask(Resource):
 
 class FetchUserFromNameTask(Resource):
     @log_response
+    @verify_admin_permissions
     @login_required
     def get(self, quayusername):
         if quayusername is None:
@@ -225,6 +229,7 @@ class FetchUserFromNameTask(Resource):
 
 class FetchUserFromEmailTask(Resource):
     @log_response
+    @verify_export_compliance_permissions
     @login_required
     def get(self, quayuseremail):
         if quayuseremail is None:

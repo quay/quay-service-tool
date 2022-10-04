@@ -4,12 +4,13 @@ from flask import make_response
 from flask_restful import reqparse
 from data import model
 from data.model import InvalidUsernameException, user
-from utils import log_response
+from utils import log_response, verify_admin_permissions
 import json
 
 
 class UsernameTask(Resource):
     @log_response
+    @verify_admin_permissions
     @login_required
     def put(self):
         parser = reqparse.RequestParser()
