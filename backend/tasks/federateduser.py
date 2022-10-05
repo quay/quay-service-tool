@@ -19,7 +19,6 @@ class FederatedUserTask(Resource):
             )
         try:
             found_user = user.get_quay_user_from_federated_login_name(username)
-            print("found_user", found_user.__dict__)
             if found_user is None:
                 return make_response(
                     json.dumps({"message": f"Could not find user with username `{username}`"}), 404
