@@ -229,7 +229,7 @@ class FetchUserFromNameTask(Resource):
 
 class FetchUserFromEmailTask(Resource):
     @log_response
-    @verify_export_compliance_permissions
+    @verify_admin_permissions
     @login_required
     def get(self, quayuseremail):
         if quayuseremail is None:
