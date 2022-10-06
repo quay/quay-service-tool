@@ -14,7 +14,7 @@ export const ExportCompliance: React.FunctionComponent = (props) => {
   const [userName, setUserName] = useState('');
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [message, setMessage] = useState('');
-  const [response, setResponse] = useState(false);
+  const [response, setResponse] = useState('');
 
   const userNameOnChange = (value) => {
     setUserName(value);

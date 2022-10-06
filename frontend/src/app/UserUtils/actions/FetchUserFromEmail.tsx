@@ -13,7 +13,7 @@ export const FetchUserFromEmail: React.FunctionComponent = (props) => {
   const [userEmail, setUserEmail] = useState('');
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [message, setMessage] = useState('');
-  const [response, setResponse] = useState(false);
+  const [response, setResponse] = useState('');
 
   const userEmailOnChange = (value) => {
     setUserEmail(value);

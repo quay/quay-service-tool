@@ -147,7 +147,6 @@ export const UserUtils : React.FunctionComponent = (props: Props) => {
       <EnableUser></EnableUser>
       <DeleteUser></DeleteUser>
       <FetchUserFromEmail></FetchUserFromEmail>
-
       <FetchUserFromName></FetchUserFromName>
     </div>
   );

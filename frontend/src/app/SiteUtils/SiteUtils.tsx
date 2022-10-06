@@ -185,8 +185,10 @@ export const SiteUtils: React.FunctionComponent = (props) => {
     bannerBody = (<div id="no-banners-found-message">No existing banners</div>)
   }
 
+  if (!UserService.hasRealmRole(ADMIN_ROLE)) {
+    return null;
+  }
   return (
-    ( UserService.hasRealmRole(ADMIN_ROLE) ?
     <PageSection>
       <Modal
           isOpen={isModalOpen}
@@ -269,6 +271,6 @@ export const SiteUtils: React.FunctionComponent = (props) => {
         >
           Are you sure you want to delete this banner?
         </Modal>}
-    </PageSection> : null)
+    </PageSection>
   )
 }

@@ -13,7 +13,7 @@ export const FetchUserFromName: React.FunctionComponent = (props) => {
   const [userName, setUserName] = useState('');
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [message, setMessage] = useState('');
-  const [response, setResponse] = useState(false);
+  const [response, setResponse] = useState('');
 
   const userNameOnChange = (value) => {
     setUserName(value);
@@ -29,7 +29,7 @@ export const FetchUserFromName: React.FunctionComponent = (props) => {
         setResponse(response.data);
       })
       .catch(function (error) {
-        setMessage(error.response.data.message);
+        error.response ? setMessage(error?.response?.data?.message) : setMessage(error);
         setIsModalOpen(true);
       });
     }
