@@ -76,13 +76,16 @@ const AppLayout: React.FunctionComponent<IAppLayout> = ({ children }) => {
 
   const location = useLocation();
 
-  const renderNavItem = (route: IAppRoute, index: number) => (
-    <NavItem key={`${route.label}-${index}`} id={`${route.label}-${index}`}>
-      <NavLink exact to={route.path} activeClassName="pf-m-current">
-        {route.label}
-      </NavLink>
-    </NavItem>
-  );
+  const renderNavItem = (route: IAppRoute, index: number) => {
+    const canView = route.permission ? UserService.hasRealmRole(route.permission) : true
+    return canView ? (
+      <NavItem key={`${route.label}-${index}`} id={`${route.label}-${index}`}>
+        <NavLink exact to={route.path} activeClassName="pf-m-current">
+          {route.label}
+        </NavLink>
+      </NavItem>
+    ) : null;
+  };
 
   const renderNavGroup = (group: IAppRouteGroup, groupIndex: number) => (
     <NavExpandable

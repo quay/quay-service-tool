@@ -20,7 +20,8 @@ import {
 } from '@patternfly/react-core';
 import ReactMarkdown from 'react-markdown';
 import { useState, useEffect } from 'react';
-import HttpService from "../../services/HttpService";
+import HttpService from "src/services/HttpService";
+import UserService from "src/services/UserService";
 
 type FormSelectEntry = {
   value: string,
@@ -46,6 +47,8 @@ const availableSeverityLevels: FormSelectEntry[] = [
   { value: "danger", label: "danger" },
 ]
 
+const ADMIN_ROLE = window.ADMIN_ROLE || process.env.ADMIN_ROLE;
+
 export const SiteUtils: React.FunctionComponent = (props) => {
 
   const [banners, setBanners] = useState<banner[]>([]);
@@ -59,7 +62,9 @@ export const SiteUtils: React.FunctionComponent = (props) => {
   const [bannerLoadFailure, setBannerLoadFailure] = useState(false);
 
   useEffect(() => {
-    loadBanners()
+    if (UserService.hasRealmRole(ADMIN_ROLE)) {
+      loadBanners();
+    }
   }, []);
 
   function resetBannerInput() {
@@ -180,6 +185,9 @@ export const SiteUtils: React.FunctionComponent = (props) => {
     bannerBody = (<div id="no-banners-found-message">No existing banners</div>)
   }
 
+  if (!UserService.hasRealmRole(ADMIN_ROLE)) {
+    return null;
+  }
   return (
     <PageSection>
       <Modal

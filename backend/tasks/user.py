@@ -3,7 +3,7 @@ from flask_login import login_required
 from flask import make_response
 import json
 
-from utils import create_transaction as tf, log_response
+from utils import create_transaction as tf, log_response, verify_admin_permissions, verify_export_compliance_permissions, verify_admin_or_export_perm
 from data.model import user, db_transaction
 from data.database import (
     Repository,
@@ -49,6 +49,7 @@ all_queues = [
 
 class UserTask(Resource):
     @log_response
+    @verify_admin_or_export_perm
     @login_required
     def get(self, username):
         if username is None or len(username) == 0:
@@ -76,6 +77,7 @@ class UserTask(Resource):
     # Used for enabling a user, under the general put function
     # Trying to keep this as RESTful as possible, but may want to separate out into it's own 'enable' endpoint
     @log_response
+    @verify_admin_or_export_perm
     @login_required
     def put(self, username):
         # Define params
@@ -167,6 +169,7 @@ class UserTask(Resource):
         )
 
     @log_response
+    @verify_admin_or_export_perm
     @login_required
     def delete(self, username):
         found_user = user.get_namespace_user(username)
@@ -181,3 +184,84 @@ class UserTask(Resource):
         return make_response(
             json.dumps({"message": "User deleted successfully", "user": username}), 200
         )
+
+
+class FetchUserFromNameTask(Resource):
+    @log_response
+    @verify_admin_permissions
+    @login_required
+    def get(self, quayusername):
+        if quayusername is None:
+            return make_response(
+                json.dumps({"message": "Parameter 'quay username' is required"}), 400
+            )
+        try:
+            found_user = user.get_namespace_user(quayusername)
+            if found_user is None:
+                return make_response(
+                    json.dumps({"message": f"Could not find user {quayusername}"}), 404
+                )
+
+            private_repo_count = user.get_private_repo_count(found_user.username)
+            public_repo_count = user.get_public_repo_count(found_user.username)
+
+            return make_response(
+                json.dumps({
+                    "email": found_user.email,
+                    "enabled": found_user.enabled,
+                    "paid_user": True if found_user.stripe_id else False,
+                    "last_accessed": str(found_user.last_accessed),
+                    "is_organization": found_user.organization,
+                    "company": found_user.company,
+                    "creation_date": str(found_user.creation_date),
+                    "last_accessed": str(found_user.last_accessed),
+                    "invoice_email": found_user.invoice_email,
+                    "private_repo_count": private_repo_count,
+                    "public_repo_count": public_repo_count,
+                }),
+                200,
+            )
+        except Exception as e:
+            return make_response(
+                json.dumps({"message": f"Unable to fetch user {quayusername}"}), 500
+            )
+
+
+class FetchUserFromEmailTask(Resource):
+    @log_response
+    @verify_admin_permissions
+    @login_required
+    def get(self, quayuseremail):
+        if quayuseremail is None:
+            return make_response(
+                json.dumps({"message": "Parameter 'quay useremail' is required"}), 400
+            )
+        try:
+            found_user = user.find_user_by_email(quayuseremail)
+            if found_user is None:
+                return make_response(
+                    json.dumps({"message": f"Could not find user {quayuseremail}"}), 404
+                )
+            private_repo_count = user.get_private_repo_count(found_user.username)
+            public_repo_count = user.get_public_repo_count(found_user.username)
+
+            return make_response(
+                json.dumps({
+                    "username": found_user.username,
+                    "enabled": found_user.enabled,
+                    "paid_user": True if found_user.stripe_id else False,
+                    "last_accessed": str(found_user.last_accessed),
+                    "is_organization": found_user.organization,
+                    "company": found_user.company,
+                    "creation_date": str(found_user.creation_date),
+                    "last_accessed": str(found_user.last_accessed),
+                    "invoice_email": found_user.invoice_email,
+                    "private_repo_count": private_repo_count,
+                    "public_repo_count": public_repo_count,
+                }),
+                200,
+            )
+        except Exception as e:
+            return make_response(
+                json.dumps({"message": f"Unable to fetch user {quayuseremail}"}), 500
+            )

@@ -11,10 +11,10 @@ const _axios = axios.create();
 
 const configure = () => {
   _axios.interceptors.request.use((config) => {
-    if (process.env.NODE_ENV !== "production") {
+    if (process.env.NODE_ENV !== "production" && !process.env.TEST_LOCAL_AUTH) {
       return config;
     }
-    else if (UserService.isLoggedIn()) {
+    if (UserService.isLoggedIn()) {
       const cb = () => {
         config.headers.Authorization = `Bearer ${UserService.getToken()}`;
         return Promise.resolve(config);
