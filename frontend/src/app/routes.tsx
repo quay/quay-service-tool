@@ -32,8 +32,8 @@ export interface IAppRouteGroup {
 
 export type AppRouteConfig = IAppRoute | IAppRouteGroup;
 
-const AdminPerms = process.env.ADMIN_ROLE || window.ADMIN_ROLE;
-const ExportPerms = process.env.EXPORT_COMPLIANCE_ROLE || window.EXPORT_COMPLIANCE_ROLE;
+const AdminPerms = window.ADMIN_ROLE || process.env.ADMIN_ROLE;
+const ExportPerms = window.EXPORT_COMPLIANCE_ROLE || process.env.EXPORT_COMPLIANCE_ROLE;
 
 const routes: AppRouteConfig[] = [
   {
