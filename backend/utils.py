@@ -74,6 +74,10 @@ def log_response(func):
 
 def verify_admin_permissions(func):
     def wrapper(*args, **kwargs):
+        # Bypassing checks for local dev when auth is not on
+        if app.config.get('is_local') and not app.config.get('test_auth'):
+            return func(*args, **kwargs)
+
         if not current_user or not current_user.realm_access:
             return make_response(json.dumps({"message": "No RBAC defined for user"}), 401)
 
@@ -88,6 +92,10 @@ def verify_admin_permissions(func):
 
 def verify_export_compliance_permissions(func):
     def wrapper(*args, **kwargs):
+        # Bypassing checks for local dev when auth is not on
+        if app.config.get('is_local') and not app.config.get('test_auth'):
+            return func(*args, **kwargs)
+
         if not current_user or not current_user.realm_access:
             return make_response(json.dumps({"message": "No RBAC defined for user"}), 401)
 
@@ -102,6 +110,10 @@ def verify_export_compliance_permissions(func):
 
 def verify_admin_or_export_perm(func):
     def wrapper(*args, **kwargs):
+        # Bypassing checks for local dev when auth is not on
+        if app.config.get('is_local') and not app.config.get('test_auth'):
+            return func(*args, **kwargs)
+
         if not current_user or not current_user.realm_access:
             return make_response(json.dumps({"message": "No RBAC defined for user"}), 401)
 

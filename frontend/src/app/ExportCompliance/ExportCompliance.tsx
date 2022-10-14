@@ -9,6 +9,7 @@ import {
 import {useState} from "react";
 import HttpService from "src/services/HttpService";
 import { DisableUser } from "src/app/UserUtils/actions/DisableUser";
+import { EnableUser } from "src/app/UserUtils/actions/EnableUser";
 
 export const ExportCompliance: React.FunctionComponent = (props) => {
   const [userName, setUserName] = useState('');
@@ -118,6 +119,7 @@ export const ExportCompliance: React.FunctionComponent = (props) => {
         </Card>
       </PageSection>
       <DisableUser></DisableUser>
+      <EnableUser></EnableUser>
     </div>
   );
 }
