@@ -169,7 +169,7 @@ class UserTask(Resource):
         )
 
     @log_response
-    @verify_admin_or_export_perm
+    @verify_admin_permissions
     @login_required
     def delete(self, username):
         found_user = user.get_namespace_user(username)
