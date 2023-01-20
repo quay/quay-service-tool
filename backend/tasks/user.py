@@ -265,3 +265,39 @@ class FetchUserFromEmailTask(Resource):
             return make_response(
                 json.dumps({"message": f"Unable to fetch user {quayuseremail}"}), 500
             )
+
+
+class UpdateEmailTask(Resource):
+    @log_response
+    @verify_admin_permissions
+    @login_required
+    def put(self):
+        parser = reqparse.RequestParser()
+        parser.add_argument("username", type=str, help="current username")
+        parser.add_argument("newEmail", type=str, help="new email")
+        args = parser.parse_args()
+        username = args.get("username")
+        new_email = args.get("newEmail")
+
+        try:
+            curr_user = user.get_namespace_user(username)
+            if curr_user is None:
+                return make_response(
+                    json.dumps({"message": f"Could not find user {current_user_name}"}),
+                    404,
+                )
+            user.update_email(curr_user, new_email, True)
+            return make_response(f"email for user {username} has been updated to {new_email}", 200)
+        except DataModelException as e:
+            return make_response(
+                json.dumps(
+                    {
+                        "message": str(e)
+                    }
+                ),
+                400,
+            )
+        except Exception as e:
+            return make_response(
+                json.dumps({"message": "Unable to update the username" + str(e)}), 500
+            )
