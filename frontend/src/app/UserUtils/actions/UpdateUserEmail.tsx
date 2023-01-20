@@ -78,6 +78,9 @@ export const UpdateUserEmail: React.FunctionComponent = () => {
                 onChange={(value) => setUsername(value)}
                 placeholder="Username"
               />
+            </FormGroup>
+
+            <FormGroup label="New Email" fieldId="update-email-newemail" isRequired>
               <TextInput
                 isRequired
                 type="text"
