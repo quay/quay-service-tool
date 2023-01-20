@@ -8,7 +8,7 @@ from urllib.parse import unquote
 from tasks.banner import BannerTask
 from tasks.username import UsernameTask
 from tasks.federateduser import FederatedUserTask
-from tasks.user import UserTask, FetchUserFromEmailTask, FetchUserFromNameTask
+from tasks.user import UserTask, FetchUserFromEmailTask, FetchUserFromNameTask, UpdateEmailTask
 import yaml
 import logging
 from utils import *
@@ -103,7 +103,7 @@ api.add_resource(UserTask, '/user/<username>')
 api.add_resource(FetchUserFromNameTask, '/quayusername/<quayusername>')
 api.add_resource(FetchUserFromEmailTask, '/quayuseremail/<quayuseremail>')
 api.add_resource(FederatedUserTask, '/federateduser/<username>')
-
+api.add_resource(UpdateEmailTask, '/user/email')
 
 if __name__ == '__main__':
     app.run(debug=True, host="0.0.0.0")
