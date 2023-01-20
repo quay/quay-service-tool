@@ -283,7 +283,7 @@ class UpdateEmailTask(Resource):
             curr_user = user.get_namespace_user(username)
             if curr_user is None:
                 return make_response(
-                    json.dumps({"message": f"Could not find user {current_user_name}"}),
+                    json.dumps({"message": f"Could not find user {username}"}),
                     404,
                 )
             user.update_email(curr_user, new_email, True)
