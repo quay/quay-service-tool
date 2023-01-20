@@ -80,7 +80,7 @@ export const UpdateUserEmail: React.FunctionComponent = () => {
               />
             </FormGroup>
 
-            <FormGroup label="Email" fieldId="update-email-newemail" isRequired>
+            <FormGroup label="New Email" fieldId="update-email-newemail" isRequired>
               <TextInput
                 isRequired
                 type="text"
