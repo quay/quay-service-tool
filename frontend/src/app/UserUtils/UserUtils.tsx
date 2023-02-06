@@ -18,6 +18,7 @@ import { DeleteUser } from './actions/DeleteUser';
 import {FetchUserFromEmail} from "./actions/FetchUserFromEmail";
 import {FetchUserFromName}  from "./actions/FetchUserFromName";
 import { UpdateUserEmail } from './actions/UpdateUserEmail';
+import { EnableUser } from './actions/EnableUser';
 
 type Props = {
 
@@ -96,6 +97,7 @@ export const UserUtils : React.FunctionComponent = (props: Props) => {
         </Card>
       </PageSection>
 
+      <EnableUser></EnableUser>
       <DeleteUser></DeleteUser>
       <FetchUserFromEmail></FetchUserFromEmail>
       <FetchUserFromName></FetchUserFromName>
