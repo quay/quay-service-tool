@@ -95,6 +95,9 @@ export const FetchUserFromName: React.FunctionComponent = (props) => {
                   <TextListItem component={TextListItemVariants.dt}>Invoice Email</TextListItem>
                   <TextListItem component={TextListItemVariants.dd}>{response.invoice_email}</TextListItem>
 
+                  <TextListItem component={TextListItemVariants.dt}>Stripe ID</TextListItem>
+                  <TextListItem component={TextListItemVariants.dd}>{response.stripe_id}</TextListItem>
+
                   <TextListItem component={TextListItemVariants.dt}>Private Repositories count</TextListItem>
                   <TextListItem component={TextListItemVariants.dd}>{response.private_repo_count}</TextListItem>
 
