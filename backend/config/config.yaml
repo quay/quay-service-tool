@@ -1,12 +1,11 @@
 DATABASE_SECRET_KEY: 'randomkey'
 DB_URI: postgresql://quay:quay@host.docker.internal:5432/quay
-#DB_URI: postgresql://quay:quay@localhost:5432/quay
 # If service tool backend is run outside a container:
 #DB_URI: postgresql://quay:quay@0.0.0.0:5432/quay
 is_local: true
 
 # Used to test authentication in local env
-test_auth: false
+test_auth: true
 authentication:
   url: http://host.docker.internal:8081/auth
   # If keycloak is run outside a container
