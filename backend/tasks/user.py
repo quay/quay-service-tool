@@ -109,49 +109,7 @@ class UserTask(Resource):
             with db_transaction():
                 found_user.enabled = enable
                 found_user.save()
-                repositories_query = Repository.select().where(
-                    Repository.namespace_user == found_user
-                )
-                if len(repositories_query.clone()):
-                    builds = list(
-                        RepositoryBuild.select().where(
-                            RepositoryBuild.repository << list(repositories_query)
-                        )
-                    )
-
-                    triggers = list(
-                        RepositoryBuildTrigger.select().where(
-                            RepositoryBuildTrigger.repository
-                            << list(repositories_query)
-                        )
-                    )
-
-                    mirrors = list(
-                        RepoMirrorConfig.select().where(
-                            RepoMirrorConfig.repository << list(repositories_query)
-                        )
-                    )
-
-                    # Delete all builds for the user's repositories.
-                    if builds:
-                        RepositoryBuild.delete().where(
-                            RepositoryBuild.id << builds
-                        ).execute()
-
-                    # Delete all build triggers for the user's repositories.
-                    if triggers:
-                        RepositoryBuildTrigger.delete().where(
-                            RepositoryBuildTrigger.id << triggers
-                        ).execute()
-
-                    # Delete all mirrors for the user's repositories.
-                    if mirrors:
-                        RepoMirrorConfig.delete().where(
-                            RepoMirrorConfig.id << mirrors
-                        ).execute()
-
-                    # Delete all queue items for the user's namespace.
-                    dockerfile_build_queue.delete_namespaced_items(found_user.username)
+                
         except Exception as e:
             return make_response(
                 json.dumps({"message": "Unable to update enable status"}), 500

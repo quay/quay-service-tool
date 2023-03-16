@@ -89,7 +89,7 @@ export const DisableUser: React.FunctionComponent = (props: Props) => {
     <PageSection>
         {modal}
         <Card>
-          <CardTitle className={"text-uppercase"}> Disable User and Clean Build Queue </CardTitle>
+          <CardTitle className={"text-uppercase"}> Disable User </CardTitle>
           {alert.show && <Alert id="disable-user-alert" isInline actionClose={<AlertActionCloseButton onClose={() => setAlert({ variant: 'success', show: false, title: ''})} />} variant={alert.variant} title={alert.title} />}
           <CardBody>
             <Form id="enable-user-form">
