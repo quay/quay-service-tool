@@ -72,6 +72,12 @@ parameters:
 - name: SYSLOG_PROTO
   value: "udp"
   displayName: syslog protocol
+- name: QUAY_APP_COMPONENT_ANNOTATIONS_KEY
+  value: "quay-service-tool-app-deployment"
+  displayName: quay service tool app annotation
+- name: QUAY_APP_COMPONENT_ANNOTATIONS_VALUE
+  value: "update_me_when_secret_changes"
+  displayName: quay service tool app annotation value
 objects:
 - apiVersion: apps/v1
   kind: Deployment
@@ -87,6 +93,8 @@ objects:
       metadata:
         labels:
           app: quayio-service-tool
+        annotations:
+          ${{QUAY_APP_COMPONENT_ANNOTATIONS_KEY}}: ${{QUAY_APP_COMPONENT_ANNOTATIONS_VALUE}}
       spec:
         volumes:
         - name: config
