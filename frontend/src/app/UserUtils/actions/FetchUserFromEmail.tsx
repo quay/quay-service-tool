@@ -68,6 +68,9 @@ export const FetchUserFromEmail: React.FunctionComponent = (props) => {
             { response ? (
               <TextContent>
                 <TextList component={TextListVariants.dl}>
+                  <TextListItem component={TextListItemVariants.dt}>User account number</TextListItem>
+                  <TextListItem component={TextListItemVariants.dd}>{response.account_number}</TextListItem>
+
                   <TextListItem component={TextListItemVariants.dt}>Quay.io User name</TextListItem>
                   <TextListItem component={TextListItemVariants.dd}>{response.username}</TextListItem>
 

@@ -4,7 +4,7 @@ from flask import make_response
 import json
 
 from utils import create_transaction as tf, log_response, verify_admin_permissions, verify_export_compliance_permissions, verify_admin_or_export_perm
-from data.model import user, db_transaction
+from data.model import user, db_transaction, entitlements
 from data.database import (
     Repository,
     RepositoryBuild,
@@ -162,9 +162,11 @@ class FetchUserFromNameTask(Resource):
 
             private_repo_count = user.get_private_repo_count(found_user.username)
             public_repo_count = user.get_public_repo_count(found_user.username)
+            account_number = entitlements.get_ebs_account_number(found_user.id)
 
             return make_response(
                 json.dumps({
+                    "account_number": account_number,
                     "email": found_user.email,
                     "enabled": found_user.enabled,
                     "paid_user": True if found_user.stripe_id else False,
@@ -204,8 +206,11 @@ class FetchUserFromEmailTask(Resource):
             private_repo_count = user.get_private_repo_count(found_user.username)
             public_repo_count = user.get_public_repo_count(found_user.username)
 
+            account_number = entitlements.get_ebs_account_number(found_user.id)
+
             return make_response(
                 json.dumps({
+                    "account_number": account_number,
                     "username": found_user.username,
                     "enabled": found_user.enabled,
                     "paid_user": True if found_user.stripe_id else False,
