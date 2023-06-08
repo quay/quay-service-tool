@@ -11,7 +11,7 @@ const _axios = axios.create();
 
 const configure = () => {
   _axios.interceptors.request.use((config) => {
-    if (process.env.NODE_ENV !== "production" && !process.env.TEST_LOCAL_AUTH) {
+    if (process.env.NODE_ENV !== "production" && process.env.TEST_LOCAL_AUTH != 'true') {
       return config;
     }
     if (UserService.isLoggedIn()) {
