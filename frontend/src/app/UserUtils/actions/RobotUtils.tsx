@@ -20,7 +20,7 @@ type AlertType = {
   title: string;
 }
 
-export const UpdateUserEmail: React.FunctionComponent = () => {
+export const CreateRobotToken: React.FunctionComponent = () => {
   const [robotName, setRobotName] = useState('');
   const [orgName, setOrgName] = useState('');
   const [token, setToken] = useState('');
@@ -32,7 +32,7 @@ export const UpdateUserEmail: React.FunctionComponent = () => {
   });
 
 
-  async function updateEmail(){
+  async function createRobotToken(){
     HttpService.axiosClient.post(`/robot/token`, {robot_name: robotName, organization: orgName, token: token})
       .then(function(response){
         setShowModal(false);
@@ -56,7 +56,7 @@ export const UpdateUserEmail: React.FunctionComponent = () => {
         onClose={() => {setShowModal(false)}}
         aria-describedby="no-header-example"
       >
-        <Button id="create-robot-token-confirm" variant="primary" onClick={updateEmail}>Update Email</Button>
+        <Button id="create-robot-token-confirm" variant="primary" onClick={createRobotToken}>Create Robot Token</Button>
       </Modal>
     );
   }

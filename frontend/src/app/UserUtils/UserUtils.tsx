@@ -19,6 +19,7 @@ import {FetchUserFromEmail} from "./actions/FetchUserFromEmail";
 import {FetchUserFromName}  from "./actions/FetchUserFromName";
 import { UpdateUserEmail } from './actions/UpdateUserEmail';
 import { EnableUser } from './actions/EnableUser';
+import {CreateRobotToken} from "@app/UserUtils/actions/RobotUtils";
 
 type Props = {
 
@@ -102,6 +103,7 @@ export const UserUtils : React.FunctionComponent = (props: Props) => {
       <FetchUserFromEmail></FetchUserFromEmail>
       <FetchUserFromName></FetchUserFromName>
       <UpdateUserEmail></UpdateUserEmail>
+      <CreateRobotToken/>
 
       {/* Email invoice and send confirmation email are future items */}
       {/* <PageSection>
