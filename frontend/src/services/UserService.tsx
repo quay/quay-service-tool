@@ -41,7 +41,7 @@ const updateToken = (successCallback) =>
 
 const username = () => KeycloakInstance.tokenParsed?.preferred_username;
 
-const hasRealmRole = (role) => KeycloakInstance.hasRealmRole(role);
+const hasRealmRole = (role) => process.env.NODE_ENV == "production" ? KeycloakInstance.hasRealmRole(role) : true;
 
 const UserService = {
   Keycloak,

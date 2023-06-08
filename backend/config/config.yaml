@@ -5,7 +5,7 @@ DB_URI: postgresql://quay:quay@host.docker.internal:5432/quay
 is_local: true
 
 # Used to test authentication in local env
-test_auth: true
+test_auth: false
 authentication:
   url: http://host.docker.internal:8081/auth
   # If keycloak is run outside a container
