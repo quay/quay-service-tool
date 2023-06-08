@@ -19,7 +19,7 @@ import {FetchUserFromEmail} from "./actions/FetchUserFromEmail";
 import {FetchUserFromName}  from "./actions/FetchUserFromName";
 import { UpdateUserEmail } from './actions/UpdateUserEmail';
 import { EnableUser } from './actions/EnableUser';
-import {CreateRobotToken} from "@app/UserUtils/actions/RobotUtils";
+import {CreateRobotToken} from "./actions/RobotUtils";
 
 type Props = {
 
