@@ -6,7 +6,7 @@ from prometheus_flask_exporter import PrometheusMetrics
 
 from urllib.parse import unquote
 
-from backend.tasks.robot_token import RobotTokenTask
+from tasks.robot_token import RobotTokenTask
 from tasks.banner import BannerTask
 from tasks.username import UsernameTask
 from tasks.federateduser import FederatedUserTask

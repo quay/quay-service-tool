@@ -1,2 +1,10 @@
 git+https://github.com/quay/quay@7c566ad4f3879e08ed82955a14122cd2a2e1f269#egg=quay
+markupsafe==2.0.1
+itsdangerous==2.0.1
+flask-restful==0.3.10
+Flask-Login==0.4.1
+python-keycloak==0.24
+prometheus-client==0.13.1
+prometheus-flask-exporter==0.18.7
+text_unidecode==1.3
 

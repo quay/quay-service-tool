@@ -5,7 +5,7 @@ from flask import make_response
 from flask_login import login_required
 from flask_restful import Resource, reqparse
 
-from backend.utils import log_response, verify_admin_permissions
+from utils import log_response, verify_admin_permissions
 
 from data.model import user, organization, InvalidOrganizationException, DataModelException, InvalidRobotException
 
