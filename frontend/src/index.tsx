@@ -21,7 +21,7 @@ if (process.env.NODE_ENV !== "production") {
 
 const renderApp = () => ReactDOM.render(<App />, document.getElementById("root") as HTMLElement);
 if (process.env.NODE_ENV !== "production") {
-  if (process.env.TEST_LOCAL_AUTH) {
+  if (process.env.TEST_LOCAL_AUTH == 'true') {
     // Testing auth on dev env
     UserService.initKeycloak(renderApp);
   } else {
