@@ -5,6 +5,8 @@ from keycloak import KeycloakOpenID
 from prometheus_flask_exporter import PrometheusMetrics
 
 from urllib.parse import unquote
+
+from tasks.robot_token import RobotTokenTask
 from tasks.banner import BannerTask
 from tasks.username import UsernameTask
 from tasks.federateduser import FederatedUserTask
@@ -104,6 +106,7 @@ api.add_resource(FetchUserFromNameTask, '/quayusername/<quayusername>')
 api.add_resource(FetchUserFromEmailTask, '/quayuseremail/<quayuseremail>')
 api.add_resource(FederatedUserTask, '/federateduser/<username>')
 api.add_resource(UpdateEmailTask, '/user/email')
+api.add_resource(RobotTokenTask, '/robot/token')
 
 if __name__ == '__main__':
     app.run(debug=True, host="0.0.0.0")
