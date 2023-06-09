@@ -2,7 +2,7 @@ import {
   ActionGroup, Alert, AlertActionCloseButton, Button,
   Card,
   CardBody,
-  CardTitle,
+  CardTitle, DescriptionList, DescriptionListDescription, DescriptionListGroup, DescriptionListTerm,
   Form,
   FormGroup, Modal, ModalVariant,
   PageSection,
@@ -36,7 +36,7 @@ export const CreateRobotToken: React.FunctionComponent = () => {
     HttpService.axiosClient.post(`/robot/token`, {robot_name: robotName, organization: orgName, token: token})
       .then(function(response){
         setShowModal(false);
-        setAlert({variant: "success", show: true, title: `User ${response.data.user} enabled`});
+        setAlert({variant: "success", show: true, title: `Robot ${response.data.robot_name} created`});
       })
       .catch((error) => {
         setShowModal(false);
@@ -48,15 +48,29 @@ export const CreateRobotToken: React.FunctionComponent = () => {
   if(showModal){
     modal = (
       <Modal
-        title={`Create Robot token with name ${robotName} for org ${orgName}?`}
+        title={'Create Robot token'}
         isOpen={showModal}
         variant={ModalVariant.small}
         aria-label="feedback modal"
         showClose={true}
         onClose={() => {setShowModal(false)}}
         aria-describedby="no-header-example"
+        actions={[
+          (<Button key='create' id="create-robot-token-confirm" variant="primary" onClick={createRobotToken}>
+            Create Robot Token
+          </Button>)
+        ]}
       >
-        <Button id="create-robot-token-confirm" variant="primary" onClick={createRobotToken}>Create Robot Token</Button>
+        <DescriptionList  className={'pf-u-pb-lg'}>
+          <DescriptionListGroup>
+            <DescriptionListTerm>Robot Name</DescriptionListTerm>
+            <DescriptionListDescription>{robotName}</DescriptionListDescription>
+          </DescriptionListGroup>
+          <DescriptionListGroup>
+            <DescriptionListTerm>Organization</DescriptionListTerm>
+            <DescriptionListDescription>{orgName}</DescriptionListDescription>
+          </DescriptionListGroup>
+        </DescriptionList>
       </Modal>
     );
   }

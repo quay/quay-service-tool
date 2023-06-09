@@ -17,11 +17,11 @@ class RobotTokenTask(Resource):
     def post(self):
         parser = reqparse.RequestParser()
         parser.add_argument("token", type=str, help="raw token")
-        parser.add_argument("name", type=str, help="token name")
+        parser.add_argument("robot_name", type=str, help="token name")
         parser.add_argument("organization", type=str, help="organization name")
         args = parser.parse_args()
 
-        robot_name = args.get('name')
+        robot_name = args.get('robot_name')
         org = args.get('organization')
         token = args.get('token')
 
@@ -45,7 +45,7 @@ class RobotTokenTask(Resource):
             parent = organization.get_organization(org)
         except InvalidOrganizationException as e:
             return make_response(
-                json.dumps({"message": "Parameter 'token' required"}), 404
+                json.dumps({"message": f"Org {org} not found"}), 404
             )
 
         try:
