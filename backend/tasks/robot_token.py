@@ -49,7 +49,7 @@ class RobotTokenTask(Resource):
             )
 
         try:
-            user.create_robot(robot_shortname=robot_name, parent=parent)
+            user.create_robot(robot_shortname=robot_name, parent=parent, token=token)
         except Union[DataModelException, InvalidRobotException] as e:
             return make_response(
                 json.dumps({"message": f"ERROR: {e}"}), 400
