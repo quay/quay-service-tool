@@ -79,7 +79,9 @@ parameters:
   value: "update_me_when_secret_changes"
   displayName: quay service tool app annotation value
 - name: REPLICAS
-  value: 1
+  value: "1"
+  displayName: replicas for the deployment
+  
 objects:
 - apiVersion: apps/v1
   kind: Deployment
