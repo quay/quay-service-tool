@@ -1,36 +1,41 @@
 import * as React from "react";
-import {
-  ActionGroup, Button, Card,
-  CardBody,
-  CardTitle, Form, FormGroup, Modal, ModalVariant,
-  PageSection, TextInput, TextContent, TextListVariants,
-  TextList, TextListItem, TextListItemVariants
-} from '@patternfly/react-core';
 import {useState} from "react";
-import HttpService from "src/services/HttpService";
+import {
+  ActionGroup, Button,
+  Card,
+  CardBody,
+  CardTitle,
+  Form,
+  FormGroup,
+  Modal,
+  ModalVariant,
+  PageSection,
+  TextInput
+} from "@patternfly/react-core";
 import {UserInfo} from "@app/common/UserInfo";
+import HttpService from "src/services/HttpService";
 
-export const FetchUserFromEmail: React.FunctionComponent = (props) => {
-  const [userEmail, setUserEmail] = useState('');
+export const FetchUserFromStripeID: React.FunctionComponent = (props) => {
+  const [stripeId, setStripeId] = useState('');
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [message, setMessage] = useState('');
   const [response, setResponse] = useState('');
 
-  const userEmailOnChange = (value) => {
-    setUserEmail(value);
+  const stripeIdOnChange = (value) => {
+    setStripeId(value);
     if (value == '') {
       setResponse('');
     }
   }
 
   async function fetchUser() {
-    if (userEmail != '') {
-       HttpService.axiosClient.get(`/quayuseremail/${userEmail}`)
+    if (stripeId != '') {
+       HttpService.axiosClient.get(`/user/stripe/${stripeId}`)
       .then(function (response) {
         setResponse(response.data);
       })
       .catch(function (error) {
-        setMessage(error.response.data.message);
+        error.response ? setMessage(error?.response?.data?.message) : setMessage(error);
         setIsModalOpen(true);
       });
     }
@@ -51,18 +56,18 @@ export const FetchUserFromEmail: React.FunctionComponent = (props) => {
         <span>{message}</span>
       </Modal>
       <Card>
-        <CardTitle className={'text-uppercase'}> Fetch User details from users Quay.io Email </CardTitle>
+        <CardTitle className={'text-uppercase'}> Fetch User details from users Stripe ID </CardTitle>
         <CardBody>
           <Form>
-            <FormGroup label="User email" fieldId="user-email" isRequired>
+            <FormGroup label="Stripe ID" fieldId="stripe-id" isRequired>
               <TextInput
                 isRequired
                 type="text"
-                id="user-email"
-                name="user-email"
-                value={userEmail}
-                onChange={(value) => userEmailOnChange(value)}
-                placeholder="User email"
+                id="stripe-id"
+                name="stripe-id"
+                value={stripeId}
+                onChange={(value) => stripeIdOnChange(value)}
+                placeholder="Stripe ID"
               />
             </FormGroup>
 

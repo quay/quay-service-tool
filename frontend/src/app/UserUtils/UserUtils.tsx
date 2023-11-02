@@ -20,6 +20,7 @@ import {FetchUserFromName}  from "./actions/FetchUserFromName";
 import { UpdateUserEmail } from './actions/UpdateUserEmail';
 import { EnableUser } from './actions/EnableUser';
 import {CreateRobotToken} from "./actions/RobotUtils";
+import { FetchUserFromStripeID } from './actions/FetchUserFromStripeID';
 
 type Props = {
 
@@ -98,11 +99,12 @@ export const UserUtils : React.FunctionComponent = (props: Props) => {
         </Card>
       </PageSection>
 
-      <EnableUser></EnableUser>
-      <DeleteUser></DeleteUser>
-      <FetchUserFromEmail></FetchUserFromEmail>
-      <FetchUserFromName></FetchUserFromName>
-      <UpdateUserEmail></UpdateUserEmail>
+      <EnableUser />
+      <DeleteUser />
+      <FetchUserFromEmail />
+      <FetchUserFromName />
+      <FetchUserFromStripeID />
+      <UpdateUserEmail />
       <CreateRobotToken/>
 
       {/* Email invoice and send confirmation email are future items */}
