@@ -172,7 +172,6 @@ class FetchUserFromNameTask(Resource):
                     "is_organization": found_user.organization,
                     "company": found_user.company,
                     "creation_date": str(found_user.creation_date),
-                    "last_accessed": str(found_user.last_accessed),
                     "invoice_email": found_user.invoice_email_address,
                     "stripe_id": found_user.stripe_id,
                     "private_repo_count": private_repo_count,
@@ -213,7 +212,6 @@ class FetchUserFromEmailTask(Resource):
                     "is_organization": found_user.organization,
                     "company": found_user.company,
                     "creation_date": str(found_user.creation_date),
-                    "last_accessed": str(found_user.last_accessed),
                     "invoice_email": found_user.invoice_email_address,
                     "stripe_id": found_user.stripe_id,                    
                     "private_repo_count": private_repo_count,
@@ -226,6 +224,45 @@ class FetchUserFromEmailTask(Resource):
                 json.dumps({"message": f"Unable to fetch user {quayuseremail}"}), 500
             )
 
+
+class FetchUserFromStripeID(Resource):
+    @log_response
+    @verify_admin_permissions
+    @login_required
+    def get(self, stripe_id):
+        if stripe_id is None:
+            return make_response(
+                json.dumps({"message": "Parameter 'quay stripe id' is required"}), 400
+            )
+        try:
+            found_user = user.get_user_or_org_by_customer_id(stripe_id)
+            if found_user is None:
+                return make_response(
+                    json.dumps({"message": f"Could not find user with stripe ID {stripe_id}"}), 404
+                )
+            private_repo_count = user.get_private_repo_count(found_user.username)
+            public_repo_count = user.get_public_repo_count(found_user.username)
+
+            return make_response(
+                json.dumps({
+                    "username": found_user.username,
+                    "enabled": found_user.enabled,
+                    "paid_user": True if found_user.stripe_id else False,
+                    "is_organization": found_user.organization,
+                    "company": found_user.company,
+                    "creation_date": str(found_user.creation_date),
+                    "last_accessed": str(found_user.last_accessed),
+                    "invoice_email": found_user.invoice_email_address,
+                    "stripe_id": found_user.stripe_id,
+                    "private_repo_count": private_repo_count,
+                    "public_repo_count": public_repo_count,
+                }),
+                200,
+            )
+        except Exception as e:
+            return make_response(
+                json.dumps({"message": f"Unable to fetch user with stripe ID {stripe_id}"}), 500
+            )
 
 class UpdateEmailTask(Resource):
     @log_response

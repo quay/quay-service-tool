@@ -8,7 +8,6 @@ from data.model import user
 
 
 class FederatedUserTask(Resource):
-
     @log_response
     @verify_export_compliance_permissions
     @login_required

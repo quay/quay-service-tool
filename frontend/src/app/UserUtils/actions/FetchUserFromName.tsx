@@ -8,6 +8,7 @@ import {
 } from '@patternfly/react-core';
 import {useState} from "react";
 import HttpService from "src/services/HttpService";
+import {UserInfo} from "@app/common/UserInfo";
 
 export const FetchUserFromName: React.FunctionComponent = (props) => {
   const [userName, setUserName] = useState('');
@@ -65,47 +66,7 @@ export const FetchUserFromName: React.FunctionComponent = (props) => {
               />
             </FormGroup>
 
-            { response ? (
-              <TextContent>
-                <TextList component={TextListVariants.dl}>
-                  <TextListItem component={TextListItemVariants.dt}>User email</TextListItem>
-                  <TextListItem component={TextListItemVariants.dd}>{response.email}</TextListItem>
-
-                  <TextListItem component={TextListItemVariants.dt}>Enabled</TextListItem>
-                  <TextListItem component={TextListItemVariants.dd}>{response.enabled.toString()}</TextListItem>
-
-                  <TextListItem component={TextListItemVariants.dt}>Is Paid User</TextListItem>
-                  <TextListItem component={TextListItemVariants.dd}>{response.paid_user.toString()}</TextListItem>
-
-                  <TextListItem component={TextListItemVariants.dt}>Last Accessed</TextListItem>
-                  <TextListItem component={TextListItemVariants.dd}>{response.last_accessed}</TextListItem>
-
-                  <TextListItem component={TextListItemVariants.dt}>Is Organization</TextListItem>
-                  <TextListItem component={TextListItemVariants.dd}>{response.is_organization.toString()}</TextListItem>
-
-                  <TextListItem component={TextListItemVariants.dt}>Company</TextListItem>
-                  <TextListItem component={TextListItemVariants.dd}>{response.company}</TextListItem>
-
-                  <TextListItem component={TextListItemVariants.dt}>Creation date</TextListItem>
-                  <TextListItem component={TextListItemVariants.dd}>{response.creation_date}</TextListItem>
-
-                  <TextListItem component={TextListItemVariants.dt}>Last Accessed on</TextListItem>
-                  <TextListItem component={TextListItemVariants.dd}>{response.last_accessed}</TextListItem>
-
-                  <TextListItem component={TextListItemVariants.dt}>Invoice Email</TextListItem>
-                  <TextListItem component={TextListItemVariants.dd}>{response.invoice_email}</TextListItem>
-
-                  <TextListItem component={TextListItemVariants.dt}>Stripe ID</TextListItem>
-                  <TextListItem component={TextListItemVariants.dd}>{response.stripe_id}</TextListItem>
-
-                  <TextListItem component={TextListItemVariants.dt}>Private Repositories count</TextListItem>
-                  <TextListItem component={TextListItemVariants.dd}>{response.private_repo_count}</TextListItem>
-
-                  <TextListItem component={TextListItemVariants.dt}>Public Repositories count</TextListItem>
-                  <TextListItem component={TextListItemVariants.dd}>{response.public_repo_count}</TextListItem>
-                </TextList>
-              </TextContent>) : null
-            }
+            { response ? <UserInfo userinfo={response} /> : null }
 
             <ActionGroup>
               <Button variant="primary" onClick={fetchUser}>
