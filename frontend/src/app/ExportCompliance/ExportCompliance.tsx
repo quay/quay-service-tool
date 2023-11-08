@@ -11,6 +11,7 @@ import HttpService from "src/services/HttpService";
 import { DisableUser } from "src/app/UserUtils/actions/DisableUser";
 import { EnableUser } from "src/app/UserUtils/actions/EnableUser";
 import {UserInfo} from "@app/common/UserInfo";
+import {FetchUserFromName} from "@app/UserUtils/actions/FetchUserFromName";
 
 export const ExportCompliance: React.FunctionComponent = (props) => {
   const [userName, setUserName] = useState('');
@@ -80,8 +81,9 @@ export const ExportCompliance: React.FunctionComponent = (props) => {
           </CardBody>
         </Card>
       </PageSection>
-      <DisableUser></DisableUser>
-      <EnableUser></EnableUser>
+      <FetchUserFromName />
+      <DisableUser />
+      <EnableUser />
     </div>
   );
 }
