@@ -1,6 +1,6 @@
 git+https://github.com/quay/quay@bf82e26c56416ec3d0a812c051baa60ccdc76bea#egg=quay
 markupsafe==2.0.1
-itsdangerous==2.0.1
+itsdangerous==2.1.2
 flask-restful==0.3.10
 Flask-Login==0.4.1
 python-keycloak==0.24
