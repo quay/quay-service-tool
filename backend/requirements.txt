@@ -1,4 +1,4 @@
-git+https://github.com/quay/quay@ce1c043e8fab28ebc96bff4883d62160e4dba96f#egg=quay
+git+https://github.com/quay/quay@bf82e26c56416ec3d0a812c051baa60ccdc76bea#egg=quay
 markupsafe==2.0.1
 itsdangerous==2.0.1
 flask-restful==0.3.10
