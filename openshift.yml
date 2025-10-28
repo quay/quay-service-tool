@@ -81,6 +81,19 @@ parameters:
 - name: REPLICAS
   value: "1"
   displayName: replicas for the deployment
+  # DVO
+- name: QUAY_DISABLE_MIN_REPLICAS_CHECK
+  displayName: Disable Minimum Replicas Check
+  value: "min-replicas-check-not-disabled"
+- name: QUAY_DISABLE_MIN_REPLICAS_REASON
+  displayName: Reason for Disabling Minimum Replicas Check
+  value: ""
+- name: QUAY_DISABLE_ANTI_AFFINITY_CHECK
+  value: "anti-affinity-check-not-disabled"
+  displayName: disable DVO check for anti-affinity
+- name: QUAY_DISABLE_ANTI_AFFINITY_REASON
+  value: ""
+  displayName: reason for disabling anti-affinity check
 objects:
 - apiVersion: apps/v1
   kind: Deployment
@@ -88,6 +101,9 @@ objects:
     name: quayio-service-tool
     labels:
       app: quayio-service-tool
+    annotations:
+      ${{QUAY_DISABLE_MIN_REPLICAS_CHECK}}: ${{QUAY_DISABLE_MIN_REPLICAS_REASON}}
+      ${{QUAY_DISABLE_ANTI_AFFINITY_CHECK}}: ${{QUAY_DISABLE_ANTI_AFFINITY_REASON}}
   spec:
     replicas: ${{REPLICAS}}
     selector:
