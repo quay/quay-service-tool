@@ -2,25 +2,38 @@
 name = ""
 version = "0.0.1"
 dependencies = [
-    "quay @ git+https://github.com/quay/quay.git@bf82e26c56416ec3d0a812c051baa60ccdc76bea",
+    "quay @ git+https://github.com/quay/quay.git@57a5e3368fbcbe4f2f9c3d74ffa4e7d689619d03",
     "markupsafe==2.1.3",
     "itsdangerous==2.1.2",
     "flask-restful==0.3.10",
     "flask-login==0.6.3",
     "python-keycloak==0.24",
     "prometheus-client==0.13.1",
-    "prometheus-flask-exporter==0.18.7",
+    "prometheus-flask-exporter==0.23.1",
     "text-unidecode==1.3",
-    "psycopg2-binary==2.9.1",
+    "psycopg2-binary==2.9.9",
     "supervisor==4.2.5",
     "supervisor-logging==0.0.9",
     "supervisor-stdout @ git+https://github.com/quay/supervisor-stdout.git@9bdf630d0d1b4a16cf8b60b96adafb1ed98e7380",
     "pymysql==1.1.1",
     "redis-py-cluster==2.1.3",
+    "resumablesha256==1.0",
+    "deprecation==2.1.0",
+    "opentelemetry-api==1.32.1",
+    "opentelemetry-sdk==1.32.1",
+    "opentelemetry-instrumentation-flask==0.53b1",
+    "opentelemetry-instrumentation-psycopg2==0.53b1",
+    "opentelemetry-exporter-otlp-proto-grpc==1.32.1",
+    "opentelemetry-exporter-otlp-proto-http==1.32.1",
 ]
 
 [tool.uv]
 package = false
 override-dependencies = [
     "svglib==1.5.1", # this is needed otherwise Quay will try to install pycairo which doesn't work in Ubi
+]
+
+[dependency-groups]
+dev = [
+    "pytest>=8.4.2",
 ]
