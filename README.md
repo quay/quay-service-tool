@@ -53,7 +53,7 @@ Start the application using docker-compose.yml.
 
 ### Backend
 
-The application uses: Python 3.8.0. So, please create a Python Environment - 3.8.0 and install the requirements from [here](https://github.com/quay/quay-service-tool/blob/main/backend/requirements.txt).
+The application uses: Python 3.12.0. So, please create a Python Environment - 3.12.0 and install the requirements using [uv](https://github.com/astral-sh/uv).
 
 Export the path of the `config.yaml` file in the `CONFIG_PATH` environment variable as:
 ```
