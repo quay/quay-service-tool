@@ -1,13 +1,42 @@
-FROM registry.redhat.io/rhel8/python-38
+FROM registry.access.redhat.com/ubi9/python-312:latest AS base
 
-COPY --chown=0:0 . /backend
+ENV SERVICETOOLDIR=/backend
 
-WORKDIR /backend
+COPY --from=ghcr.io/astral-sh/uv:latest /uv /bin/uv
 
-RUN python -m pip install --no-cache-dir --upgrade setuptools pip && \
-    python -m pip install --no-cache-dir -r requirements.txt --no-cache && \
-    python -m pip freeze
+COPY --chown=1001:0 . /backend
+
+RUN chmod -R ug+rwx $SERVICETOOLDIR
+
+USER root
+
+ENV TZ=UTC
+RUN set -ex\
+	; dnf update -y \
+	; dnf -y --setopt=tsflags=nodocs install \
+	gcc-c++ \
+	git \
+	openldap-devel \
+	libffi-devel \
+	openssl-devel \
+	diffutils \
+	file \
+	make \
+	libjpeg-turbo \
+	libjpeg-turbo-devel \
+	freetype-devel \
+	libxml2-devel \
+	libxslt-devel \
+	; dnf -y clean all && rm -rf /var/cache/yum
+
+ENV UV_COMPILE_BYTECODE=true \
+    UV_NO_CACHE=true \
+    UV_PYTHON=3.12
+
+WORKDIR "$SERVICETOOLDIR"
+RUN uv sync --frozen --no-dev
 
 EXPOSE 5000
+USER 1001
 
 ENTRYPOINT ["gunicorn", "-k", "gevent", "-b", "0.0.0.0:5000", "app:app"]
