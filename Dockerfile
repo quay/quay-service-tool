@@ -54,6 +54,8 @@ RUN set -ex\
 	libxslt-devel \
 	; dnf -y clean all && rm -rf /var/cache/yum
 
+USER 1001
+
 ENV UV_COMPILE_BYTECODE=true \
     UV_NO_CACHE=true \
     UV_PYTHON=3.12
@@ -61,7 +63,8 @@ ENV UV_COMPILE_BYTECODE=true \
 WORKDIR "$SERVICETOOLDIR"
 RUN uv sync --frozen --no-dev
 
+ENV PATH="$SERVICETOOLDIR/.venv/bin:$PATH"
+
 EXPOSE 5000
-USER 1001
 
 ENTRYPOINT ["dumb-init", "--", "/conf/entrypoint.sh"]
