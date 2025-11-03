@@ -1,4 +1,4 @@
-FROM registry.redhat.io/rhel8/nodejs-16 AS nodebuild
+FROM registry.redhat.io/rhel8/nodejs-16@sha256:d4a32cc382fdd326a3c0c3f41fad72486f44136bb0018edb3a6720c074be065a AS nodebuild
 
 ENV APP_ROOT=/frontend \
     HOME=/frontend \
@@ -19,10 +19,12 @@ RUN npm install --legacy-peer-deps
 RUN npm run build
 
 
-FROM registry.access.redhat.com/ubi8/ubi-minimal:latest AS base
+FROM registry.access.redhat.com/ubi9/python-312:latest@sha256:f17b0788b7eff1683ff8ba7c6a17b907648753d489e8d7d3975eaf6c41644287 AS base
 
 ENV SERVICETOOLDIR=/backend \
     SERVICETOOL_RUN=/conf
+
+COPY --from=ghcr.io/astral-sh/uv:0.9.6@sha256:4b96ee9429583983fd172c33a02ecac5242d63fb46bc27804748e38c1cc9ad0d /uv /bin/uv
 
 COPY --chown=1001:0 ./backend /backend
 COPY --chown=1001:0 ./conf /conf
@@ -31,30 +33,33 @@ COPY --from=nodebuild --chown=1001:0 /frontend/dist /backend/static
 RUN chmod -R ug+rwx $SERVICETOOL_RUN
 RUN chmod -R ug+rwx $SERVICETOOLDIR
 
-ENV TZ UTC
+USER root
+
+ENV TZ=UTC
 RUN set -ex\
-	; microdnf -y module enable python39:3.9 \
-	; microdnf update -y \
-	; microdnf -y --setopt=tsflags=nodocs install \
-	python39 \
+	; dnf update -y \
+	; dnf -y --setopt=tsflags=nodocs install \
 	gcc-c++ \
 	git \
 	openldap-devel \
-	python39-devel \
 	libffi-devel \
         openssl-devel \
         diffutils \
         file \
         make \
         libjpeg-turbo \
-	libjpeg-turbo-devel \python3-gpg git python39-devel gcc-c++ libffi-devel \
-	; microdnf -y clean all && rm -rf /var/cache/yum
+	libjpeg-turbo-devel \
+	freetype-devel \
+	libxml2-devel \
+	libxslt-devel \
+	; dnf -y clean all && rm -rf /var/cache/yum
 
+ENV UV_COMPILE_BYTECODE=true \
+    UV_NO_CACHE=true \
+    UV_PYTHON=3.12
 
 WORKDIR "$SERVICETOOLDIR"
-RUN python3 -m pip install --no-cache-dir --upgrade setuptools pip && \
-    python3 -m pip install --no-cache-dir -r requirements.txt --no-cache && \
-    python3 -m pip freeze
+RUN uv sync --frozen --no-dev
 
 EXPOSE 5000
 USER 1001
