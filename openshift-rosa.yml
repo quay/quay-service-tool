@@ -95,15 +95,15 @@ parameters:
   description: HTTPS Service annotations.
 - name: QUAY_DISABLE_MIN_REPLICAS_CHECK
   displayName: Disable Minimum Replicas Check
-  value: "min-replicas-check-not-disabled"
+  value: "ignore-check.kube-linter.io/minimum-three-replicas"
 - name: QUAY_DISABLE_MIN_REPLICAS_REASON
   displayName: Reason for Disabling Minimum Replicas Check
-  value: ""
+  value: "Service tool only runs with one pod"
 - name: QUAY_DISABLE_ANTI_AFFINITY_CHECK
-  value: "anti-affinity-check-not-disabled"
+  value: "ignore-check.kube-linter.io/no-anti-affinity"
   displayName: disable DVO check for anti-affinity
 - name: QUAY_DISABLE_ANTI_AFFINITY_REASON
-  value: ""
+  value: "Service tool only ones with one replica"
   displayName: reason for disabling anti-affinity check
 objects:
 - apiVersion: apps/v1
