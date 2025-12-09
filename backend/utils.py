@@ -64,7 +64,7 @@ def log_response(func):
             f"{response.status_code} - "
             f"{current_user.username} - "
             f"{current_user.email} - "
-            f"{json.dumps(request.json)} - "
+            f"{json.dumps(request.get_json(silent=True))} - "
             f"{response.data}"
         )
         return response

@@ -31,7 +31,8 @@ RUN set -ex\
 
 ENV UV_COMPILE_BYTECODE=true \
     UV_NO_CACHE=true \
-    UV_PYTHON=3.12
+    UV_PYTHON=3.12 \
+    PATH="/backend/.venv/bin:$PATH"
 
 WORKDIR "$SERVICETOOLDIR"
 RUN uv sync --frozen --no-dev
