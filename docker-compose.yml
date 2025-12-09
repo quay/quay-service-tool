@@ -1,5 +1,3 @@
-version: "3.8"
-
 networks:
   default:
     external: true
@@ -22,6 +20,7 @@ services:
     command: --reload # Appends to entrypoint - enables hot-reloading
     volumes:
       - ./backend:/backend
+      - backend_venv:/backend/.venv
     environment:
       ENV: development
       DEBUG: "True"
@@ -34,6 +33,7 @@ services:
     build: ./frontend
     volumes:
       - './frontend:/usr/src/app'
+      - frontend_node_modules:/usr/src/app/node_modules
     ports:
       - '9000:9000'
     depends_on:
@@ -43,3 +43,7 @@ services:
     environment:
       - NODE_ENV=development
       - TARGET_URL=http://quay-service-tool-api:5000
+
+volumes:
+  backend_venv:
+  frontend_node_modules:
