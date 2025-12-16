@@ -81,18 +81,10 @@ parameters:
 - name: REPLICAS
   value: "1"
   displayName: replicas for the deployment
-- name: LOADBALANCER_SERVICE_ANNOTATIONS
-  value: |-
-    {
-      "service.beta.kubernetes.io/aws-load-balancer-name": "quay-py3-svctool-https-lb",
-      "service.beta.kubernetes.io/aws-load-balancer-type": "external",
-      "service.beta.kubernetes.io/aws-load-balancer-nlb-target-type": "instance",
-      "service.beta.kubernetes.io/aws-load-balancer-scheme": "internal",
-      "service.beta.kubernetes.io/aws-load-balancer-ip-address-type": "ipv4",
-      "service.beta.kubernetes.io/aws-load-balancer-additional-resource-tags": "red-hat-managed=true"
-    }
-  displayName: HTTPS service annotations.
-  description: HTTPS Service annotations.
+- name: SERVICE_ANNOTATIONS
+  value: "{}"
+  displayName: Service annotations.
+  description: Service annotations.
 - name: QUAY_DISABLE_MIN_REPLICAS_CHECK
   displayName: Disable Minimum Replicas Check
   value: "ignore-check.kube-linter.io/minimum-three-replicas"
@@ -236,6 +228,7 @@ objects:
   kind: Service
   metadata:
     name: quayio-service-tool
+    annotations: ${{SERVICE_ANNOTATIONS}}
     labels:
       run: quayio-service-tool
   spec:
@@ -245,30 +238,4 @@ objects:
       targetPort: 5000
     selector:
       app: quayio-service-tool
-- apiVersion: v1
-  kind: Service
-  metadata:
-    name: quayio-service-tool-load-balancer
-    annotations: ${{LOADBALANCER_SERVICE_ANNOTATIONS}}
-    labels:
-      run: quayio-service-tool-load-balancer
-  spec:
-    ports:
-    - name: http
-      port: 80
-      targetPort: 5000
-    type: LoadBalancer
-    selector:
-      app: quayio-service-tool
-- apiVersion: networking.k8s.io/v1
-  kind: NetworkPolicy
-  metadata:
-    name: quayio-service-tool-allow-external
-  spec:
-    podSelector:
-      matchLabels:
-        app: quayio-service-tool
-    ingress:
-      - {}
-    policyTypes:
-      - Ingress
+    type: ClusterIP
