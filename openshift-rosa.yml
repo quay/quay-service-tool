@@ -97,6 +97,12 @@ parameters:
 - name: QUAY_DISABLE_ANTI_AFFINITY_REASON
   value: "Service tool only ones with one replica"
   displayName: reason for disabling anti-affinity check
+- name: QUAY_RESOURCES_REQUESTS_CPU
+  value: "100m"
+- name: QUAY_RESOURCES_REQUESTS_MEMORY
+  value: "128Mi"
+- name: QUAY_RESOURCES_LIMITS_MEMORY
+  value: "256Mi"
 objects:
 - apiVersion: apps/v1
   kind: Deployment
@@ -194,11 +200,10 @@ objects:
           - containerPort: 5000
           resources:
             limits:
-              cpu: 100m
-              memory: 128Mi
+              memory: ${{QUAY_RESOURCES_LIMITS_MEMORY}}
             requests:
-              cpu: 100m
-              memory: 128Mi
+              cpu: ${{QUAY_RESOURCES_REQUESTS_CPU}}
+              memory: ${{QUAY_RESOURCES_REQUESTS_MEMORY}}
           env:
           - name: CONFIG_PATH
             value: ${{CONFIG_MOUNT_PATH}}
