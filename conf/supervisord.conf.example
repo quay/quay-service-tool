@@ -12,6 +12,7 @@ stderr_events_enabled = true
 [eventlistener:stdout]
 environment=
   PYTHONPATH=%(ENV_SERVICETOOLDIR)s
-command=%(ENV_SUPERVISOR_EVENTLISTENER_CMD:supervisor_logging)s
+command=supervisor_logging
+result_handler = supervisor_stdout:event_handler
 buffer_size = 1024
 events = PROCESS_LOG
