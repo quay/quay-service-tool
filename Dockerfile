@@ -22,7 +22,8 @@ RUN npm run build
 FROM registry.access.redhat.com/ubi9/python-312:latest@sha256:f17b0788b7eff1683ff8ba7c6a17b907648753d489e8d7d3975eaf6c41644287 AS base
 
 ENV SERVICETOOLDIR=/backend \
-    SERVICETOOL_RUN=/conf
+    SERVICETOOL_RUN=/conf \
+    SERVICETOOL_LOGGING=syslog
 
 COPY --from=ghcr.io/astral-sh/uv:0.9.6@sha256:4b96ee9429583983fd172c33a02ecac5242d63fb46bc27804748e38c1cc9ad0d /uv /bin/uv
 
