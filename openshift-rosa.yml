@@ -49,9 +49,9 @@ parameters:
   value: "128Mi"
 - name: QUAY_RESOURCES_LIMITS_MEMORY
   value: "256Mi"
-- name: SUPERVISOR_EVENTLISTENER_CMD
-  value: "supervisor_stdout"
-  displayName: Supervisor event listener command
+- name: SERVICETOOL_LOGGING
+  value: "syslog"
+  displayName: Service tool logging method
 objects:
 - apiVersion: apps/v1
   kind: Deployment
@@ -98,8 +98,8 @@ objects:
           env:
           - name: CONFIG_PATH
             value: ${{CONFIG_MOUNT_PATH}}
-          - name: SUPERVISOR_EVENTLISTENER_CMD
-            value: ${{SUPERVISOR_EVENTLISTENER_CMD}}
+          - name: SERVICETOOL_LOGGING
+            value: ${{SERVICETOOL_LOGGING}}
           livenessProbe:
             httpGet:
               path: /healthcheck
