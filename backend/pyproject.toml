@@ -2,7 +2,7 @@
 name = ""
 version = "0.0.1"
 dependencies = [
-    "quay @ git+https://github.com/quay/quay.git@57a5e3368fbcbe4f2f9c3d74ffa4e7d689619d03",
+    "quay @ git+https://github.com/quay/quay.git@510ab6dc301ff1e9ca1faa038ed1cc8f159d6fa6",
     "markupsafe==2.1.3",
     "itsdangerous==2.1.2",
     "flask-restful==0.3.10",
