@@ -43,6 +43,12 @@ parameters:
 - name: QUAY_DISABLE_ANTI_AFFINITY_REASON
   value: "Service tool only ones with one replica"
   displayName: reason for disabling anti-affinity check
+- name: QUAY_DISABLE_CPU_REQUIREMENTS_CHECK
+  value: "ignore-check.kube-linter.io/unset-cpu-requirements"
+  displayName: disable DVO check for CPU requirements
+- name: QUAY_DISABLE_CPU_REQUIREMENTS_REASON
+  value: "CPU limits not set to allow bursting"
+  displayName: reason for disabling CPU requirements check
 - name: QUAY_RESOURCES_REQUESTS_CPU
   value: "100m"
 - name: QUAY_RESOURCES_REQUESTS_MEMORY
@@ -62,6 +68,7 @@ objects:
     annotations:
       ${{QUAY_DISABLE_MIN_REPLICAS_CHECK}}: ${{QUAY_DISABLE_MIN_REPLICAS_REASON}}
       ${{QUAY_DISABLE_ANTI_AFFINITY_CHECK}}: ${{QUAY_DISABLE_ANTI_AFFINITY_REASON}}
+      ${{QUAY_DISABLE_CPU_REQUIREMENTS_CHECK}}: ${{QUAY_DISABLE_CPU_REQUIREMENTS_REASON}}
   spec:
     replicas: ${{REPLICAS}}
     selector:
