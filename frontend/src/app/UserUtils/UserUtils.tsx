@@ -21,6 +21,7 @@ import { UpdateUserEmail } from './actions/UpdateUserEmail';
 import { EnableUser } from './actions/EnableUser';
 import {CreateRobotToken} from "./actions/RobotUtils";
 import { FetchUserFromStripeID } from './actions/FetchUserFromStripeID';
+import { AddOrgOwner } from './actions/AddOrgOwner';
 
 type Props = {
 
@@ -106,6 +107,7 @@ export const UserUtils : React.FunctionComponent = (props: Props) => {
       <FetchUserFromStripeID />
       <UpdateUserEmail />
       <CreateRobotToken/>
+      <AddOrgOwner />
 
       {/* Email invoice and send confirmation email are future items */}
       {/* <PageSection>

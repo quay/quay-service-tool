@@ -53,7 +53,11 @@ Start the application using docker-compose.yml.
 
 ### Backend
 
-The application uses: Python 3.12.0. So, please create a Python Environment - 3.12.0 and install the requirements using [uv](https://github.com/astral-sh/uv).
+The application uses: Python 3.13. So, please create a Python Environment - 3.13 and install the requirements using [uv](https://github.com/astral-sh/uv).
+
+```
+  uv sync
+```
 
 Export the path of the `config.yaml` file in the `CONFIG_PATH` environment variable as:
 ```
@@ -62,7 +66,7 @@ Export the path of the `config.yaml` file in the `CONFIG_PATH` environment varia
 
 Run the server using gunicorn in the `backend` directory as:
 ```
-  gunicorn -k gevent -b 0.0.0.0:5000 app:app
+  uv run gunicorn -k gevent -b 0.0.0.0:5000 app:app
 ```
 This allows flask to serve requests on `http://0.0.0.0:5000`.
 

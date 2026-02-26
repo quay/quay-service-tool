@@ -25,7 +25,12 @@ export const FetchUserFromName: React.FunctionComponent = (props) => {
 
   async function fetchUser() {
     if (userName != '') {
-       HttpService.axiosClient.get(`/quayusername/${userName}`)
+       HttpService.axiosClient.get(`/quayusername/${userName}`, {
+          headers: {
+            'Content-Type': 'application/json'
+          },
+          data: {}
+        })
       .then(function (response) {
         setResponse(response.data);
       })
