@@ -8,7 +8,7 @@ dependencies = [
     "itsdangerous==2.1.2",
     "flask-restful==0.3.10",
     "flask-login==0.6.3",
-    "python-keycloak==0.24",
+    "python-keycloak>=4.0.0",
     "prometheus-client==0.13.1",
     "prometheus-flask-exporter==0.23.1",
     "text-unidecode==1.3",

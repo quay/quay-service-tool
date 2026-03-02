@@ -60,7 +60,7 @@ def load_user_from_request(request):
             return Auth.authenticate_user(token_info, app.config.get('authentication'))
         except Exception as e:
             logging.exception(e)
-            return make_response("Error occured while authentication: ", str(e), 500)
+            return make_response("Error occured while authentication: " + str(e), 500)
     else:
         return User(email="local-dev@testing.com", username="Local Dev", is_authenticated=True)
 
