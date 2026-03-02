@@ -7,7 +7,7 @@ CONFIG_FILE="./supervisord.conf"
 
 if [ "${SERVICETOOL_LOGGING}" = "stdout" ]; then
   LOGGING_CMD="command=supervisor_stdout"
-  RESULT_HANDLER="result_handler = supervisor_stdout:event_handler"
+  RESULT_HANDLER="supervisor_stdout:event_handler"
 else
   LOGGING_CMD="command=supervisor_logging"
   RESULT_HANDLER=""
