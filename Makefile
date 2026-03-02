@@ -1,3 +1,5 @@
+COMPOSE := $(shell command -v podman-compose 2>/dev/null || echo "docker compose")
+
 .PHONY: local-dev-clean
 local-dev-clean:
 	./clean.sh
@@ -8,14 +10,14 @@ local-dev-build-frontend:
 
 .PHONY: local-dev-build
 local-dev-build:
-	docker-compose build
+	$(COMPOSE) build
 
 .PHONY: local-dev-up
 local-dev-up:
 	make local-dev-clean
 	make local-dev-build-frontend
-	docker-compose up -d
+	$(COMPOSE) up -d
 
 .PHONY: local-dev-down
 local-dev-down:
-	docker-compose down
+	$(COMPOSE) down
