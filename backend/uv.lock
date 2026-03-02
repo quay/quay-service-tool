@@ -1,5 +1,5 @@
 version = 1
-revision = 3
+revision = 2
 requires-python = "==3.12.*"
 
 [manifest]
@@ -31,6 +31,7 @@ dependencies = [
     { name = "python-keycloak" },
     { name = "quay" },
     { name = "resumablesha256" },
+    { name = "setuptools" },
     { name = "supervisor" },
     { name = "supervisor-logging" },
     { name = "supervisor-stdout" },
@@ -65,6 +66,7 @@ requires-dist = [
     { name = "python-keycloak", specifier = "==0.24" },
     { name = "quay", git = "https://github.com/quay/quay.git?rev=510ab6dc301ff1e9ca1faa038ed1cc8f159d6fa6" },
     { name = "resumablesha256", specifier = "==1.0" },
+    { name = "setuptools", specifier = ">=75.0.0" },
     { name = "supervisor", specifier = "==4.2.5" },
     { name = "supervisor-logging", specifier = "==0.0.9" },
     { name = "supervisor-stdout", git = "https://github.com/quay/supervisor-stdout.git?rev=9bdf630d0d1b4a16cf8b60b96adafb1ed98e7380" },
