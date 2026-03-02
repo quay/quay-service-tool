@@ -40,4 +40,4 @@ RUN uv sync --frozen --no-dev
 EXPOSE 5000
 USER 1001
 
-ENTRYPOINT ["gunicorn", "-k", "gevent", "-b", "0.0.0.0:5000", "app:app"]
+ENTRYPOINT ["gunicorn", "-k", "gevent", "-b", "0.0.0.0:5000", "--limit-request-field_size", "16384", "app:app"]
