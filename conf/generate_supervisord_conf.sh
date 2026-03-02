@@ -20,7 +20,7 @@ nodaemon=true
 [program:servicetool]
 environment=
   PYTHONPATH=%(ENV_SERVICETOOLDIR)s
-command=gunicorn -k gevent -b 0.0.0.0:5000 app:app
+command=gunicorn -k gevent -b 0.0.0.0:5000 --limit-request-field_size 16384 app:app
 autostart = true
 stdout_events_enabled = true
 stderr_events_enabled = true
