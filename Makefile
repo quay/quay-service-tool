@@ -1,4 +1,4 @@
-COMPOSE := $(shell command -v podman-compose 2>/dev/null || echo "docker compose")
+COMPOSE := $(shell podman compose version >/dev/null 2>&1 && echo "podman compose" || echo "docker compose")
 
 .PHONY: local-dev-clean
 local-dev-clean:
