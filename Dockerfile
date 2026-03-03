@@ -1,10 +1,10 @@
-FROM registry.redhat.io/rhel8/nodejs-16@sha256:d4a32cc382fdd326a3c0c3f41fad72486f44136bb0018edb3a6720c074be065a AS nodebuild
+FROM registry.redhat.io/ubi9/nodejs-22 AS nodebuild
 
 ENV APP_ROOT=/frontend \
     HOME=/frontend \
     NPM_RUN=start \
     PLATFORM="el8" \
-    NODEJS_VERSION=16 \
+    NODEJS_VERSION=22 \
     NPM_RUN=start \
     NAME=nodejs
 

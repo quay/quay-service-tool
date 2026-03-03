@@ -79,7 +79,7 @@
     "webpack": "^5.75.0",
     "webpack-bundle-analyzer": "^4.3.0",
     "webpack-cli": "^4.3.1",
-    "webpack-dev-server": "^3.11.1",
+    "webpack-dev-server": "^4.15.2",
     "webpack-merge": "^5.7.3"
   },
   "dependencies": {
@@ -88,7 +88,7 @@
     "@patternfly/react-icons": "^4.7.22",
     "@patternfly/react-styles": "^4.7.22",
     "@react-keycloak/web": "^3.4.0",
-    "axios": "^0.21.1",
+    "axios": "^1.8.0",
     "keycloak-js": "^15.0.2",
     "react": "^17.0.1",
     "react-dom": "^17.0.1",
