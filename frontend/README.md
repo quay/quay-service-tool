@@ -33,6 +33,13 @@ npm run lint
 # Run the code formatter
 npm run format
 
+# Run the E2E test suite (requires Playwright browsers installed)
+npx playwright install chromium
+npm run test:e2e
+
+# Run E2E tests with interactive UI
+npm run test:e2e:ui
+
 # Launch a tool to inspect the bundle size
 npm run bundle-profile:analyze
 

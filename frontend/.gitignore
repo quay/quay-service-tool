@@ -7,3 +7,5 @@ storybook-static
 .DS_Store
 .idea
 .env
+test-results/
+playwright-report/
