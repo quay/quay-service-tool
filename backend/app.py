@@ -52,11 +52,10 @@ def load_user_from_request(request):
                                             realm_name=app.config.get('authentication', {}).get('realm'),
                                         )
 
-            keycloak_public_key = "-----BEGIN PUBLIC KEY-----\n" + keycloak_openid.public_key() + "\n-----END PUBLIC KEY-----"
-            options = {"verify_signature": True, "verify_aud": True, "verify_exp": True}
-            if app.config.get('is_local'):
-                options['verify_aud'] = False
-            token_info = keycloak_openid.decode_token(bearer_token, key=keycloak_public_key, options=options)
+            check_claims = {}
+            if not app.config.get('is_local'):
+                check_claims["aud"] = app.config.get('authentication', {}).get('clientid')
+            token_info = keycloak_openid.decode_token(bearer_token, check_claims=check_claims)
             return Auth.authenticate_user(token_info, app.config.get('authentication'))
         except Exception as e:
             logging.exception(e)
