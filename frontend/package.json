@@ -37,7 +37,7 @@
     "@storybook/addons": "6.5.16",
     "@storybook/react": "6.5.16",
     "@testing-library/react": "12.1.5",
-    "@types/enzyme": "3.10.12",
+    "@types/enzyme": "3.10.19",
     "@types/enzyme-adapter-react-16": "1.0.6",
     "@types/jest": "26.0.24",
     "@types/react-router-dom": "5.3.3",
