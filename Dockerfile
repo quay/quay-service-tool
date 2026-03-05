@@ -19,7 +19,7 @@ RUN npm install --legacy-peer-deps
 RUN npm run build
 
 
-FROM registry.access.redhat.com/ubi9/python-312:latest@sha256:f17b0788b7eff1683ff8ba7c6a17b907648753d489e8d7d3975eaf6c41644287 AS base
+FROM registry.access.redhat.com/ubi9/python-312:latest@sha256:296739d2ac81b73257716e4eec1a25409c00b46f8d387fc287669ba62a7c1bc2 AS base
 
 ENV SERVICETOOLDIR=/backend \
     SERVICETOOL_RUN=/conf \
