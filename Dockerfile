@@ -1,4 +1,4 @@
-FROM registry.redhat.io/ubi9/nodejs-22 AS nodebuild
+FROM registry.redhat.io/ubi9/nodejs-22@sha256:c22b81d0f1882facb78a992cf75ff673ac2ec273248b652bed2a812c3e5ecc6b AS nodebuild
 
 ENV APP_ROOT=/frontend \
     HOME=/frontend \

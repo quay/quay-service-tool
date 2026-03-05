@@ -1,4 +1,4 @@
-FROM registry.access.redhat.com/ubi9/python-312:latest AS base
+FROM registry.access.redhat.com/ubi9/python-312:latest@sha256:296739d2ac81b73257716e4eec1a25409c00b46f8d387fc287669ba62a7c1bc2 AS base
 
 ENV SERVICETOOLDIR=/backend
 
