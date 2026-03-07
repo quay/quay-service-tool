@@ -25,7 +25,7 @@ ENV SERVICETOOLDIR=/backend \
     SERVICETOOL_RUN=/conf \
     SERVICETOOL_LOGGING=syslog
 
-COPY --from=ghcr.io/astral-sh/uv:0.9.6@sha256:4b96ee9429583983fd172c33a02ecac5242d63fb46bc27804748e38c1cc9ad0d /uv /bin/uv
+COPY --from=ghcr.io/astral-sh/uv:0.10.9@sha256:10902f58a1606787602f303954cea099626a4adb02acbac4c69920fe9d278f82 /uv /bin/uv
 
 COPY --chown=1001:0 ./backend /backend
 COPY --chown=1001:0 ./conf /conf
