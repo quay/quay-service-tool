@@ -88,7 +88,7 @@
   "dependencies": {
     "@hot-loader/react-dom": "^17.0.1",
     "@patternfly/react-core": "^4.84.4",
-    "@patternfly/react-icons": "^4.7.22",
+    "@patternfly/react-icons": "^6.0.0",
     "@patternfly/react-styles": "^4.7.22",
     "@react-keycloak/web": "^3.4.0",
     "axios": "^1.8.0",
