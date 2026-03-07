@@ -67,7 +67,7 @@
     "react-axe": "3.5.4",
     "react-docgen-typescript-loader": "3.7.2",
     "react-hot-loader": "4.13.1",
-    "react-router-dom": "5.3.4",
+    "react-router-dom": "7.13.1",
     "regenerator-runtime": "0.13.11",
     "style-loader": "2.0.0",
     "svg-url-loader": "7.1.1",
