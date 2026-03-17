@@ -8,7 +8,9 @@
   "customManagers": [
     {
       "customType": "regex",
-      "fileMatch": ["backend/pyproject\\.toml"],
+      "managerFilePatterns": [
+        "/backend/pyproject\\.toml/"
+      ],
       "matchStrings": [
         "quay\\s*@\\s*git\\+https://github\\.com/quay/quay\\.git@(?<currentDigest>[a-f0-9]+)"
       ],
