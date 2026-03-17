@@ -4,5 +4,18 @@
     "github>konflux-ci/mintmaker-presets:cve-automerge-critical",
     "config:best-practices",
     ":automergeDigest"
+  ],
+  "customManagers": [
+    {
+      "customType": "regex",
+      "fileMatch": ["backend/pyproject\\.toml"],
+      "matchStrings": [
+        "quay\\s*@\\s*git\\+https://github\\.com/quay/quay\\.git@(?<currentDigest>[a-f0-9]+)"
+      ],
+      "depNameTemplate": "quay/quay",
+      "packageNameTemplate": "https://github.com/quay/quay.git",
+      "datasourceTemplate": "git-refs",
+      "currentValueTemplate": "master"
+    }
   ]
 }
