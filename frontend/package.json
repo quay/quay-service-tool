@@ -31,11 +31,11 @@
     "build:storybook": "build-storybook"
   },
   "devDependencies": {
-    "@storybook/addon-actions": "6.5.16",
+    "@storybook/addon-actions": "9.0.8",
     "@storybook/addon-info": "5.3.21",
-    "@storybook/addon-links": "6.5.16",
-    "@storybook/addons": "6.5.16",
-    "@storybook/react": "6.5.16",
+    "@storybook/addon-links": "10.3.0",
+    "@storybook/addons": "7.6.17",
+    "@storybook/react": "10.3.0",
     "@testing-library/react": "12.1.5",
     "@types/enzyme": "3.10.12",
     "@types/enzyme-adapter-react-16": "1.0.6",
