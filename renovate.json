@@ -3,7 +3,8 @@
   "extends": [
     "github>konflux-ci/mintmaker-presets:cve-automerge-critical",
     "config:best-practices",
-    ":automergeDigest"
+    ":automergeDigest",
+    ":dependencyDashboard"
   ],
   "customManagers": [
     {
