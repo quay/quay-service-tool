@@ -20,5 +20,14 @@
       "datasourceTemplate": "git-refs",
       "currentValueTemplate": "master"
     }
-  ]
+  ],
+  "postUpgradeTasks": {
+    "commands": [
+      "cd backend && uv lock"
+    ],
+    "fileFilters": [
+      "backend/uv.lock"
+    ],
+    "executionMode": "branch"
+  }
 }
