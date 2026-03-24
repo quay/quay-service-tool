@@ -4,7 +4,7 @@ version = "0.0.1"
 requires-python = "==3.12.*"
 dependencies = [
     "quay @ git+https://github.com/quay/quay.git@3f2fba1ab5f93d0b6bfeba93e437fabb68d97237",
-    "markupsafe==2.1.3",
+    "markupsafe==3.0.3",
     "itsdangerous==2.1.2",
     "flask-restful==0.3.10",
     "flask-login==0.6.3",
