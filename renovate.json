@@ -1,24 +1,7 @@
 {
   "$schema": "https://docs.renovatebot.com/renovate-schema.json",
   "extends": [
-    "github>konflux-ci/mintmaker-presets:cve-automerge-critical",
-    "config:best-practices",
-    ":automergeDigest"
-  ],
-  "dependencyDashboard": true,
-  "customManagers": [
-    {
-      "customType": "regex",
-      "managerFilePatterns": [
-        "/backend/pyproject\\.toml/"
-      ],
-      "matchStrings": [
-        "quay\\s*@\\s*git\\+https://github\\.com/quay/quay\\.git@(?<currentDigest>[a-f0-9]+)"
-      ],
-      "depNameTemplate": "quay/quay",
-      "packageNameTemplate": "https://github.com/quay/quay.git",
-      "datasourceTemplate": "git-refs",
-      "currentValueTemplate": "master"
-    }
+    "github>quay/quay-konflux-configs",
+    "github>quay/quay-konflux-configs//renovate-presets/quay-uv"
   ]
 }
