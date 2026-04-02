@@ -1,4 +1,4 @@
-FROM registry.redhat.io/ubi9/nodejs-22@sha256:779375d8e6cb7a6232213f799128ac3e9d9717afa75fc40c23a95917b68ffa79 AS nodebuild
+FROM registry.redhat.io/ubi9/nodejs-22@sha256:eb5bde8091abc5d323b6947a6b51123b89cee59abda02fe732afcabd601a7d06 AS nodebuild
 
 ENV APP_ROOT=/frontend \
     HOME=/frontend \
@@ -19,7 +19,7 @@ RUN npm install --legacy-peer-deps
 RUN npm run build
 
 
-FROM registry.access.redhat.com/ubi9/python-312:latest@sha256:e95978812895b9abb2bdc109b501078da2a47c8dbb9fa23758af40ed50ab6023 AS base
+FROM registry.access.redhat.com/ubi9/python-312:latest@sha256:9c89d8b9ee261647a2a0020feab6281cb6675ca11038e65ec6dd20b46975b444 AS base
 
 ENV SERVICETOOLDIR=/backend \
     SERVICETOOL_RUN=/conf \
