@@ -2,7 +2,7 @@ FROM registry.access.redhat.com/ubi9/python-312:latest@sha256:1628f816cfbb9f1d9b
 
 ENV SERVICETOOLDIR=/backend
 
-COPY --from=ghcr.io/astral-sh/uv:0.10.9@sha256:10902f58a1606787602f303954cea099626a4adb02acbac4c69920fe9d278f82 /uv /bin/uv
+COPY --from=ghcr.io/astral-sh/uv:0.11.3@sha256:90bbb3c16635e9627f49eec6539f956d70746c409209041800a0280b93152823 /uv /bin/uv
 
 COPY --chown=1001:0 . /backend
 
