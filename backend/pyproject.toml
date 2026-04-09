@@ -1,7 +1,7 @@
 [project]
 name = ""
 version = "0.0.1"
-requires-python = "==3.12.*"
+requires-python = "==3.14.*"
 dependencies = [
     "quay @ git+https://github.com/quay/quay.git@3f2fba1ab5f93d0b6bfeba93e437fabb68d97237",
     "markupsafe==2.1.3",
