@@ -4,7 +4,7 @@ networks:
     name: quay_default
 
 services:
-#  Not need for local development
+#  Not needed for local development
 #  quay-service-tool-auth:
 #    container_name: "quay-service-tool-auth"
 #    image: jboss/keycloak
@@ -16,8 +16,10 @@ services:
 
   quay-service-tool-api:
     container_name: "quay-service-tool-api"
-    build: ./backend
-    command: --reload # Appends to entrypoint - enables hot-reloading
+    build:
+      context: .
+      target: backend-dev
+    command: --reload
     volumes:
       - ./backend:/backend
     environment:
@@ -29,9 +31,13 @@ services:
 
   quay-service-tool-client:
     container_name: "quay-service-tool-client"
-    build: ./frontend
+    build:
+      context: .
+      target: frontend-dev
     volumes:
-      - './frontend:/usr/src/app'
+      - ./frontend/src:/frontend/src
+      - ./frontend/webpack.common.js:/frontend/webpack.common.js
+      - ./frontend/webpack.dev.js:/frontend/webpack.dev.js
     ports:
       - '9000:9000'
     depends_on:

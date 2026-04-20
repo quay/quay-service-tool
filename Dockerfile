@@ -1,11 +1,11 @@
-FROM registry.redhat.io/ubi9/nodejs-22@sha256:4d1828d6fd30e367517d654062d41f41c69b7f751962f963d33dba59c1b630f6 AS nodebuild
+### --- Frontend build --- ###
+
+FROM registry.redhat.io/ubi9/nodejs-22@sha256:4d1828d6fd30e367517d654062d41f41c69b7f751962f963d33dba59c1b630f6 AS frontend-base
 
 ENV APP_ROOT=/frontend \
     HOME=/frontend \
-    NPM_RUN=start \
     PLATFORM="el8" \
     NODEJS_VERSION=22 \
-    NPM_RUN=start \
     NAME=nodejs
 
 COPY --chown=1001:0 ./frontend /frontend
@@ -16,22 +16,24 @@ USER 1001
 
 RUN npm install --legacy-peer-deps
 
+FROM frontend-base AS frontend-dev
+EXPOSE 9000
+CMD ["npm", "run", "start:dev"]
+
+FROM frontend-base AS frontend-build
 RUN npm run build
 
 
-FROM registry.access.redhat.com/ubi9/python-312:latest@sha256:1628f816cfbb9f1d9bf6faa70e99dd69371d3a30be7bdc047f66a45e1d3dd244 AS base
+### --- Backend --- ###
 
-ENV SERVICETOOLDIR=/backend \
-    SERVICETOOL_RUN=/conf \
-    SERVICETOOL_LOGGING=syslog
+FROM registry.access.redhat.com/ubi9/python-312:latest@sha256:1628f816cfbb9f1d9bf6faa70e99dd69371d3a30be7bdc047f66a45e1d3dd244 AS backend-base
+
+ENV SERVICETOOLDIR=/backend
 
 COPY --from=ghcr.io/astral-sh/uv:0.11.6@sha256:b1e699368d24c57cda93c338a57a8c5a119009ba809305cc8e86986d4a006754 /uv /bin/uv
 
 COPY --chown=1001:0 ./backend /backend
-COPY --chown=1001:0 ./conf /conf
-COPY --from=nodebuild --chown=1001:0 /frontend/dist /backend/static
 
-RUN chmod -R ug+rwx $SERVICETOOL_RUN
 RUN chmod -R ug+rwx $SERVICETOOLDIR
 
 USER root
@@ -44,11 +46,11 @@ RUN set -ex\
 	git \
 	openldap-devel \
 	libffi-devel \
-        openssl-devel \
-        diffutils \
-        file \
-        make \
-        libjpeg-turbo \
+	openssl-devel \
+	diffutils \
+	file \
+	make \
+	libjpeg-turbo \
 	libjpeg-turbo-devel \
 	freetype-devel \
 	libxml2-devel \
@@ -65,6 +67,20 @@ WORKDIR "$SERVICETOOLDIR"
 RUN uv sync --frozen --no-dev
 
 ENV PATH="$SERVICETOOLDIR/.venv/bin:$PATH"
+
+FROM backend-base AS backend-dev
+EXPOSE 5000
+ENTRYPOINT ["gunicorn", "-k", "gevent", "-b", "0.0.0.0:5000", "--limit-request-field_size", "16384", "app:app"]
+
+FROM backend-base AS production
+
+ENV SERVICETOOL_RUN=/conf \
+    SERVICETOOL_LOGGING=syslog
+
+COPY --chown=1001:0 ./conf /conf
+COPY --from=frontend-build --chown=1001:0 /frontend/dist /backend/static
+
+RUN chmod -R ug+rwx $SERVICETOOL_RUN
 
 EXPOSE 5000
 
