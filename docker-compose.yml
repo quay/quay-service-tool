@@ -22,7 +22,15 @@ services:
     # these are mounted explicitly since mounting all of backend/ will clobber the
     # virtual environment created by `uv` during the image build
     volumes:
-      - ./backend:/backend
+      - ./backend/app.py:/backend/app.py
+      - ./backend/_init.py:/backend/_init.py
+      - ./backend/utils.py:/backend/utils.py
+      - ./backend/tasks:/backend/tasks
+      - ./backend/templates:/backend/templates
+      - ./backend/config:/backend/config
+      - ./backend/tests:/backend/tests
+    ports:
+      - '5000:5000'
     environment:
       ENV: development
       DEBUG: "True"
