@@ -19,7 +19,8 @@ services:
     build:
       context: .
       target: backend-dev
-    command: --reload
+    # these are mounted explicitly since mounting all of backend/ will clobber the
+    # virtual environment created by `uv` during the image build
     volumes:
       - ./backend:/backend
     environment:

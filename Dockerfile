@@ -70,7 +70,7 @@ ENV PATH="$SERVICETOOLDIR/.venv/bin:$PATH"
 
 FROM backend-base AS backend-dev
 EXPOSE 5000
-ENTRYPOINT ["gunicorn", "-k", "gevent", "-b", "0.0.0.0:5000", "--limit-request-field_size", "16384", "app:app"]
+ENTRYPOINT ["gunicorn", "-k", "gevent", "-b", "0.0.0.0:5000", "--limit-request-field_size", "16384", "--reload", "app:app"]
 
 FROM backend-base AS production
 
