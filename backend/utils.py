@@ -108,6 +108,27 @@ def verify_export_compliance_permissions(func):
     return wrapper
 
 
+def check_protected_namespace(namespace):
+    if not namespace:
+        return None
+
+    protected = app.config.get('authentication', {}).get('protected_namespaces', [])
+    if namespace.lower() not in [ns.lower() for ns in protected]:
+        return None
+
+    if app.config.get('is_local') and not app.config.get('test_auth'):
+        return None
+
+    PROTECTED_ADMIN_ROLE = app.config.get('authentication', {}).get('roles', {}).get('PROTECTED_ADMIN_ROLE')
+    if not current_user or not current_user.realm_access:
+        return make_response(json.dumps({"message": f"Namespace '{namespace}' is protected. Requires PROTECTED_ADMIN_ROLE."}), 403)
+
+    if PROTECTED_ADMIN_ROLE not in current_user.realm_access.get('roles', []):
+        return make_response(json.dumps({"message": f"Namespace '{namespace}' is protected. Requires PROTECTED_ADMIN_ROLE."}), 403)
+
+    return None
+
+
 def verify_admin_or_export_perm(func):
     def wrapper(*args, **kwargs):
         # Bypassing checks for local dev when auth is not on
