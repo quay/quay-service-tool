@@ -15,5 +15,18 @@ authentication:
   roles:
     ADMIN_ROLE: 'admin-role'
     EXPORT_COMPLIANCE_ROLE: 'export-compliance-role'
+    PROTECTED_ADMIN_ROLE: 'protected-admin-role'
+  protected_namespaces:
+    - openshift-release-dev
+    - redhat-prod
+    - redhat
+    - redhat-user-workloads
+    - openshift
+    - redhat-pending
+    - redhat-services-prod
+    - redhat-services-pending
+    - openshift-logging
+    - openshift-pipeline
+    - openshiftio
 ENV: development
 DEBUG: true

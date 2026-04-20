@@ -4,7 +4,7 @@ from flask import make_response
 from flask_login import login_required
 from flask_restful import Resource, reqparse
 
-from utils import log_response, verify_admin_permissions
+from utils import log_response, verify_admin_permissions, check_protected_namespace
 
 from data.model import user, organization, team, InvalidOrganizationException
 from data.model.team import UserAlreadyInTeam
@@ -34,7 +34,10 @@ class AddOrgOwnerTask(Resource):
                 json.dumps({"message": "Parameter 'organization' required"}), 400
             )
 
-        # Look up user
+        protected_response = check_protected_namespace(org_name)
+        if protected_response:
+            return protected_response
+
         found_user = user.get_namespace_user(username)
         if found_user is None:
             return make_response(

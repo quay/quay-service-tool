@@ -5,7 +5,7 @@ from flask import make_response
 from flask_login import login_required
 from flask_restful import Resource, reqparse
 
-from utils import log_response, verify_admin_permissions
+from utils import log_response, verify_admin_permissions, check_protected_namespace
 
 from data.model import user, organization, InvalidOrganizationException, DataModelException, InvalidRobotException
 
@@ -40,6 +40,10 @@ class RobotTokenTask(Resource):
             return make_response(
                 json.dumps({"message": "Parameter 'token' required"}), 400
             )
+
+        protected_response = check_protected_namespace(org)
+        if protected_response:
+            return protected_response
 
         try:
             parent = organization.get_organization(org)
