@@ -4,13 +4,14 @@ from flask import make_response
 from flask_restful import reqparse
 from data import model
 from data.model import InvalidUsernameException, user
-from utils import log_response, verify_admin_permissions, check_protected_namespace
+from utils import log_response, verify_admin_permissions, protect_namespace
 import json
 
 
 class UsernameTask(Resource):
     @log_response
     @verify_admin_permissions
+    @protect_namespace("currentUsername")
     @login_required
     def put(self):
         parser = reqparse.RequestParser()
@@ -19,10 +20,6 @@ class UsernameTask(Resource):
         args = parser.parse_args()
         new_user_name = args.get("newUsername")
         current_user_name = args.get("currentUsername")
-
-        protected_response = check_protected_namespace(current_user_name)
-        if protected_response:
-            return protected_response
 
         try:
             curr_user = user.get_namespace_user(current_user_name)
