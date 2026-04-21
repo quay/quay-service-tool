@@ -5,8 +5,6 @@ import UserService from "src/services/UserService";
 import { SiteUtils } from '@app/SiteUtils/SiteUtils';
 import { UserUtils } from '@app/UserUtils/UserUtils';
 import { ExportCompliance } from '@app/ExportCompliance/ExportCompliance';
-import { GeneralSettings } from '@app/Settings/General/GeneralSettings';
-import { ProfileSettings } from '@app/Settings/Profile/ProfileSettings';
 import { NotFound } from '@app/NotFound/NotFound';
 import { useDocumentTitle } from '@app/utils/useDocumentTitle';
 import { LastLocationProvider, useLastLocation } from 'react-router-last-location';
@@ -61,25 +59,6 @@ const routes: AppRouteConfig[] = [
     path: '/export-compliance',
     title: 'Quay Service Tool | Export Compliance',
     permission: ExportPerms
-  },
-  {
-    label: 'Settings',
-    routes: [
-      {
-        component: GeneralSettings,
-        exact: true,
-        label: 'General',
-        path: '/settings/general',
-        title: 'PatternFly Seed | General Settings',
-      },
-      {
-        component: ProfileSettings,
-        exact: true,
-        label: 'Profile',
-        path: '/settings/profile',
-        title: 'PatternFly Seed | Profile Settings',
-      },
-    ],
   },
 ];
 
