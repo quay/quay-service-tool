@@ -3,7 +3,7 @@ from flask_login import login_required
 from flask import make_response
 import json
 
-from utils import create_transaction as tf, log_response, verify_admin_permissions, verify_export_compliance_permissions, verify_admin_or_export_perm, check_protected_namespace
+from utils import create_transaction as tf, log_response, verify_admin_permissions, verify_export_compliance_permissions, verify_admin_or_export_perm, protect_namespace
 from data.model import user, db_transaction
 from data.database import (
     Repository,
@@ -78,6 +78,7 @@ class UserTask(Resource):
     # Trying to keep this as RESTful as possible, but may want to separate out into it's own 'enable' endpoint
     @log_response
     @verify_admin_or_export_perm
+    @protect_namespace("username")
     @login_required
     def put(self, username):
         # Define params
@@ -91,10 +92,6 @@ class UserTask(Resource):
             return make_response(
                 json.dumps({"message": "Parameter 'enable' required"}), 400
             )
-
-        protected_response = check_protected_namespace(username)
-        if protected_response:
-            return protected_response
 
         try:
             found_user = user.get_namespace_user(username)
@@ -132,12 +129,9 @@ class UserTask(Resource):
 
     @log_response
     @verify_admin_permissions
+    @protect_namespace("username")
     @login_required
     def delete(self, username):
-        protected_response = check_protected_namespace(username)
-        if protected_response:
-            return protected_response
-
         found_user = user.get_namespace_user(username)
         if found_user is None:
             return make_response(
@@ -275,6 +269,7 @@ class FetchUserFromStripeID(Resource):
 class UpdateEmailTask(Resource):
     @log_response
     @verify_admin_permissions
+    @protect_namespace("username")
     @login_required
     def put(self):
         parser = reqparse.RequestParser()
@@ -283,10 +278,6 @@ class UpdateEmailTask(Resource):
         args = parser.parse_args()
         username = args.get("username")
         new_email = args.get("newEmail")
-
-        protected_response = check_protected_namespace(username)
-        if protected_response:
-            return protected_response
 
         try:
             curr_user = user.get_namespace_user(username)

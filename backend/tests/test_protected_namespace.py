@@ -1,6 +1,7 @@
 from unittest.mock import Mock, patch
+from flask import make_response
 from app import app
-from utils import check_protected_namespace
+from utils import protect_namespace
 import pytest
 import json
 
@@ -49,76 +50,93 @@ def enable_auth():
     app.config['authentication'] = original_auth
 
 
-def mock_user_with_roles(roles):
-    return Mock(
-        is_authenticated=True,
-        email='test@example.com',
-        username='Test User',
-        realm_access={'roles': roles},
-    )
+def _make_protected_fn():
+    @protect_namespace("namespace")
+    def fn(**kwargs):
+        return make_response("ok", 200)
+    return fn
 
 
-class TestCheckProtectedNamespace:
+class TestProtectNamespaceDecorator:
 
     @patch('utils.current_user')
     def test_blocks_protected_namespace_without_role(self, mock_current_user):
         mock_current_user.realm_access = {'roles': ['admin-role']}
+        fn = _make_protected_fn()
         with app.test_request_context():
-            result = check_protected_namespace('redhat-prod')
-        assert result is not None
+            result = fn(namespace='redhat-prod')
         assert result.status_code == 403
         assert b'protected' in result.data.lower()
 
     @patch('utils.current_user')
     def test_allows_protected_namespace_with_role(self, mock_current_user):
         mock_current_user.realm_access = {'roles': ['admin-role', 'protected-admin-role']}
+        fn = _make_protected_fn()
         with app.test_request_context():
-            result = check_protected_namespace('redhat-prod')
-        assert result is None
+            result = fn(namespace='redhat-prod')
+        assert result.status_code == 200
 
     @patch('utils.current_user')
     def test_allows_non_protected_namespace(self, mock_current_user):
         mock_current_user.realm_access = {'roles': ['admin-role']}
+        fn = _make_protected_fn()
         with app.test_request_context():
-            result = check_protected_namespace('some-random-user')
-        assert result is None
+            result = fn(namespace='some-random-user')
+        assert result.status_code == 200
 
     @patch('utils.current_user')
     def test_case_insensitive_match(self, mock_current_user):
         mock_current_user.realm_access = {'roles': ['admin-role']}
+        fn = _make_protected_fn()
         with app.test_request_context():
-            result = check_protected_namespace('RedHat-Prod')
-        assert result is not None
+            result = fn(namespace='RedHat-Prod')
         assert result.status_code == 403
 
     @patch('utils.current_user')
     def test_none_namespace_allowed(self, mock_current_user):
+        fn = _make_protected_fn()
         with app.test_request_context():
-            result = check_protected_namespace(None)
-        assert result is None
+            result = fn(namespace=None)
+        assert result.status_code == 200
 
     @patch('utils.current_user')
     def test_blocks_all_protected_namespaces(self, mock_current_user):
         mock_current_user.realm_access = {'roles': ['admin-role']}
+        fn = _make_protected_fn()
         for ns in PROTECTED_AUTH_CONFIG['protected_namespaces']:
             with app.test_request_context():
-                result = check_protected_namespace(ns)
-            assert result is not None, f"Expected {ns} to be blocked"
-            assert result.status_code == 403
+                result = fn(namespace=ns)
+            assert result.status_code == 403, f"Expected {ns} to be blocked"
 
     @patch('utils.current_user')
     def test_blocks_when_no_realm_access(self, mock_current_user):
         mock_current_user.realm_access = None
+        fn = _make_protected_fn()
         with app.test_request_context():
-            result = check_protected_namespace('redhat')
-        assert result is not None
+            result = fn(namespace='redhat')
         assert result.status_code == 403
 
     def test_local_dev_bypass(self):
         app.config['test_auth'] = False
+        fn = _make_protected_fn()
         with app.test_request_context():
-            result = check_protected_namespace('redhat-prod')
-        assert result is None
+            result = fn(namespace='redhat-prod')
+        assert result.status_code == 200
+
+    @patch('utils.current_user')
+    def test_reads_namespace_from_request_body(self, mock_current_user):
+        mock_current_user.realm_access = {'roles': ['admin-role']}
+        fn = _make_protected_fn()
+        with app.test_request_context(json={"namespace": "redhat-prod"}):
+            result = fn()
+        assert result.status_code == 403
+
+    @patch('utils.current_user')
+    def test_no_namespace_passes_through(self, mock_current_user):
+        fn = _make_protected_fn()
+        with app.test_request_context():
+            result = fn()
+        assert result.status_code == 200
 
 
 class TestProtectedNamespaceEndpoints:
