@@ -45,6 +45,8 @@ def load_user_from_request(request):
             (app.config.get('is_local') and app.config.get('test_auth'))):
         try:
             api_key = request.headers.get('Authorization')
+            if not api_key:
+                return User()
             bearer_token = api_key.replace('Bearer ', '', 1)
             keycloak_openid = KeycloakOpenID(
                                             server_url=app.config.get('authentication', {}).get('url'),
@@ -59,7 +61,7 @@ def load_user_from_request(request):
             return Auth.authenticate_user(token_info, app.config.get('authentication'))
         except Exception as e:
             logging.exception(e)
-            return make_response("Error occured while authentication: " + str(e), 500)
+            return User()
     else:
         return User(email="local-dev@testing.com", username="Local Dev", is_authenticated=True)
 
