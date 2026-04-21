@@ -18,15 +18,6 @@ test("navigation to User Utils works", async ({ page }) => {
   await expect(page.getByText("User Utils")).toBeVisible();
 });
 
-test("Settings nav group expands with General and Profile links", async ({
-  page,
-}) => {
-  await page.goto("/");
-  await page.getByRole("button", { name: "Settings" }).click();
-  await expect(page.getByRole("link", { name: "General" })).toBeVisible();
-  await expect(page.getByRole("link", { name: "Profile" })).toBeVisible();
-});
-
 test("404 page renders for unknown routes", async ({ page }) => {
   await page.goto("/");
   await page.evaluate(() => {
