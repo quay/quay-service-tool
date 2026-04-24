@@ -35,6 +35,7 @@ package = false
 override-dependencies = [
     "svglib==1.5.1", # this is needed otherwise Quay will try to install pycairo which doesn't work in Ubi
     "pyjwt>=2.12.0",
+    "jwcrypto>=1.5.7",
 ]
 
 [dependency-groups]
