@@ -51,7 +51,7 @@ export const AddOrgOwner: React.FunctionComponent = (props: Props) => {
                 setAlert({variant: "danger", show: true, title: `Username ${username} refers to an organization, not a user`});
                 return;
             }
-        } catch(error) {
+        } catch(error: any) {
             if(error.response && error.response.status == 404){
                 setAlert({variant: "danger", show: true, title: `User ${username} does not exist`});
             } else {
@@ -67,7 +67,7 @@ export const AddOrgOwner: React.FunctionComponent = (props: Props) => {
                 setAlert({variant: "danger", show: true, title: `${orgName} is not an organization`});
                 return;
             }
-        } catch(error) {
+        } catch(error: any) {
             if(error.response && error.response.status == 404){
                 setAlert({variant: "danger", show: true, title: `Organization ${orgName} does not exist`});
             } else {

@@ -1,4 +1,4 @@
-import axios from "axios";
+import axios, { InternalAxiosRequestConfig } from "axios";
 import UserService from "./UserService";
 
 const HttpMethods = {
@@ -19,8 +19,9 @@ const configure = () => {
         config.headers.Authorization = `Bearer ${UserService.getToken()}`;
         return Promise.resolve(config);
       };
-      return UserService.updateToken(cb);
+      return UserService.updateToken(cb) as unknown as Promise<InternalAxiosRequestConfig>;
     }
+    return config;
   },function(error) {
     return Promise.reject(error);
   });

@@ -4,10 +4,10 @@ const AUTH_REALM = window.AUTH_REALM || process.env.AUTH_REALM;
 const AUTH_URL = window.AUTH_URL || process.env.AUTH_URL;
 const AUTH_CLIENTID = window.AUTH_CLIENTID || process.env.AUTH_CLIENTID;
 
-const KeycloakInstance = new Keycloak( {
-                                        "realm": AUTH_REALM,
-                                        "url": AUTH_URL,
-                                        "clientId": AUTH_CLIENTID,
+const KeycloakInstance = Keycloak( {
+                                        "realm": AUTH_REALM || "",
+                                        "url": AUTH_URL || "",
+                                        "clientId": AUTH_CLIENTID || "",
                                       });
 
 const initKeycloak = (onAuthenticatedCallback) => {
@@ -32,7 +32,7 @@ const getToken = () => KeycloakInstance.token;
 
 const isLoggedIn = () => !!KeycloakInstance.token;
 
-const email = KeycloakInstance.email;
+const email = KeycloakInstance.tokenParsed?.email;
 
 const updateToken = (successCallback) =>
   KeycloakInstance.updateToken(5)
