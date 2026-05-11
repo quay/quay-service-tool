@@ -16,6 +16,9 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
+      - run: sudo apt-get update && sudo apt-get install -y libldap-dev libsasl2-dev
+        working-directory: .
+
       - uses: astral-sh/setup-uv@v6
 
       - run: uv sync --group dev
