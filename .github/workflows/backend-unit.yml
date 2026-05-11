@@ -1,0 +1,25 @@
+name: Backend Unit Tests
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches:
+      - '*'
+
+jobs:
+  unit:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: backend
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: astral-sh/setup-uv@v6
+
+      - run: uv sync --group dev
+
+      - run: uv run pytest
+        env:
+          CONFIG_PATH: config
