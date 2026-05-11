@@ -20,7 +20,7 @@ exports[`Delete users tests should render 1`] = `
             <div
               className="pf-c-card__title text-uppercase"
             >
-               Delete User
+               Delete User 
             </div>
           </CardTitle>
           <CardBody>
@@ -30,137 +30,146 @@ exports[`Delete users tests should render 1`] = `
               <Form
                 id="enable-user-form"
               >
-                <form
-                  className="pf-c-form"
+                <FormBase
                   id="enable-user-form"
-                  noValidate={true}
+                  innerRef={null}
                 >
-                  <FormGroup
-                    fieldId="delete-username"
-                    isRequired={true}
-                    label="Username"
+                  <form
+                    className="pf-c-form"
+                    id="enable-user-form"
+                    noValidate={true}
                   >
-                    <div
-                      className="pf-c-form__group"
+                    <FormGroup
+                      fieldId="delete-username"
+                      isRequired={true}
+                      label="Username"
                     >
-                      <div
-                        className="pf-c-form__group-label"
-                      >
-                        <label
-                          className="pf-c-form__label"
-                          htmlFor="delete-username"
-                        >
-                          <span
-                            className="pf-c-form__label-text"
-                          >
-                            Username
-                          </span>
-                          <span
-                            aria-hidden="true"
-                            className="pf-c-form__label-required"
-                          >
-                             
-                            *
-                          </span>
-                        </label>
-                         
-                      </div>
-                      <div
-                        className="pf-c-form__group-control"
-                      >
-                        <TextInput
-                          id="delete-username"
-                          isRequired={true}
-                          name="delete-username"
-                          onChange={[Function]}
-                          placeholder="Username"
-                          type="text"
-                          value=""
-                        >
-                          <TextInputBase
-                            aria-label={null}
-                            className=""
-                            id="delete-username"
-                            innerRef={null}
-                            isDisabled={false}
-                            isLeftTruncated={false}
-                            isReadOnly={false}
-                            isRequired={true}
-                            name="delete-username"
-                            onChange={[Function]}
-                            ouiaSafe={true}
-                            placeholder="Username"
-                            type="text"
-                            validated="default"
-                            value=""
-                          >
-                            <input
-                              aria-invalid={false}
-                              aria-label={null}
-                              className="pf-c-form-control"
-                              data-ouia-component-id="OUIA-Generated-TextInputBase-1"
-                              data-ouia-component-type="PF4/TextInput"
-                              data-ouia-safe={true}
-                              disabled={false}
-                              id="delete-username"
-                              name="delete-username"
-                              onBlur={[Function]}
-                              onChange={[Function]}
-                              onFocus={[Function]}
-                              placeholder="Username"
-                              readOnly={false}
-                              required={true}
-                              type="text"
-                              value=""
-                            />
-                          </TextInputBase>
-                        </TextInput>
-                      </div>
-                    </div>
-                  </FormGroup>
-                  <ActionGroup>
-                    <div
-                      className="pf-c-form__group pf-m-action"
-                    >
-                      <div
-                        className="pf-c-form__group-control"
+                      <GenerateId
+                        prefix="pf-random-id-"
                       >
                         <div
-                          className="pf-c-form__actions"
+                          className="pf-c-form__group"
                         >
-                          <Button
-                            id="delete-user-submit"
-                            onClick={[Function]}
-                            variant="primary"
+                          <div
+                            className="pf-c-form__group-label"
                           >
-                            <ButtonBase
+                            <label
+                              className="pf-c-form__label"
+                              htmlFor="delete-username"
+                            >
+                              <span
+                                className="pf-c-form__label-text"
+                              >
+                                Username
+                              </span>
+                              <span
+                                aria-hidden="true"
+                                className="pf-c-form__label-required"
+                              >
+                                 
+                                *
+                              </span>
+                            </label>
+                             
+                          </div>
+                          <div
+                            className="pf-c-form__group-control"
+                          >
+                            <TextInput
+                              id="delete-username"
+                              isRequired={true}
+                              name="delete-username"
+                              onChange={[Function]}
+                              placeholder="Username"
+                              type="text"
+                              value=""
+                            >
+                              <TextInputBase
+                                aria-label={null}
+                                className=""
+                                id="delete-username"
+                                innerRef={null}
+                                isDisabled={false}
+                                isIconSprite={false}
+                                isLeftTruncated={false}
+                                isReadOnly={false}
+                                isRequired={true}
+                                name="delete-username"
+                                onChange={[Function]}
+                                ouiaSafe={true}
+                                placeholder="Username"
+                                type="text"
+                                validated="default"
+                                value=""
+                              >
+                                <input
+                                  aria-invalid={false}
+                                  aria-label={null}
+                                  className="pf-c-form-control"
+                                  data-ouia-component-id="OUIA-Generated-TextInputBase-1"
+                                  data-ouia-component-type="PF4/TextInput"
+                                  data-ouia-safe={true}
+                                  disabled={false}
+                                  id="delete-username"
+                                  name="delete-username"
+                                  onBlur={[Function]}
+                                  onChange={[Function]}
+                                  onFocus={[Function]}
+                                  placeholder="Username"
+                                  required={true}
+                                  type="text"
+                                  value=""
+                                />
+                              </TextInputBase>
+                            </TextInput>
+                          </div>
+                        </div>
+                      </GenerateId>
+                    </FormGroup>
+                    <ActionGroup>
+                      <div
+                        className="pf-c-form__group pf-m-action"
+                      >
+                        <div
+                          className="pf-c-form__group-control"
+                        >
+                          <div
+                            className="pf-c-form__actions"
+                          >
+                            <Button
                               id="delete-user-submit"
-                              innerRef={null}
                               onClick={[Function]}
                               variant="primary"
                             >
-                              <button
-                                aria-disabled={false}
-                                aria-label={null}
-                                className="pf-c-button pf-m-primary"
-                                data-ouia-component-id="OUIA-Generated-Button-primary-1"
-                                data-ouia-component-type="PF4/Button"
-                                data-ouia-safe={true}
-                                disabled={false}
+                              <ButtonBase
                                 id="delete-user-submit"
+                                innerRef={null}
                                 onClick={[Function]}
-                                role={null}
-                                type="button"
+                                variant="primary"
                               >
-                                Delete User
-                              </button>
-                            </ButtonBase>
-                          </Button>
+                                <button
+                                  aria-disabled={false}
+                                  aria-label={null}
+                                  className="pf-c-button pf-m-primary"
+                                  data-ouia-component-id="OUIA-Generated-Button-primary-1"
+                                  data-ouia-component-type="PF4/Button"
+                                  data-ouia-safe={true}
+                                  disabled={false}
+                                  id="delete-user-submit"
+                                  onClick={[Function]}
+                                  role={null}
+                                  type="button"
+                                >
+                                  Delete User
+                                </button>
+                              </ButtonBase>
+                            </Button>
+                          </div>
                         </div>
                       </div>
-                    </div>
-                  </ActionGroup>
-                </form>
+                    </ActionGroup>
+                  </form>
+                </FormBase>
               </Form>
             </div>
           </CardBody>
