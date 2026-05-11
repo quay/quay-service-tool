@@ -51,7 +51,7 @@ export const DisableUser: React.FunctionComponent = (props: Props) => {
                 }
             })
             .catch((error) => { 
-                let errMessage = error.response.status == 404 ? `User ${username} does not exist` : getErrorMessage(error);
+                const errMessage = error.response.status == 404 ? `User ${username} does not exist` : getErrorMessage(error);
                 setAlert({variant: "danger", show: true, title: errMessage}) 
             });
     }
@@ -70,7 +70,7 @@ export const DisableUser: React.FunctionComponent = (props: Props) => {
 
     let modal: JSX.Element | null = null;
     if(showModal){
-        let title = `Disable user ${username}?`;
+        const title = `Disable user ${username}?`;
         modal = (
             <Modal
             title={title}

@@ -21,7 +21,7 @@ function flushPromises() {
 }
 
 async function typeUsername(view, username){
-    let input = view.find("input#disable-username").at(0);
+    const input = view.find("input#disable-username").at(0);
     await act(async () => {
         input.getDOMNode().setAttribute('value', username);
         input.simulate('change', {currentTarget: input});
@@ -51,7 +51,7 @@ describe('Disable users tests', ()=>{
     })
 
     it('Should alert if given username isn\'t found in backend', async () => {
-        let username = 'nonexistentusername';
+        const username = 'nonexistentusername';
         mocked(HttpService, true).axiosClient.get.mockRejectedValue({response: {status: 404, data:{message: `Could not find user ${username}`}}});
         const view = mount(<DisableUser />);
         await typeUsername(view, username);
@@ -62,7 +62,7 @@ describe('Disable users tests', ()=>{
 
     it('Should alert if user is already disabled', async ()=>{
         mocked(HttpService, true).axiosClient.get.mockResolvedValue({data: {enabled: false}});
-        let username = "existingusername";
+        const username = "existingusername";
         const view = mount(<DisableUser />);
         await typeUsername(view, username);
         await asyncClickButton(view, view.find('button#disable-user-submit'));
@@ -71,7 +71,7 @@ describe('Disable users tests', ()=>{
     })
 
     it('Should disable user', async()=>{
-        let username = "existinguser";
+        const username = "existinguser";
         mocked(HttpService, true).axiosClient.get.mockResolvedValue({data: {user: username, enabled: true}});
         mocked(HttpService, true).axiosClient.put.mockResolvedValue({data: {message: "User updated successfully", user: "existinguser",enabled: false}});
         const view = mount(<DisableUser />);

@@ -19,7 +19,7 @@ jest.mock('../../services/HttpService', () => ({
 }));
 
 describe('Site Utils Tests',()=>{
-    var testBanners = [
+    const testBanners = [
         {
             id: 1,
             content: "Test Banner 1",

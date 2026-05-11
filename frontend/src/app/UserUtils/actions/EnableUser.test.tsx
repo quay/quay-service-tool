@@ -21,7 +21,7 @@ function flushPromises() {
 }
 
 async function typeAndSubmitUsername(view, username){
-    let input = view.find("input#enable-username").at(0);
+    const input = view.find("input#enable-username").at(0);
     await act(async () => {
         input.getDOMNode().setAttribute('value', username);
         input.simulate('change', {currentTarget: input});
@@ -47,7 +47,7 @@ describe('Enable users tests', ()=>{
     })
 
     it('Should alert if given username isn\'t found in backend', async () => {
-        let username = 'nonexistentusername';
+        const username = 'nonexistentusername';
         mocked(HttpService, true).axiosClient.get.mockRejectedValue({response: {status: 404, data:{message: `Could not find user ${username}`}}});
         const view = mount(<EnableUser />);
         await typeAndSubmitUsername(view, username);
@@ -57,7 +57,7 @@ describe('Enable users tests', ()=>{
 
     it('Should alert if user is already enabled', async ()=>{
         mocked(HttpService, true).axiosClient.get.mockResolvedValue({data: {enabled: true}});
-        let username = "nonexistentusername";
+        const username = "nonexistentusername";
         const view = mount(<EnableUser />);
         await typeAndSubmitUsername(view, username);
         expect(view.find('Alert#enable-user-alert').props()).toHaveProperty('variant', 'danger');
@@ -65,7 +65,7 @@ describe('Enable users tests', ()=>{
     })
 
     it('Should enable user', async()=>{
-        let username = "existinguser";
+        const username = "existinguser";
         mocked(HttpService, true).axiosClient.get.mockResolvedValue({data: {user: username, enabled: false}});
         mocked(HttpService, true).axiosClient.put.mockResolvedValue({data: {message: "User updated successfully", user: "existinguser",enabled: true}});
         const view = mount(<EnableUser />);

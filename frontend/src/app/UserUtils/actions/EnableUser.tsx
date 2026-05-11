@@ -51,7 +51,7 @@ export const EnableUser: React.FunctionComponent = (props: Props) => {
                 }
             })
             .catch((error) => {                 
-                let errMessage = error.response.status == 404 ? `User ${username} does not exist` : getErrorMessage(error);
+                const errMessage = error.response.status == 404 ? `User ${username} does not exist` : getErrorMessage(error);
                 setAlert({variant: "danger", show: true, title: errMessage})  
             });
     }
