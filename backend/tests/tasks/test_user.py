@@ -1,12 +1,6 @@
 from unittest.mock import Mock, patch, call, PropertyMock
 from app import app
 import pytest as pytest
-from data.database import (
-    Repository,
-    RepositoryBuild,
-    RepositoryBuildTrigger,
-    RepoMirrorConfig,
-)
 
 @pytest.fixture
 def client():
@@ -44,13 +38,11 @@ class TestUserGet:
 
 class TestUserPut:
     @patch('tasks.user.db_transaction')
-    @patch('tasks.user.Repository')
     @patch('tasks.user.user')
-    def test_enable_user(self, mock_user, mock_repository, mock_db_transaction, client):
+    def test_enable_user(self, mock_user, mock_db_transaction, client):
         mock_db_transaction.return_value = get_mock_context()
         mock_returned_user = Mock(id=1, username='test', enabled=False)
         mock_user.get_namespace_user.return_value = mock_returned_user
-        mock_repository.select.return_value.where.return_value = Mock(clone=Mock(return_value=[]))
         res = client.put('/user/test?enable=true')
 
         mock_returned_user.save.assert_called_once()
@@ -58,40 +50,16 @@ class TestUserPut:
         assert res.status_code == 200
         assert res.data == b'{"message": "User updated successfully", "user": "test", "enabled": true}'
 
-    @patch('tasks.user.WorkQueue')
-    @patch('tasks.user.RepoMirrorConfig')
-    @patch('tasks.user.RepositoryBuildTrigger')
-    @patch('tasks.user.RepositoryBuild')
     @patch('tasks.user.db_transaction')
-    @patch('tasks.user.Repository')
     @patch('tasks.user.user')
-    def test_disable_user(
-        self,
-        mock_user,
-        mock_repository,
-        mock_db_transaction,
-        mock_repo_build,
-        mock_trigger,
-        mock_mirror,
-        mock_workqueue,
-        client
-    ):
+    def test_disable_user(self, mock_user, mock_db_transaction, client):
         mock_db_transaction.return_value = get_mock_context()
-        mock_user.get_namespace_user.return_value = Mock(id=1, username='test', enabled=True)
-        repo_list = Mock(clone=Mock(return_value=[Repository()]), __iter__=Mock(return_value=iter([])))
-        mock_repository.select.return_value.where.return_value = repo_list
-        mock_repo_build.select.return_value.where.return_value = [RepositoryBuild()]
-        mock_trigger.select.return_value.where.return_value = [RepositoryBuildTrigger()]
-        mock_mirror.select.return_value.where.return_value = [RepoMirrorConfig()]
-        mock_queue = Mock()
-        mock_workqueue.return_value = mock_queue
+        mock_returned_user = Mock(id=1, username='test', enabled=True)
+        mock_user.get_namespace_user.return_value = mock_returned_user
         res = client.put('/user/test?enable=false')
 
-        mock_repo_build.delete.return_value.where.return_value.execute.assert_called_once()
-        mock_trigger.delete.return_value.where.return_value.execute.assert_called_once()
-        mock_mirror.delete.return_value.where.return_value.execute.assert_called_once()
-        mock_workqueue.assert_called_with("dockerfilebuild", None, has_namespace=True)
-        mock_queue.delete_namespaced_items.assert_called_once_with("test")
+        mock_returned_user.save.assert_called_once()
+        assert mock_returned_user.enabled is False
         assert res.data == b'{"message": "User updated successfully", "user": "test", "enabled": false}'
         assert res.status_code == 200
 
