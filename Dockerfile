@@ -1,6 +1,6 @@
 ### --- Frontend build --- ###
 
-FROM registry.redhat.io/ubi9/nodejs-22@sha256:4d1828d6fd30e367517d654062d41f41c69b7f751962f963d33dba59c1b630f6 AS frontend-base
+FROM registry.redhat.io/ubi9/nodejs-22@sha256:e06a0042a0a1502696a6f139f50e7fc1048a38d9c8358747c36d8905bf3f9258 AS frontend-base
 
 ENV APP_ROOT=/frontend \
     HOME=/frontend \
@@ -26,7 +26,7 @@ RUN npm run build
 
 ### --- Backend --- ###
 
-FROM registry.access.redhat.com/ubi9/python-312:latest@sha256:1628f816cfbb9f1d9bf6faa70e99dd69371d3a30be7bdc047f66a45e1d3dd244 AS backend-base
+FROM registry.access.redhat.com/ubi9/python-312:latest@sha256:ff373f4b42b662e99954adea770ca87b4ea963186cc752174ccb94aa08fa702d AS backend-base
 
 ENV SERVICETOOLDIR=/backend
 
