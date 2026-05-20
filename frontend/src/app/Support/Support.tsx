@@ -1,5 +1,4 @@
 import * as React from 'react';
-import { hot } from 'react-hot-loader/root';
 import { CubesIcon } from '@patternfly/react-icons';
 import {
   PageSection,
@@ -16,7 +15,7 @@ export interface ISupportProps {
   sampleProp?: string;
 }
 
-let Support: React.FunctionComponent<ISupportProps> = () => (
+const Support: React.FunctionComponent<ISupportProps> = () => (
   <PageSection>
     <EmptyState variant={EmptyStateVariant.full}>
       <EmptyStateIcon icon={CubesIcon} />
@@ -38,7 +37,6 @@ let Support: React.FunctionComponent<ISupportProps> = () => (
       </EmptyStateSecondaryActions>
     </EmptyState>
   </PageSection>
-)
+);
 
-Support = hot(Support); // enable HMR for this async module
 export { Support };
