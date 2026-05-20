@@ -19,7 +19,7 @@ jobs:
       - run: sudo apt-get update && sudo apt-get install -y libldap-dev libsasl2-dev
         working-directory: .
 
-      - uses: astral-sh/setup-uv@v8
+      - uses: astral-sh/setup-uv@v7
 
       - run: uv sync --group dev
 
