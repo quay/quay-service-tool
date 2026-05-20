@@ -11,9 +11,6 @@ importers:
 
   .:
     dependencies:
-      '@hot-loader/react-dom':
-        specifier: ^17.0.1
-        version: 17.0.2(react@17.0.2)
       '@patternfly/react-core':
         specifier: ^4.84.4
         version: 4.278.1(react-dom@17.0.2(react@17.0.2))(react@17.0.2)
@@ -153,9 +150,6 @@ importers:
       react-docgen-typescript-loader:
         specifier: 3.7.2
         version: 3.7.2(typescript@4.9.5)(webpack@5.106.2)
-      react-hot-loader:
-        specifier: 4.13.1
-        version: 4.13.1(@types/react@18.0.28)(react-dom@17.0.2(react@17.0.2))(react@17.0.2)
       react-router-dom:
         specifier: 5.3.4
         version: 5.3.4(react@17.0.2)
@@ -987,11 +981,6 @@ packages:
 
   '@gar/promisify@1.1.3':
     resolution: {integrity: sha512-k2Ty1JcVojjJFwrg/ThKi2ujJ7XNLYaFGNB/bWT9wGR+oSMJHMa5w+CUq6p/pVrKeNNgA7pCqEcjSnHVoqJQFw==}
-
-  '@hot-loader/react-dom@17.0.2':
-    resolution: {integrity: sha512-G2RZrFhsQClS+bdDh/Ojpk3SgocLPUGnvnJDTQYnmKSSwXtU+Yh+8QMs+Ia3zaAvBiOSpIIDSUxuN69cvKqrWg==}
-    peerDependencies:
-      react: 17.0.2
 
   '@humanwhocodes/config-array@0.5.0':
     resolution: {integrity: sha512-FagtKFz74XrTl7y6HCzQpwDfXP0yhxe9lHLD1UZxjvZIcbyRz8zTFF/yYNfSfzU414eDwZ1SrO0Qvtyf+wFMQg==}
@@ -6211,17 +6200,6 @@ packages:
       react: ^16.6.0 || ^17.0.0 || ^18.0.0
       react-dom: ^16.6.0 || ^17.0.0 || ^18.0.0
 
-  react-hot-loader@4.13.1:
-    resolution: {integrity: sha512-ZlqCfVRqDJmMXTulUGic4lN7Ic1SXgHAFw7y/Jb7t25GBgTR0fYAJ8uY4mrpxjRyWGWmqw77qJQGnYbzCvBU7g==}
-    engines: {node: '>= 6'}
-    peerDependencies:
-      '@types/react': ^15.0.0 || ^16.0.0 || ^17.0.0
-      react: ^15.0.0 || ^16.0.0 || ^17.0.0
-      react-dom: ^15.0.0 || ^16.0.0 || ^17.0.0
-    peerDependenciesMeta:
-      '@types/react':
-        optional: true
-
   react-inspector@5.1.1:
     resolution: {integrity: sha512-GURDaYzoLbW8pMGXwYPDBIv6nqei4kK7LPRZ9q9HCZF54wqXz/dnylBp/kfE9XmekBhHvLDdcYeyIwSrvtOiWg==}
     peerDependencies:
@@ -8955,13 +8933,6 @@ snapshots:
       - supports-color
 
   '@gar/promisify@1.1.3': {}
-
-  '@hot-loader/react-dom@17.0.2(react@17.0.2)':
-    dependencies:
-      loose-envify: 1.4.0
-      object-assign: 4.1.1
-      react: 17.0.2
-      scheduler: 0.20.2
 
   '@humanwhocodes/config-array@0.5.0':
     dependencies:
@@ -16180,21 +16151,6 @@ snapshots:
       react-dom: 17.0.2(react@17.0.2)
       react-fast-compare: 3.2.0
       shallowequal: 1.1.0
-
-  react-hot-loader@4.13.1(@types/react@18.0.28)(react-dom@17.0.2(react@17.0.2))(react@17.0.2):
-    dependencies:
-      fast-levenshtein: 2.0.6
-      global: 4.4.0
-      hoist-non-react-statics: 3.3.2
-      loader-utils: 2.0.4
-      prop-types: 15.8.1
-      react: 17.0.2
-      react-dom: 17.0.2(react@17.0.2)
-      react-lifecycles-compat: 3.0.4
-      shallowequal: 1.1.0
-      source-map: 0.7.4
-    optionalDependencies:
-      '@types/react': 18.0.28
 
   react-inspector@5.1.1(react@17.0.2):
     dependencies:
