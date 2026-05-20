@@ -14,7 +14,7 @@ RUN chmod -R ug+rwx /frontend
 WORKDIR "$HOME"
 USER 1001
 
-RUN npm install -g pnpm && pnpm install --frozen-lockfile
+RUN npm install -g pnpm@10 && pnpm install --frozen-lockfile
 
 FROM frontend-base AS frontend-dev
 EXPOSE 9000
