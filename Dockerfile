@@ -14,14 +14,14 @@ RUN chmod -R ug+rwx /frontend
 WORKDIR "$HOME"
 USER 1001
 
-RUN npm install --legacy-peer-deps
+RUN npm install -g pnpm && pnpm install --frozen-lockfile
 
 FROM frontend-base AS frontend-dev
 EXPOSE 9000
-CMD ["npm", "run", "start:dev"]
+CMD ["pnpm", "start:dev"]
 
 FROM frontend-base AS frontend-build
-RUN npm run build
+RUN pnpm build
 
 
 ### --- Backend --- ###

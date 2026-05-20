@@ -38,8 +38,8 @@ To run the tests:
 
 ### Frontend Tests
 
-Frontend tests are configured with the following npm script:
-`cd frontend && npm run test`
+Frontend tests are configured with the following pnpm script:
+`cd frontend && pnpm test`
 
 ## Quick Start
 
@@ -72,13 +72,13 @@ This allows flask to serve requests on `http://0.0.0.0:5000`.
 
 ### Frontend
 
-Run `npm install` to install the node modules.
+Run `pnpm install` to install the node modules.
 
-After successful execution of the command, run `npm run build` to build the application bundles.
+After successful execution of the command, run `pnpm build` to build the application bundles.
 
 You can run the below command to start the front-end server.
 ```
-  npm run start:dev
+  pnpm start:dev
 ```
 You can now access the application at: `http://0.0.0.0:9000`.
 
