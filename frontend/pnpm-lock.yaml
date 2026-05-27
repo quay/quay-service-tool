@@ -18,8 +18,8 @@ importers:
         specifier: ^4.7.22
         version: 4.93.7(react-dom@17.0.2(react@17.0.2))(react@17.0.2)
       '@patternfly/react-styles':
-        specifier: ^4.7.22
-        version: 4.92.8
+        specifier: ^6.0.0
+        version: 6.5.1
       '@react-keycloak/web':
         specifier: ^3.4.0
         version: 3.4.0(keycloak-js@15.1.1)(react-dom@17.0.2(react@17.0.2))(react@17.0.2)(typescript@4.9.5)
@@ -1131,6 +1131,9 @@ packages:
 
   '@patternfly/react-styles@4.92.8':
     resolution: {integrity: sha512-K4lUU8O4HiCX9NeuNUIrPgN3wlGERCxJVio+PAjd8hpJD/PKnjFfOJ9u6/Cii3qLy/5ZviWPRNHbGiwA/+YUhg==}
+
+  '@patternfly/react-styles@6.5.1':
+    resolution: {integrity: sha512-yQMzUbbf6qYM/v3JbPvaCJTgxRbOKoEw229XZmnnM8gDvp8ECiI7LqihrAOK/NA6T6M3DDgsRMd2JurUBhPDEw==}
 
   '@patternfly/react-tokens@4.94.7':
     resolution: {integrity: sha512-h+ducOLDMSxcuec3+YY3x+stM5ZUSnrl/lC/eVmjypil2El08NuE2MNEPMQWdhrod6VRRZFMNqZw/m82iv6U1A==}
@@ -9255,6 +9258,8 @@ snapshots:
       react-dom: 17.0.2(react@17.0.2)
 
   '@patternfly/react-styles@4.92.8': {}
+
+  '@patternfly/react-styles@6.5.1': {}
 
   '@patternfly/react-tokens@4.94.7': {}
 
