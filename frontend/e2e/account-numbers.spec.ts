@@ -1,5 +1,8 @@
 import { test, expect } from "@playwright/test";
 
+// These tests require a live backend + database (not available in CI)
+test.skip(() => !process.env.TARGET_URL, "Skipped: no backend (set TARGET_URL)");
+
 test.describe("Account numbers in FetchUser", () => {
   test("displays account numbers when fetching user by username", async ({
     page,
