@@ -1,6 +1,6 @@
 from flask_restful import Resource, reqparse, inputs
 from flask_login import login_required
-from flask import make_response
+from flask import make_response, current_app
 import json
 
 from utils import create_transaction as tf, log_response, verify_admin_permissions, verify_export_compliance_permissions, verify_admin_or_export_perm, protect_namespace
@@ -164,9 +164,12 @@ class FetchUserFromNameTask(Resource):
 
             private_repo_count = user.get_private_repo_count(found_user.username)
             public_repo_count = user.get_public_repo_count(found_user.username)
+            marketplace_users = current_app.extensions.get("marketplace_user_api")
+            account_numbers = marketplace_users.get_account_number(found_user) if marketplace_users else None
 
             return make_response(
                 json.dumps({
+                    "account_numbers": account_numbers,
                     "email": found_user.email,
                     "enabled": found_user.enabled,
                     "paid_user": True if found_user.stripe_id else False,
@@ -204,9 +207,12 @@ class FetchUserFromEmailTask(Resource):
                 )
             private_repo_count = user.get_private_repo_count(found_user.username)
             public_repo_count = user.get_public_repo_count(found_user.username)
+            marketplace_users = current_app.extensions.get("marketplace_user_api")
+            account_numbers = marketplace_users.get_account_number(found_user) if marketplace_users else None
 
             return make_response(
                 json.dumps({
+                    "account_numbers": account_numbers,
                     "username": found_user.username,
                     "enabled": found_user.enabled,
                     "paid_user": True if found_user.stripe_id else False,
@@ -215,7 +221,7 @@ class FetchUserFromEmailTask(Resource):
                     "company": found_user.company,
                     "creation_date": str(found_user.creation_date),
                     "invoice_email": found_user.invoice_email_address,
-                    "stripe_id": found_user.stripe_id,                    
+                    "stripe_id": found_user.stripe_id,
                     "private_repo_count": private_repo_count,
                     "public_repo_count": public_repo_count,
                 }),

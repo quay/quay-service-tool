@@ -9,6 +9,9 @@ export const UserInfo = (props: UserInfoProps): React.ReactElement => {
 
   return (<TextContent>
     <TextList component={TextListVariants.dl}>
+      <TextListItem component={TextListItemVariants.dt}>Account numbers</TextListItem>
+      <TextListItem component={TextListItemVariants.dd}>{userinfo.account_numbers ? userinfo.account_numbers.join(', ') : 'N/A'}</TextListItem>
+
       <TextListItem component={TextListItemVariants.dt}>Quay.io User name</TextListItem>
       <TextListItem component={TextListItemVariants.dd}>{userinfo.username}</TextListItem>
 

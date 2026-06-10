@@ -29,6 +29,9 @@ services:
       - ./backend/templates:/backend/templates
       - ./backend/config:/backend/config
       - ./backend/tests:/backend/tests
+      # Mount marketplace certs from quay's conf/stack if available
+      # - ./conf/stack/quay-marketplace-api.crt:/conf/stack/quay-marketplace-api.crt:ro
+      # - ./conf/stack/quay-marketplace-api.key:/conf/stack/quay-marketplace-api.key:ro
     ports:
       - '5000:5000'
     environment:

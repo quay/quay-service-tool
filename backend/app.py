@@ -15,6 +15,7 @@ from tasks.user import UserTask, FetchUserFromEmailTask, FetchUserFromNameTask, 
 import yaml
 import logging
 from utils import *
+from util.marketplace import MarketplaceUserApi
 from data import database
 import os
 
@@ -74,6 +75,8 @@ conn_args["autorollback"] = True
 app.config["DB_CONNECTION_ARGS"] = conn_args
 app.config["DB_TRANSACTION_FACTORY"] = create_transaction
 database.configure(app.config)
+
+marketplace_users = MarketplaceUserApi(app)
 
 
 @app.route("/healthcheck")

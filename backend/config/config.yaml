@@ -28,5 +28,13 @@ authentication:
     - openshift-logging
     - openshift-pipeline
     - openshiftio
+# Red Hat Marketplace API configuration
+# In production, set FEATURE_RH_MARKETPLACE to true and provide the
+# API endpoints. The service tool must also have access to the same
+# marketplace certs as quay (/conf/stack/quay-marketplace-api.crt/.key).
+FEATURE_RH_MARKETPLACE: false
+ENTITLEMENT_RECONCILIATION_USER_ENDPOINT: ""
+ENTITLEMENT_RECONCILIATION_MARKETPLACE_ENDPOINT: ""
+
 ENV: development
 DEBUG: true
