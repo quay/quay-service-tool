@@ -1,10 +1,10 @@
 from flask_restful import Resource, reqparse, inputs
 from flask_login import login_required
-from flask import make_response
+from flask import make_response, current_app
 import json
 
 from utils import create_transaction as tf, log_response, verify_admin_permissions, verify_export_compliance_permissions, verify_admin_or_export_perm, protect_namespace
-from data.model import user, db_transaction, entitlements
+from data.model import user, db_transaction
 from data.database import (
     Repository,
     RepositoryBuild,
@@ -164,7 +164,8 @@ class FetchUserFromNameTask(Resource):
 
             private_repo_count = user.get_private_repo_count(found_user.username)
             public_repo_count = user.get_public_repo_count(found_user.username)
-            account_numbers = entitlements.get_web_customer_ids(found_user.id)
+            marketplace_users = current_app.extensions.get("marketplace_user_api")
+            account_numbers = marketplace_users.get_account_number(found_user) if marketplace_users else None
 
             return make_response(
                 json.dumps({
@@ -206,7 +207,8 @@ class FetchUserFromEmailTask(Resource):
                 )
             private_repo_count = user.get_private_repo_count(found_user.username)
             public_repo_count = user.get_public_repo_count(found_user.username)
-            account_numbers = entitlements.get_web_customer_ids(found_user.id)
+            marketplace_users = current_app.extensions.get("marketplace_user_api")
+            account_numbers = marketplace_users.get_account_number(found_user) if marketplace_users else None
 
             return make_response(
                 json.dumps({

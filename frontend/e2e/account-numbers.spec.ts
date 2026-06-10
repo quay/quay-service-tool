@@ -16,18 +16,14 @@ test.describe("Account numbers in FetchUser", () => {
       .locator("article")
       .filter({ hasText: "Fetch User details from users Quay.io Username" });
 
-    await usernameCard.locator("input#user-name").fill("testuser");
+    await usernameCard.locator("input#user-name").fill("subscription");
     await usernameCard.getByRole("button", { name: "Fetch User" }).click();
 
-    // Verify account numbers appear in the response
+    // Verify account numbers from marketplace API (FakeUserApi returns [12345])
     await expect(usernameCard.getByText("Account numbers")).toBeVisible({
       timeout: 10_000,
     });
-    await expect(usernameCard.getByText("6543210, 9876543")).toBeVisible();
-
-    // Verify other user info fields are present
-    await expect(usernameCard.getByText("TestCorp", { exact: true })).toBeVisible();
-    await expect(usernameCard.getByText("cus_test123")).toBeVisible();
+    await expect(usernameCard.getByText("12345")).toBeVisible();
   });
 
   test("displays account numbers when fetching user by email", async ({
@@ -42,17 +38,16 @@ test.describe("Account numbers in FetchUser", () => {
       .locator("article")
       .filter({ hasText: "Fetch User details from users Quay.io Email" });
 
-    await emailCard.locator("input#user-email").fill("testuser@example.com");
+    await emailCard
+      .locator("input#user-email")
+      .fill("subscriptions@devtable.com");
     await emailCard.getByRole("button", { name: "Fetch User" }).click();
 
-    // Verify account numbers appear
+    // Verify account numbers from marketplace API
     await expect(emailCard.getByText("Account numbers")).toBeVisible({
       timeout: 10_000,
     });
-    await expect(emailCard.getByText("6543210, 9876543")).toBeVisible();
-
-    // Verify username is shown
-    await expect(emailCard.getByText("testuser")).toBeVisible();
+    await expect(emailCard.getByText("12345")).toBeVisible();
   });
 
   test("shows error for non-existent user", async ({ page }) => {

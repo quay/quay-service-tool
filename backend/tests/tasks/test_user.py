@@ -112,20 +112,23 @@ class TestUserPut:
 
 class TestFetchUserFromName:
 
-    @patch('tasks.user.entitlements')
     @patch('tasks.user.user')
-    def test_returns_user_with_account_numbers(self, mock_user, mock_entitlements, client):
-        mock_user.get_namespace_user.return_value = make_mock_user()
+    def test_returns_user_with_account_numbers(self, mock_user, client):
+        mock_found_user = make_mock_user()
+        mock_user.get_namespace_user.return_value = mock_found_user
         mock_user.get_private_repo_count.return_value = 5
         mock_user.get_public_repo_count.return_value = 10
-        mock_entitlements.get_web_customer_ids.return_value = [12345, 67890]
+
+        mock_marketplace = Mock()
+        mock_marketplace.get_account_number.return_value = [12345, 67890]
+        app.extensions['marketplace_user_api'] = mock_marketplace
 
         res = client.get('/quayusername/test')
         data = json.loads(res.data)
 
         assert res.status_code == 200
         assert data['account_numbers'] == [12345, 67890]
-        mock_entitlements.get_web_customer_ids.assert_called_once_with(1)
+        mock_marketplace.get_account_number.assert_called_once_with(mock_found_user)
 
     @patch('tasks.user.user')
     def test_user_not_found(self, mock_user, client):
@@ -133,13 +136,15 @@ class TestFetchUserFromName:
         res = client.get('/quayusername/nonexistent')
         assert res.status_code == 404
 
-    @patch('tasks.user.entitlements')
     @patch('tasks.user.user')
-    def test_account_numbers_none(self, mock_user, mock_entitlements, client):
+    def test_account_numbers_none(self, mock_user, client):
         mock_user.get_namespace_user.return_value = make_mock_user()
         mock_user.get_private_repo_count.return_value = 0
         mock_user.get_public_repo_count.return_value = 0
-        mock_entitlements.get_web_customer_ids.return_value = None
+
+        mock_marketplace = Mock()
+        mock_marketplace.get_account_number.return_value = None
+        app.extensions['marketplace_user_api'] = mock_marketplace
 
         res = client.get('/quayusername/test')
         data = json.loads(res.data)
@@ -150,20 +155,23 @@ class TestFetchUserFromName:
 
 class TestFetchUserFromEmail:
 
-    @patch('tasks.user.entitlements')
     @patch('tasks.user.user')
-    def test_returns_user_with_account_numbers(self, mock_user, mock_entitlements, client):
-        mock_user.find_user_by_email.return_value = make_mock_user()
+    def test_returns_user_with_account_numbers(self, mock_user, client):
+        mock_found_user = make_mock_user()
+        mock_user.find_user_by_email.return_value = mock_found_user
         mock_user.get_private_repo_count.return_value = 5
         mock_user.get_public_repo_count.return_value = 10
-        mock_entitlements.get_web_customer_ids.return_value = [67890]
+
+        mock_marketplace = Mock()
+        mock_marketplace.get_account_number.return_value = [67890]
+        app.extensions['marketplace_user_api'] = mock_marketplace
 
         res = client.get('/quayuseremail/test@example.com')
         data = json.loads(res.data)
 
         assert res.status_code == 200
         assert data['account_numbers'] == [67890]
-        mock_entitlements.get_web_customer_ids.assert_called_once_with(1)
+        mock_marketplace.get_account_number.assert_called_once_with(mock_found_user)
 
     @patch('tasks.user.user')
     def test_user_not_found(self, mock_user, client):
@@ -171,13 +179,15 @@ class TestFetchUserFromEmail:
         res = client.get('/quayuseremail/missing@example.com')
         assert res.status_code == 404
 
-    @patch('tasks.user.entitlements')
     @patch('tasks.user.user')
-    def test_account_numbers_none(self, mock_user, mock_entitlements, client):
+    def test_account_numbers_none(self, mock_user, client):
         mock_user.find_user_by_email.return_value = make_mock_user()
         mock_user.get_private_repo_count.return_value = 0
         mock_user.get_public_repo_count.return_value = 0
-        mock_entitlements.get_web_customer_ids.return_value = None
+
+        mock_marketplace = Mock()
+        mock_marketplace.get_account_number.return_value = None
+        app.extensions['marketplace_user_api'] = mock_marketplace
 
         res = client.get('/quayuseremail/test@example.com')
         data = json.loads(res.data)
