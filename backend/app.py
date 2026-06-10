@@ -76,6 +76,23 @@ app.config["DB_CONNECTION_ARGS"] = conn_args
 app.config["DB_TRANSACTION_FACTORY"] = create_transaction
 database.configure(app.config)
 
+# Write marketplace certs from config to disk so MarketplaceUserApi
+# can read them from the expected paths (/conf/stack/quay-marketplace-api.{crt,key}).
+# In production, these values come from the app-interface secret config.
+from util.marketplace import MARKETPLACE_FILE, MARKETPLACE_SECRET
+
+for config_key, file_path in [
+    ("MARKETPLACE_CERT", MARKETPLACE_FILE),
+    ("MARKETPLACE_KEY", MARKETPLACE_SECRET),
+]:
+    content = app.config.get(config_key)
+    if content:
+        os.makedirs(os.path.dirname(file_path), exist_ok=True)
+        with open(file_path, "w") as f:
+            f.write(content)
+        os.chmod(file_path, 0o600)
+        logger.info("Wrote %s from config", file_path)
+
 marketplace_users = MarketplaceUserApi(app)
 
 

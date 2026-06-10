@@ -30,11 +30,15 @@ authentication:
     - openshiftio
 # Red Hat Marketplace API configuration
 # In production, set FEATURE_RH_MARKETPLACE to true and provide the
-# API endpoints. The service tool must also have access to the same
-# marketplace certs as quay (/conf/stack/quay-marketplace-api.crt/.key).
+# API endpoints and certs. The cert/key values should match the ones
+# used by quay (from app-interface secret config).
 FEATURE_RH_MARKETPLACE: false
 ENTITLEMENT_RECONCILIATION_USER_ENDPOINT: ""
 ENTITLEMENT_RECONCILIATION_MARKETPLACE_ENDPOINT: ""
+# PEM-encoded marketplace API cert and key (same as quay's
+# quay-marketplace-api.crt/.key). Written to /conf/stack/ on startup.
+# MARKETPLACE_CERT: <PEM-encoded certificate>
+# MARKETPLACE_KEY: <PEM-encoded private key>
 
 ENV: development
 DEBUG: true
