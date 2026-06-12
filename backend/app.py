@@ -1,3 +1,4 @@
+import base64
 from flask import Flask, request, render_template, make_response, jsonify
 from flask_restful import Api
 from flask_login import LoginManager
@@ -87,8 +88,9 @@ for config_key, file_path in [
 ]:
     content = app.config.get(config_key)
     if content:
+        content = base64.b64decode(content)
         os.makedirs(os.path.dirname(file_path), exist_ok=True)
-        with open(file_path, "w") as f:
+        with open(file_path, "wb") as f:
             f.write(content)
         os.chmod(file_path, 0o600)
         logger.info("Wrote %s from config", file_path)
