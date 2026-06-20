@@ -16,6 +16,8 @@ authentication:
     ADMIN_ROLE: 'admin-role'
     EXPORT_COMPLIANCE_ROLE: 'export-compliance-role'
     PROTECTED_ADMIN_ROLE: 'protected-admin-role'
+    SPAM_DETECTION_ROLE: 'spam-detection-role'
+    SPAM_DETECTION_REMEDIATION_ROLE: 'spam-detection-remediation-role'
   protected_namespaces:
     - openshift-release-dev
     - redhat-prod
@@ -42,3 +44,15 @@ ENTITLEMENT_RECONCILIATION_MARKETPLACE_ENDPOINT: ""
 
 ENV: development
 DEBUG: true
+
+# Quay spam detection service-tool state and DB access.
+SPAM_DETECTION_STATE_DB_URI: sqlite:///spam_detection_state.db
+SPAM_DETECTION_READONLY_DB_URI: postgresql://quay:quay@quay-db/quay
+SPAM_DETECTION_WRITE_DB_URI: postgresql://quay:quay@quay-db/quay
+SPAM_DETECTION_ARTIFACT_DIR: spam_detection_artifacts
+SPAM_DETECTION_BATCH_SIZE: 200
+SPAM_DETECTION_SLEEP_BETWEEN_BATCHES: 0.5
+SPAM_DETECTION_SCAN_DRY_RUN: true
+SPAM_DETECTION_MAX_REPOS: 0
+SPAM_DETECTION_INCLUDE_PRIVATE: false
+SPAM_DETECTION_QUARANTINE_DESCRIPTION: "[removed by Quay spam detection review]"

@@ -13,6 +13,24 @@ from tasks.banner import BannerTask
 from tasks.username import UsernameTask
 from tasks.federateduser import FederatedUserTask
 from tasks.user import UserTask, FetchUserFromEmailTask, FetchUserFromNameTask, UpdateEmailTask, FetchUserFromStripeID
+from tasks.spam_detection import (
+    SpamClassifierImportCsvTask,
+    SpamClassifierListTask,
+    SpamClassifierTask,
+    SpamClassifierExportArtifactTask,
+    SpamClassifierTrainTask,
+    SpamDetectionHealthTask,
+    SpamPolicyTask,
+    SpamPreviewTask,
+    SpamReviewDismissTask,
+    SpamReviewQuarantineTask,
+    SpamReviewRedactTask,
+    SpamReviewRestoreTask,
+    SpamReviewTask,
+    SpamRunMatchesTask,
+    SpamRunsTask,
+    SpamTrainingExamplesTask,
+)
 import yaml
 import logging
 from utils import *
@@ -37,6 +55,17 @@ with open(os.environ.get('CONFIG_PATH') + "/config.yaml") as f:
     print("Reading config from: %s", os.environ.get('CONFIG_PATH') + "/config.yaml")
     config = yaml.load(f, Loader=yaml.FullLoader)
     app.config.update(config)
+
+app.config.setdefault("SPAM_DETECTION_STATE_DB_URI", "sqlite:///spam_detection_state.db")
+app.config.setdefault("SPAM_DETECTION_BATCH_SIZE", 200)
+app.config.setdefault("SPAM_DETECTION_SLEEP_BETWEEN_BATCHES", 0.5)
+app.config.setdefault("SPAM_DETECTION_SCAN_DRY_RUN", True)
+app.config.setdefault("SPAM_DETECTION_MAX_REPOS", 0)
+app.config.setdefault("SPAM_DETECTION_INCLUDE_PRIVATE", False)
+app.config.setdefault(
+    "SPAM_DETECTION_QUARANTINE_DESCRIPTION",
+    "[removed by Quay spam detection review]",
+)
 
 
 @login_manager.request_loader
@@ -120,8 +149,12 @@ def main():
     AUTH_CLIENTID = app.config.get('authentication', {}).get('clientid')
     ADMIN_ROLE = app.config.get('authentication', {}).get('roles', {}).get('ADMIN_ROLE')
     EXPORT_COMPLIANCE_ROLE = app.config.get('authentication', {}).get('roles', {}).get('EXPORT_COMPLIANCE_ROLE')
+    SPAM_DETECTION_ROLE = app.config.get('authentication', {}).get('roles', {}).get('SPAM_DETECTION_ROLE')
+    SPAM_DETECTION_REMEDIATION_ROLE = app.config.get('authentication', {}).get('roles', {}).get('SPAM_DETECTION_REMEDIATION_ROLE')
     return render_template('index.html', AUTH_URL=AUTH_URL,  AUTH_REALM=AUTH_REALM, AUTH_CLIENTID=AUTH_CLIENTID,
-                           ADMIN_ROLE=ADMIN_ROLE, EXPORT_COMPLIANCE_ROLE=EXPORT_COMPLIANCE_ROLE,)
+                           ADMIN_ROLE=ADMIN_ROLE, EXPORT_COMPLIANCE_ROLE=EXPORT_COMPLIANCE_ROLE,
+                           SPAM_DETECTION_ROLE=SPAM_DETECTION_ROLE,
+                           SPAM_DETECTION_REMEDIATION_ROLE=SPAM_DETECTION_REMEDIATION_ROLE,)
 
 
 api.add_resource(BannerTask, '/banner', '/banner/<int:id>', endpoint='banner')
@@ -134,6 +167,22 @@ api.add_resource(FederatedUserTask, '/federateduser/<username>')
 api.add_resource(UpdateEmailTask, '/user/email')
 api.add_resource(RobotTokenTask, '/robot/token')
 api.add_resource(AddOrgOwnerTask, '/org/owner')
+api.add_resource(SpamDetectionHealthTask, '/spam-detection/health')
+api.add_resource(SpamClassifierListTask, '/spam-detection/classifiers')
+api.add_resource(SpamClassifierTask, '/spam-detection/classifiers/<classifier_uuid>')
+api.add_resource(SpamTrainingExamplesTask, '/spam-detection/classifiers/<classifier_uuid>/training-examples')
+api.add_resource(SpamClassifierImportCsvTask, '/spam-detection/classifiers/<classifier_uuid>/import-csv')
+api.add_resource(SpamClassifierTrainTask, '/spam-detection/classifiers/<classifier_uuid>/train')
+api.add_resource(SpamClassifierExportArtifactTask, '/spam-detection/classifiers/<classifier_uuid>/export-artifact')
+api.add_resource(SpamPolicyTask, '/spam-detection/policy')
+api.add_resource(SpamPreviewTask, '/spam-detection/preview')
+api.add_resource(SpamRunsTask, '/spam-detection/runs')
+api.add_resource(SpamRunMatchesTask, '/spam-detection/runs/<run_uuid>/matches')
+api.add_resource(SpamReviewTask, '/spam-detection/review')
+api.add_resource(SpamReviewQuarantineTask, '/spam-detection/review/<record_uuid>/quarantine')
+api.add_resource(SpamReviewRestoreTask, '/spam-detection/review/<record_uuid>/restore')
+api.add_resource(SpamReviewDismissTask, '/spam-detection/review/<record_uuid>/dismiss')
+api.add_resource(SpamReviewRedactTask, '/spam-detection/review/<record_uuid>/redact')
 
 if __name__ == '__main__':
     app.run(debug=True, host="0.0.0.0")

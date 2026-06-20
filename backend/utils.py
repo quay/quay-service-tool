@@ -158,3 +158,38 @@ def verify_admin_or_export_perm(func):
         response = func(*args, **kwargs)
         return response
     return wrapper
+
+
+def _verify_role(func, config_key, message):
+    def wrapper(*args, **kwargs):
+        # Bypassing checks for local dev when auth is not on
+        if app.config.get('is_local') and not app.config.get('test_auth'):
+            return func(*args, **kwargs)
+
+        if not current_user or not current_user.realm_access:
+            return make_response(json.dumps({"message": "No RBAC defined for user"}), 401)
+
+        role = app.config.get('authentication', {}).get('roles', {}).get(config_key)
+        admin_role = app.config.get('authentication', {}).get('roles', {}).get('ADMIN_ROLE')
+        roles = current_user.realm_access.get('roles', [])
+        if role not in roles and admin_role not in roles:
+            return make_response(json.dumps({"message": message}), 401)
+
+        return func(*args, **kwargs)
+    return wrapper
+
+
+def verify_spam_detection_read_permissions(func):
+    return _verify_role(
+        func,
+        'SPAM_DETECTION_ROLE',
+        "Require SPAM_DETECTION_ROLE permissions to perform action",
+    )
+
+
+def verify_spam_detection_write_permissions(func):
+    return _verify_role(
+        func,
+        'SPAM_DETECTION_REMEDIATION_ROLE',
+        "Require SPAM_DETECTION_REMEDIATION_ROLE permissions to perform action",
+    )
