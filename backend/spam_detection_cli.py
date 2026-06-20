@@ -18,6 +18,8 @@ def load_config():
     config.setdefault("SPAM_DETECTION_SLEEP_BETWEEN_BATCHES", 0.5)
     config.setdefault("SPAM_DETECTION_SCAN_DRY_RUN", True)
     config.setdefault("SPAM_DETECTION_MAX_REPOS", 0)
+    config.setdefault("SPAM_DETECTION_API_SCAN_LIMIT", 10000)
+    config.setdefault("SPAM_DETECTION_MAX_TRAINING_TEXT_LENGTH", 10000)
     config.setdefault("SPAM_DETECTION_INCLUDE_PRIVATE", False)
     return config
 
@@ -65,8 +67,8 @@ def main():
 
     if args.command == "healthcheck":
         migrate_state_db(config)
-        check_connection(config.get("SPAM_DETECTION_READONLY_DB_URI") or config.get("DB_URI"))
-        check_connection(config.get("SPAM_DETECTION_WRITE_DB_URI") or config.get("DB_URI"))
+        check_connection(config.get("SPAM_DETECTION_READONLY_DB_URI"))
+        check_connection(config.get("SPAM_DETECTION_WRITE_DB_URI"))
         print_json({"status": "ok"})
         return
 

@@ -21,18 +21,37 @@ def quarantine(config, record_uuid, operator=None):
 
     with quay_db.write_db(config) as db:
         with db.atomic():
-            updated = quay_db.update_repository_description(
-                db,
-                record["repository_id"],
-                quarantine_description,
-            )
-            if updated != 1:
-                raise RemediationError("repository row was not updated")
+            current_description, found = quay_db.fetch_repository_description(db, record["repository_id"])
+            if not found:
+                raise RemediationError("repository row was not found")
+            original_description = record.get("original_description")
+            if current_description != quarantine_description:
+                original_description = current_description
+                store.update_quarantine_fields(
+                    config,
+                    record["id"],
+                    {
+                        "original_description": original_description,
+                        "quarantine_description": quarantine_description,
+                    },
+                )
+                updated = quay_db.update_repository_description_if_current(
+                    db,
+                    record["repository_id"],
+                    quarantine_description,
+                    current_description,
+                )
+                if updated != 1:
+                    raise RemediationError("repository description changed during quarantine; refresh and retry")
 
     return store.update_quarantine_record(
         config,
         record["id"],
-        {"status": "quarantined", "quarantine_description": quarantine_description},
+        {
+            "status": "quarantined",
+            "original_description": original_description,
+            "quarantine_description": quarantine_description,
+        },
         "quarantine",
         operator=operator,
         details={"repository_id": record["repository_id"]},
@@ -48,13 +67,24 @@ def restore(config, record_uuid, operator=None):
 
     with quay_db.write_db(config) as db:
         with db.atomic():
-            updated = quay_db.update_repository_description(
-                db,
-                record["repository_id"],
-                record.get("original_description"),
-            )
-            if updated != 1:
-                raise RemediationError("repository row was not updated")
+            current_description, found = quay_db.fetch_repository_description(db, record["repository_id"])
+            if not found:
+                raise RemediationError("repository row was not found")
+            original_description = record.get("original_description")
+            quarantine_description = record.get("quarantine_description")
+            if current_description == original_description:
+                pass
+            elif current_description == quarantine_description:
+                updated = quay_db.update_repository_description_if_current(
+                    db,
+                    record["repository_id"],
+                    original_description,
+                    current_description,
+                )
+                if updated != 1:
+                    raise RemediationError("repository description changed during restore; refresh and retry")
+            else:
+                raise RemediationError("repository description no longer matches quarantine text; refresh and retry")
 
     return store.update_quarantine_record(
         config,
@@ -89,17 +119,27 @@ def redact(config, record_uuid, redacted_description=None, operator=None):
     if record["status"] != "quarantined":
         raise RemediationError("only quarantined records can be redacted")
     if redacted_description is None:
-        redacted_description = ""
+        raise RemediationError("redacted_description is required")
 
     with quay_db.write_db(config) as db:
         with db.atomic():
-            updated = quay_db.update_repository_description(
-                db,
-                record["repository_id"],
-                redacted_description,
-            )
-            if updated != 1:
-                raise RemediationError("repository row was not updated")
+            current_description, found = quay_db.fetch_repository_description(db, record["repository_id"])
+            if not found:
+                raise RemediationError("repository row was not found")
+            quarantine_description = record.get("quarantine_description")
+            if current_description == redacted_description:
+                pass
+            elif current_description == quarantine_description:
+                updated = quay_db.update_repository_description_if_current(
+                    db,
+                    record["repository_id"],
+                    redacted_description,
+                    current_description,
+                )
+                if updated != 1:
+                    raise RemediationError("repository description changed during redaction; refresh and retry")
+            else:
+                raise RemediationError("repository description no longer matches quarantine text; refresh and retry")
 
     return store.update_quarantine_record(
         config,

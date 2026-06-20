@@ -1,3 +1,5 @@
+import sqlite3
+
 from .database import (
     connect_state_db,
     ensure_policy,
@@ -9,6 +11,62 @@ from .database import (
 )
 
 
+DEFAULT_TOKEN_PATTERN = r"[a-z0-9][a-z0-9_-]*"
+MAX_TRAINING_TEXT_LENGTH = 10000
+
+
+def _validate_probability(value, field):
+    value = float(value)
+    if value < 0 or value > 1:
+        raise ValueError(f"{field} must be between 0 and 1")
+    return value
+
+
+def _validate_nonnegative_int(value, field):
+    value = int(value)
+    if value < 0:
+        raise ValueError(f"{field} must be greater than or equal to 0")
+    return value
+
+
+def _validate_positive_int(value, field):
+    value = int(value)
+    if value <= 0:
+        raise ValueError(f"{field} must be greater than 0")
+    return value
+
+
+def _validate_nonnegative_float(value, field):
+    value = float(value)
+    if value < 0:
+        raise ValueError(f"{field} must be greater than or equal to 0")
+    return value
+
+
+def _validate_feature_config(feature_config):
+    feature_config = feature_config or {
+        "token_pattern": DEFAULT_TOKEN_PATTERN,
+        "include_repository_name": False,
+    }
+    token_pattern = feature_config.get("token_pattern", DEFAULT_TOKEN_PATTERN)
+    if token_pattern != DEFAULT_TOKEN_PATTERN:
+        raise ValueError("custom token_pattern is not supported in the initial spam detector")
+    return {
+        "token_pattern": DEFAULT_TOKEN_PATTERN,
+        "include_repository_name": bool(feature_config.get("include_repository_name", False)),
+    }
+
+
+def _validate_training_text(config, text):
+    text = text.strip()
+    max_length = int(config.get("SPAM_DETECTION_MAX_TRAINING_TEXT_LENGTH", MAX_TRAINING_TEXT_LENGTH))
+    if not text:
+        raise ValueError("text is required")
+    if len(text) > max_length:
+        raise ValueError(f"text must be {max_length} characters or fewer")
+    return text
+
+
 def initialize(config):
     migrate_state_db(config)
 
@@ -16,10 +74,9 @@ def initialize(config):
 def create_classifier(config, payload, operator=None):
     initialize(config)
     now = utcnow()
-    feature_config = payload.get("feature_config") or {
-        "token_pattern": r"[a-z0-9][a-z0-9_-]*",
-        "include_repository_name": False,
-    }
+    feature_config = _validate_feature_config(payload.get("feature_config"))
+    scan_threshold = _validate_probability(payload.get("scan_threshold", 0.9), "scan_threshold")
+    ingress_threshold = _validate_probability(payload.get("ingress_threshold", 0.9), "ingress_threshold")
     with connect_state_db(config) as conn:
         if payload.get("enabled"):
             conn.execute("UPDATE spam_classifier SET enabled = 0")
@@ -37,8 +94,8 @@ def create_classifier(config, payload, operator=None):
                 1 if payload.get("enabled") else 0,
                 payload.get("training_corpus_version"),
                 json_dumps(feature_config),
-                float(payload.get("scan_threshold", 0.9)),
-                float(payload.get("ingress_threshold", 0.9)),
+                scan_threshold,
+                ingress_threshold,
                 now,
                 now,
                 operator,
@@ -102,18 +159,20 @@ def update_classifier(config, classifier_uuid, payload, operator=None):
     for key in [
         "name",
         "training_corpus_version",
-        "scan_threshold",
-        "ingress_threshold",
     ]:
         if key in payload:
             fields.append(f"{key} = ?")
             params.append(payload[key])
+    for key in ["scan_threshold", "ingress_threshold"]:
+        if key in payload:
+            fields.append(f"{key} = ?")
+            params.append(_validate_probability(payload[key], key))
     if "enabled" in payload:
         fields.append("enabled = ?")
         params.append(1 if payload["enabled"] else 0)
     if "feature_config" in payload:
         fields.append("feature_config_json = ?")
-        params.append(json_dumps(payload["feature_config"]))
+        params.append(json_dumps(_validate_feature_config(payload["feature_config"])))
     fields.extend(["updated_at = ?", "updated_by = ?"])
     params.extend([now, operator, existing["id"]])
 
@@ -145,6 +204,7 @@ def add_training_example(config, classifier_uuid, payload, operator=None):
     label = payload["label"].strip().lower()
     if label not in ("spam", "ham"):
         raise ValueError("label must be spam or ham")
+    text = _validate_training_text(config, payload["text"])
     now = utcnow()
     with connect_state_db(config) as conn:
         cur = conn.execute(
@@ -160,7 +220,7 @@ def add_training_example(config, classifier_uuid, payload, operator=None):
                 payload.get("repository_id"),
                 payload.get("namespace_name"),
                 payload.get("repository_name"),
-                payload["text"],
+                text,
                 label,
                 payload.get("source", "manual_review"),
                 payload.get("source_ref"),
@@ -212,6 +272,33 @@ def update_classifier_artifact(config, classifier_id, artifact, artifact_path, a
         return get_classifier_by_db_id(conn, classifier_id)
 
 
+def artifact_version_exists(config, artifact_version, classifier_id=None):
+    initialize(config)
+    with connect_state_db(config) as conn:
+        params = [artifact_version]
+        sql = "SELECT id FROM spam_classifier WHERE artifact_version = ?"
+        if classifier_id is not None:
+            sql += " AND id != ?"
+            params.append(classifier_id)
+        return conn.execute(sql, tuple(params)).fetchone() is not None
+
+
+def classifier_snapshot(classifier):
+    if not classifier:
+        return {}
+    return {
+        "id": classifier.get("id"),
+        "uuid": classifier.get("uuid"),
+        "name": classifier.get("name"),
+        "artifact_version": classifier.get("artifact_version"),
+        "artifact_sha256": classifier.get("artifact_sha256"),
+        "training_corpus_version": classifier.get("training_corpus_version"),
+        "scan_threshold": classifier.get("scan_threshold"),
+        "ingress_threshold": classifier.get("ingress_threshold"),
+        "feature_config": classifier.get("feature_config_json"),
+    }
+
+
 def get_policy(config):
     initialize(config)
     with connect_state_db(config) as conn:
@@ -251,6 +338,14 @@ def update_policy(config, payload, operator=None):
             value = payload[key]
             if key in ("include_private", "public_only_default", "scan_empty_repositories_only", "scan_dry_run"):
                 value = 1 if value else 0
+            elif key in ("scan_threshold", "ingress_threshold"):
+                value = _validate_probability(value, key)
+            elif key == "batch_size":
+                value = _validate_positive_int(value, key)
+            elif key == "max_repos":
+                value = _validate_nonnegative_int(value, key)
+            elif key == "sleep_between_batches":
+                value = _validate_nonnegative_float(value, key)
             fields.append(f"{key} = ?")
             params.append(value)
         if "scan_filters" in payload:
@@ -268,15 +363,26 @@ def create_scan_run(config, source, dry_run, classifier_snapshot, policy_snapsho
     initialize(config)
     now = utcnow()
     with connect_state_db(config) as conn:
-        cur = conn.execute(
-            """
-            INSERT INTO spam_scan_run (
-                uuid, source, dry_run, status, started_at, classifier_snapshot_json,
-                policy_snapshot_json, created_by
-            ) VALUES (?, ?, ?, 'running', ?, ?, ?, ?)
-            """,
-            (new_uuid(), source, 1 if dry_run else 0, now, json_dumps(classifier_snapshot), json_dumps(policy_snapshot), operator),
-        )
+        try:
+            cur = conn.execute(
+                """
+                INSERT INTO spam_scan_run (
+                    uuid, source, dry_run, status, started_at, classifier_snapshot_json,
+                    policy_snapshot_json, created_by
+                ) VALUES (?, ?, ?, 'running', ?, ?, ?, ?)
+                """,
+                (
+                    new_uuid(),
+                    source,
+                    1 if dry_run else 0,
+                    now,
+                    json_dumps(classifier_snapshot),
+                    json_dumps(policy_snapshot),
+                    operator,
+                ),
+            )
+        except sqlite3.IntegrityError as exc:
+            raise ValueError("a spam detection scan is already running") from exc
         return row_to_dict(conn.execute("SELECT * FROM spam_scan_run WHERE id = ?", (cur.lastrowid,)).fetchone())
 
 
@@ -334,29 +440,41 @@ def create_flagged_record(config, match, repository, classifier_snapshot):
         ).fetchone()
         if existing:
             return row_to_dict(existing)
-        cur = conn.execute(
-            """
-            INSERT INTO spam_quarantine_record (
-                uuid, repository_id, namespace_name, repository_name, visibility,
-                status, original_description, classifier_score,
-                classifier_snapshot_json, run_id, match_id, created_at, updated_at
-            ) VALUES (?, ?, ?, ?, ?, 'flagged', ?, ?, ?, ?, ?, ?, ?)
-            """,
-            (
-                new_uuid(),
-                repository["id"],
-                repository["namespace_name"],
-                repository["repository_name"],
-                repository.get("visibility"),
-                repository.get("description"),
-                match["classifier_score"],
-                json_dumps(classifier_snapshot),
-                match["run_id"],
-                match["id"],
-                now,
-                now,
-            ),
-        )
+        try:
+            cur = conn.execute(
+                """
+                INSERT INTO spam_quarantine_record (
+                    uuid, repository_id, namespace_name, repository_name, visibility,
+                    status, original_description, classifier_score,
+                    classifier_snapshot_json, run_id, match_id, created_at, updated_at
+                ) VALUES (?, ?, ?, ?, ?, 'flagged', ?, ?, ?, ?, ?, ?, ?)
+                """,
+                (
+                    new_uuid(),
+                    repository["id"],
+                    repository["namespace_name"],
+                    repository["repository_name"],
+                    repository.get("visibility"),
+                    repository.get("description"),
+                    match["classifier_score"],
+                    json_dumps(classifier_snapshot),
+                    match["run_id"],
+                    match["id"],
+                    now,
+                    now,
+                ),
+            )
+        except sqlite3.IntegrityError:
+            existing = conn.execute(
+                """
+                SELECT * FROM spam_quarantine_record
+                WHERE repository_id = ? AND status IN ('flagged', 'quarantined')
+                """,
+                (repository["id"],),
+            ).fetchone()
+            if existing:
+                return row_to_dict(existing)
+            raise
         record_id = cur.lastrowid
         conn.execute(
             "UPDATE spam_scan_match SET quarantine_record_id = ? WHERE id = ?",
@@ -419,6 +537,20 @@ def update_quarantine_record(config, record_id, fields, action, operator=None, d
             details or {},
         )
         return row_to_dict(updated)
+
+
+def update_quarantine_fields(config, record_id, fields):
+    assignments = []
+    params = []
+    for key, value in fields.items():
+        assignments.append(f"{key} = ?")
+        params.append(value)
+    assignments.append("updated_at = ?")
+    params.append(utcnow())
+    params.append(record_id)
+    with connect_state_db(config) as conn:
+        conn.execute(f"UPDATE spam_quarantine_record SET {', '.join(assignments)} WHERE id = ?", tuple(params))
+        return row_to_dict(conn.execute("SELECT * FROM spam_quarantine_record WHERE id = ?", (record_id,)).fetchone())
 
 
 def list_runs(config, limit=50):

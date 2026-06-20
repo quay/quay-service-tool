@@ -61,6 +61,8 @@ app.config.setdefault("SPAM_DETECTION_BATCH_SIZE", 200)
 app.config.setdefault("SPAM_DETECTION_SLEEP_BETWEEN_BATCHES", 0.5)
 app.config.setdefault("SPAM_DETECTION_SCAN_DRY_RUN", True)
 app.config.setdefault("SPAM_DETECTION_MAX_REPOS", 0)
+app.config.setdefault("SPAM_DETECTION_API_SCAN_LIMIT", 10000)
+app.config.setdefault("SPAM_DETECTION_MAX_TRAINING_TEXT_LENGTH", 10000)
 app.config.setdefault("SPAM_DETECTION_INCLUDE_PRIVATE", False)
 app.config.setdefault(
     "SPAM_DETECTION_QUARANTINE_DESCRIPTION",

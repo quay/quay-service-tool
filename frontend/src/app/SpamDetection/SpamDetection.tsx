@@ -52,6 +52,8 @@ export const SpamDetection: React.FunctionComponent = () => {
   const [trainingLabel, setTrainingLabel] = useState('spam');
   const [csvPath, setCsvPath] = useState('');
   const [selectedClassifier, setSelectedClassifier] = useState('');
+  const [pendingReviewAction, setPendingReviewAction] = useState<{ recordUuid: string; action: string } | null>(null);
+  const [redactedDescription, setRedactedDescription] = useState('');
 
   const canRemediate = UserService.hasRealmRole(SPAM_DETECTION_REMEDIATION_ROLE);
 
@@ -195,8 +197,9 @@ export const SpamDetection: React.FunctionComponent = () => {
   }
 
   async function runScan(dryRun: boolean) {
+    const maxRepos = Number(policy.max_repos) > 0 ? Number(policy.max_repos) : undefined;
     HttpService.axiosClient
-      .post('/spam-detection/runs', { source: 'manual', dry_run: dryRun })
+      .post('/spam-detection/runs', { source: 'manual', dry_run: dryRun, max_repos: maxRepos })
       .then(() => {
         showMessage('Scan completed');
         loadRuns();
@@ -205,11 +208,25 @@ export const SpamDetection: React.FunctionComponent = () => {
       .catch((error) => showMessage(error.response?.data?.message || 'Unable to run scan'));
   }
 
-  async function reviewAction(recordUuid: string, action: string) {
+  function openReviewAction(recordUuid: string, action: string) {
+    setPendingReviewAction({ recordUuid, action });
+    setRedactedDescription('');
+  }
+
+  async function reviewAction() {
+    if (!pendingReviewAction) {
+      return;
+    }
+    const { recordUuid, action } = pendingReviewAction;
+    const body =
+      action === 'redact'
+        ? { redacted_description: redactedDescription }
+        : {};
     HttpService.axiosClient
-      .post(`/spam-detection/review/${recordUuid}/${action}`, {})
+      .post(`/spam-detection/review/${recordUuid}/${action}`, body)
       .then(() => {
         showMessage(`${action} completed`);
+        setPendingReviewAction(null);
         loadReview();
       })
       .catch((error) => showMessage(error.response?.data?.message || `Unable to ${action}`));
@@ -229,6 +246,37 @@ export const SpamDetection: React.FunctionComponent = () => {
         onClose={() => setMessage('')}
       >
         <span>{message}</span>
+      </Modal>
+      <Modal
+        isOpen={pendingReviewAction !== null}
+        variant={ModalVariant.small}
+        title={`${pendingReviewAction?.action || ''} repository`}
+        onClose={() => setPendingReviewAction(null)}
+        actions={[
+          <Button
+            key="confirm"
+            variant={pendingReviewAction?.action === 'redact' ? 'danger' : 'primary'}
+            onClick={reviewAction}
+            isDisabled={pendingReviewAction?.action === 'redact' && redactedDescription.length === 0}
+          >
+            Confirm
+          </Button>,
+          <Button key="cancel" variant="link" onClick={() => setPendingReviewAction(null)}>
+            Cancel
+          </Button>,
+        ]}
+      >
+        {pendingReviewAction?.action === 'redact' && (
+          <Form>
+            <FormGroup label="Redacted description" fieldId="redacted-description">
+              <TextArea
+                id="redacted-description"
+                value={redactedDescription}
+                onChange={(value) => setRedactedDescription(value)}
+              />
+            </FormGroup>
+          </Form>
+        )}
       </Modal>
       {loading && <Spinner role="spam-detection-loading" isSVG />}
       <Tabs activeKey={activeTab} onSelect={(_, key) => setActiveTab(key as number)}>
@@ -333,6 +381,27 @@ export const SpamDetection: React.FunctionComponent = () => {
                   isChecked={Boolean(policy.scan_dry_run)}
                   onChange={(checked) => setPolicy({ ...policy, scan_dry_run: checked })}
                 />
+                <FormGroup label="Max repositories" fieldId="max-repos">
+                  <TextInput
+                    id="max-repos"
+                    value={String(policy.max_repos || '')}
+                    onChange={(value) => setPolicy({ ...policy, max_repos: Number(value) })}
+                  />
+                </FormGroup>
+                <FormGroup label="Batch size" fieldId="batch-size">
+                  <TextInput
+                    id="batch-size"
+                    value={String(policy.batch_size || '')}
+                    onChange={(value) => setPolicy({ ...policy, batch_size: Number(value) })}
+                  />
+                </FormGroup>
+                <FormGroup label="Quarantine description" fieldId="quarantine-description">
+                  <TextArea
+                    id="quarantine-description"
+                    value={policy.quarantine_description || ''}
+                    onChange={(value) => setPolicy({ ...policy, quarantine_description: value })}
+                  />
+                </FormGroup>
                 <Button variant="primary" onClick={savePolicy}>
                   Save policy
                 </Button>
@@ -392,21 +461,21 @@ export const SpamDetection: React.FunctionComponent = () => {
               canRemediate ? (
                 <span>
                   {item.status === 'flagged' && (
-                    <Button variant="secondary" onClick={() => reviewAction(item.uuid, 'quarantine')}>
+                    <Button variant="secondary" onClick={() => openReviewAction(item.uuid, 'quarantine')}>
                       Quarantine
                     </Button>
                   )}{' '}
                   {item.status === 'quarantined' && (
-                    <Button variant="secondary" onClick={() => reviewAction(item.uuid, 'restore')}>
+                    <Button variant="secondary" onClick={() => openReviewAction(item.uuid, 'restore')}>
                       Restore
                     </Button>
                   )}{' '}
                   {item.status === 'quarantined' && (
-                    <Button variant="danger" onClick={() => reviewAction(item.uuid, 'redact')}>
+                    <Button variant="danger" onClick={() => openReviewAction(item.uuid, 'redact')}>
                       Redact
                     </Button>
                   )}{' '}
-                  <Button variant="link" onClick={() => reviewAction(item.uuid, 'dismiss')}>
+                  <Button variant="link" onClick={() => openReviewAction(item.uuid, 'dismiss')}>
                     Dismiss
                   </Button>
                 </span>

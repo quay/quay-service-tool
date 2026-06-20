@@ -17,7 +17,7 @@ def _connect(uri):
 
 @contextmanager
 def readonly_db(config):
-    uri = config.get("SPAM_DETECTION_READONLY_DB_URI") or config.get("DB_URI")
+    uri = config.get("SPAM_DETECTION_READONLY_DB_URI")
     db = _connect(uri)
     try:
         yield db
@@ -28,7 +28,7 @@ def readonly_db(config):
 
 @contextmanager
 def write_db(config):
-    uri = config.get("SPAM_DETECTION_WRITE_DB_URI") or config.get("DB_URI")
+    uri = config.get("SPAM_DETECTION_WRITE_DB_URI")
     db = _connect(uri)
     try:
         yield db
@@ -107,4 +107,34 @@ def update_repository_description(db, repository_id, description):
     repository_table = _quote(db, "repository")
     sql = f"UPDATE {repository_table} SET description = {param} WHERE id = {param}"
     cursor = db.execute_sql(sql, (description, repository_id))
+    return cursor.rowcount
+
+
+def fetch_repository_description(db, repository_id):
+    param = db.param
+    repository_table = _quote(db, "repository")
+    sql = f"SELECT description FROM {repository_table} WHERE id = {param}"
+    cursor = db.execute_sql(sql, (repository_id,))
+    row = cursor.fetchone()
+    if row is None:
+        return None, False
+    return row[0], True
+
+
+def update_repository_description_if_current(db, repository_id, description, expected_description):
+    param = db.param
+    repository_table = _quote(db, "repository")
+    if expected_description is None:
+        sql = (
+            f"UPDATE {repository_table} SET description = {param} "
+            f"WHERE id = {param} AND description IS NULL"
+        )
+        params = (description, repository_id)
+    else:
+        sql = (
+            f"UPDATE {repository_table} SET description = {param} "
+            f"WHERE id = {param} AND description = {param}"
+        )
+        params = (description, repository_id, expected_description)
+    cursor = db.execute_sql(sql, params)
     return cursor.rowcount

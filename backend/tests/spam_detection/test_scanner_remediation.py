@@ -1,5 +1,7 @@
 import sqlite3
 
+import pytest
+
 from spam_detection import classifier, remediation, scanner, store
 
 
@@ -106,3 +108,104 @@ def test_quarantine_writes_repository_description_directly(tmp_path):
 
     assert updated["status"] == "quarantined"
     assert description == "quarantined"
+
+
+def test_scan_stores_compact_classifier_snapshots(tmp_path):
+    quay_db_path = tmp_path / "quay.db"
+    _create_quay_db(quay_db_path)
+    config = _config(tmp_path, quay_db_path)
+    _trained_classifier(config)
+    store.update_policy(config, {"scan_dry_run": False})
+
+    run = scanner.run_scan(config, dry_run=False)
+    record = store.list_review(config)[0]
+
+    assert "token_spam_counts" not in run["classifier_snapshot_json"]
+    assert "token_ham_counts" not in run["classifier_snapshot_json"]
+    assert "token_spam_counts" not in record["classifier_snapshot_json"]
+    assert "token_ham_counts" not in record["classifier_snapshot_json"]
+
+
+def test_scan_rejects_when_another_scan_is_running(tmp_path):
+    quay_db_path = tmp_path / "quay.db"
+    _create_quay_db(quay_db_path)
+    config = _config(tmp_path, quay_db_path)
+    _trained_classifier(config)
+    store.create_scan_run(config, "test", True, {}, {}, operator="tester")
+
+    with pytest.raises(ValueError):
+        scanner.run_scan(config, dry_run=True)
+
+
+def test_quarantine_preserves_latest_description_for_restore(tmp_path):
+    quay_db_path = tmp_path / "quay.db"
+    _create_quay_db(quay_db_path)
+    config = _config(tmp_path, quay_db_path)
+    _trained_classifier(config)
+    store.update_policy(config, {"scan_dry_run": False, "quarantine_description": "quarantined"})
+
+    scanner.run_scan(config, dry_run=False)
+    record = store.list_review(config)[0]
+    conn = sqlite3.connect(quay_db_path)
+    conn.execute('UPDATE "repository" SET description = ? WHERE id = 1', ("legitimate update",))
+    conn.commit()
+    conn.close()
+
+    quarantined = remediation.quarantine(config, record["uuid"], operator="tester")
+    restored = remediation.restore(config, record["uuid"], operator="tester")
+
+    conn = sqlite3.connect(quay_db_path)
+    description = conn.execute('SELECT description FROM "repository" WHERE id = 1').fetchone()[0]
+    conn.close()
+
+    assert quarantined["original_description"] == "legitimate update"
+    assert restored["status"] == "restored"
+    assert description == "legitimate update"
+
+
+def test_restore_rejects_when_quarantined_description_changed(tmp_path):
+    quay_db_path = tmp_path / "quay.db"
+    _create_quay_db(quay_db_path)
+    config = _config(tmp_path, quay_db_path)
+    _trained_classifier(config)
+    store.update_policy(config, {"scan_dry_run": False, "quarantine_description": "quarantined"})
+
+    scanner.run_scan(config, dry_run=False)
+    record = store.list_review(config)[0]
+    remediation.quarantine(config, record["uuid"], operator="tester")
+    conn = sqlite3.connect(quay_db_path)
+    conn.execute('UPDATE "repository" SET description = ? WHERE id = 1', ("manual moderation edit",))
+    conn.commit()
+    conn.close()
+
+    with pytest.raises(remediation.RemediationError):
+        remediation.restore(config, record["uuid"], operator="tester")
+
+
+def test_redact_requires_explicit_description(tmp_path):
+    quay_db_path = tmp_path / "quay.db"
+    _create_quay_db(quay_db_path)
+    config = _config(tmp_path, quay_db_path)
+    _trained_classifier(config)
+    store.update_policy(config, {"scan_dry_run": False, "quarantine_description": "quarantined"})
+
+    scanner.run_scan(config, dry_run=False)
+    record = store.list_review(config)[0]
+    remediation.quarantine(config, record["uuid"], operator="tester")
+
+    with pytest.raises(remediation.RemediationError):
+        remediation.redact(config, record["uuid"], operator="tester")
+
+    redacted = remediation.redact(
+        config,
+        record["uuid"],
+        redacted_description="[redacted]",
+        operator="tester",
+    )
+
+    conn = sqlite3.connect(quay_db_path)
+    description = conn.execute('SELECT description FROM "repository" WHERE id = 1').fetchone()[0]
+    conn.close()
+
+    assert redacted["status"] == "redacted"
+    assert description == "[redacted]"

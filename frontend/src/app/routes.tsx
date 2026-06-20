@@ -96,7 +96,7 @@ const RouteWithTitleUpdates = ({ component: Component, isAsync = false, title, .
     return <Component {...rest} {...routeProps} />;
   }
 
-  return <Route render={routeWithTitle} />;
+  return <Route {...rest} render={routeWithTitle} />;
 };
 
 const PageNotFound = ({ title }: { title: string }) => {

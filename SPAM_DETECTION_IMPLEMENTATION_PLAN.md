@@ -22,6 +22,9 @@ Important boundary decisions for this repository:
   replica.
 * Approved quarantine, restore, and redaction use explicit direct Quay database
   writes, not user-scoped Quay repository APIs.
+* Remediation must use conditional writes and retry-safe service-tool state
+  updates because the Quay DB and service-tool state DB do not share one ACID
+  transaction.
 * Initial auditability is through service-tool logs and service-tool state, not
   a new Quay audit API.
 
@@ -334,8 +337,9 @@ Training flow:
 
 The first implementation should include repository description text only by
 default. Optional repository-name tokens can be controlled by
-`feature_config.include_repository_name` because Quay #6154 already supports
-that flag.
+`feature_config.include_repository_name`. The tokenizer regex should remain the
+fixed reviewed default until a regex safety strategy suitable for Quay's
+request path is available.
 
 ## Scanning Implementation
 
@@ -441,6 +445,10 @@ Add command-line entry points that can run inside the service-tool image:
 The scheduled scan path should be an OpenShift CronJob invoking the CLI scan
 entry point, not a Quay worker and not an always-running scanner in each Quay
 pod.
+
+Manual scans started through the service-tool API must be bounded by
+`SPAM_DETECTION_API_SCAN_LIMIT`; unbounded production scans should use the CLI
+or scheduled CronJob path.
 
 ## Frontend Plan
 

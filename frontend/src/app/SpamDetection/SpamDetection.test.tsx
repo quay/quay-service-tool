@@ -1,6 +1,6 @@
 import React from 'react';
 import { mocked } from 'ts-jest/utils';
-import { render, screen } from '@testing-library/react';
+import { fireEvent, render, screen, waitFor } from '@testing-library/react';
 import HttpService from 'src/services/HttpService';
 import { SpamDetection } from './SpamDetection';
 
@@ -45,5 +45,56 @@ describe('Spam Detection', () => {
 
     expect(await screen.findByText('Default classifier')).toBeTruthy();
     expect(await screen.findByText('20260620.1')).toBeTruthy();
+  });
+
+  it('requires confirmation and redaction text before redacting', async () => {
+    mocked(HttpService, true).axiosClient.get
+      .mockResolvedValueOnce({ data: { classifiers: [] } })
+      .mockResolvedValueOnce({
+        data: {
+          policy: {
+            scan_threshold: 0.9,
+            ingress_threshold: 0.9,
+            include_private: 0,
+            scan_dry_run: 1,
+          },
+        },
+      })
+      .mockResolvedValueOnce({ data: { runs: [] } })
+      .mockResolvedValueOnce({
+        data: {
+          records: [
+            {
+              uuid: 'record-1',
+              namespace_name: 'publicns',
+              repository_name: 'spam',
+              status: 'quarantined',
+              classifier_score: 0.99,
+            },
+          ],
+        },
+      })
+      .mockResolvedValueOnce({ data: { records: [] } });
+    mocked(HttpService, true).axiosClient.post.mockResolvedValue({ data: { record: { uuid: 'record-1' } } });
+
+    render(<SpamDetection />);
+
+    fireEvent.click(await screen.findByText('Review'));
+    fireEvent.click(await screen.findByText('Redact'));
+
+    const confirm = await screen.findByText('Confirm');
+    expect(confirm.closest('button')?.hasAttribute('disabled')).toBeTruthy();
+
+    fireEvent.change(screen.getByLabelText('Redacted description'), {
+      target: { value: '[redacted]' },
+    });
+    fireEvent.click(confirm);
+
+    await waitFor(() => {
+      expect(mocked(HttpService, true).axiosClient.post).toHaveBeenCalledWith(
+        '/spam-detection/review/record-1/redact',
+        { redacted_description: '[redacted]' },
+      );
+    });
   });
 });

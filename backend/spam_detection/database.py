@@ -162,6 +162,9 @@ def migrate_state_db(config):
                 ON spam_scan_run(started_at);
             CREATE INDEX IF NOT EXISTS spam_scan_run_status_started_idx
                 ON spam_scan_run(status, started_at);
+            CREATE UNIQUE INDEX IF NOT EXISTS spam_scan_run_one_running_idx
+                ON spam_scan_run(status)
+                WHERE status = 'running';
 
             CREATE TABLE IF NOT EXISTS spam_scan_match (
                 id INTEGER PRIMARY KEY AUTOINCREMENT,

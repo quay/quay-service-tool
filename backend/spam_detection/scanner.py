@@ -79,6 +79,7 @@ def preview(config, policy_override=None, limit=100):
 
 def run_scan(config, source="manual", dry_run=None, max_repos=None, operator=None):
     classifier, artifact, policy = _load_active(config)
+    classifier_snapshot = store.classifier_snapshot(classifier)
     scan_dry_run = bool(policy.get("scan_dry_run")) if dry_run is None else bool(dry_run)
     threshold = float(policy.get("scan_threshold") or classifier["scan_threshold"])
     include_private = bool(policy.get("include_private"))
@@ -91,7 +92,7 @@ def run_scan(config, source="manual", dry_run=None, max_repos=None, operator=Non
     )
     max_repos = int(max_repos if max_repos is not None else policy.get("max_repos") or 0)
 
-    run = store.create_scan_run(config, source, scan_dry_run, artifact, policy, operator=operator)
+    run = store.create_scan_run(config, source, scan_dry_run, classifier_snapshot, policy, operator=operator)
     counters = {
         "repos_scanned": 0,
         "repos_matched": 0,
@@ -140,8 +141,14 @@ def run_scan(config, source="manual", dry_run=None, max_repos=None, operator=Non
                         decision["explanation"],
                     )
                     if not scan_dry_run:
-                        store.create_flagged_record(config, match, repository, artifact)
-                        counters["repos_flagged"] += 1
+                        record = store.create_flagged_record(
+                            config,
+                            match,
+                            repository,
+                            classifier_snapshot,
+                        )
+                        if record.get("match_id") == match["id"]:
+                            counters["repos_flagged"] += 1
 
                 if sleep_between_batches:
                     time.sleep(sleep_between_batches)

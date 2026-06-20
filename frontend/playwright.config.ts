@@ -18,7 +18,7 @@ export default defineConfig({
     },
   ],
   webServer: {
-    command: "pnpm start:dev",
+    command: "corepack pnpm start:dev",
     url: "http://localhost:9000",
     reuseExistingServer: !process.env.CI,
     timeout: 120_000,

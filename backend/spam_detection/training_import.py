@@ -16,7 +16,7 @@ def import_csv(config, classifier_uuid, path, source="seed_import", operator=Non
             if not text or label not in ("spam", "ham"):
                 skipped += 1
                 continue
-            store.add_training_example(
+            example = store.add_training_example(
                 config,
                 classifier_uuid,
                 {
@@ -27,5 +27,7 @@ def import_csv(config, classifier_uuid, path, source="seed_import", operator=Non
                 },
                 operator=operator,
             )
+            if not example:
+                raise ValueError("classifier not found")
             imported += 1
     return {"imported": imported, "skipped": skipped}

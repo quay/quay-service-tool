@@ -57,6 +57,11 @@ def log_response(func):
             log_fn = logging.exception
         if response.status_code == 200 or response.status_code == 201:
             log_fn = logging.info
+        request_payload = request.get_json(silent=True)
+        response_payload = response.data
+        if request.path.startswith("/spam-detection"):
+            request_payload = "[redacted spam detection payload]"
+            response_payload = b"[redacted spam detection response]"
         log_fn(
             f"{datetime.utcnow().strftime('%d %b, %Y, %H:%M:%S')} - "
             f"{request.method} - "
@@ -64,8 +69,8 @@ def log_response(func):
             f"{response.status_code} - "
             f"{current_user.username} - "
             f"{current_user.email} - "
-            f"{json.dumps(request.get_json(silent=True))} - "
-            f"{response.data}"
+            f"{json.dumps(request_payload)} - "
+            f"{response_payload}"
         )
         return response
 

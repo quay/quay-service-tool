@@ -1,6 +1,8 @@
 import hashlib
 import json
 
+import pytest
+
 from spam_detection import classifier, store
 
 
@@ -38,3 +40,32 @@ def test_training_writes_quay_compatible_artifact_and_sha(tmp_path):
     assert artifact["feature_config"]["token_pattern"] == classifier.DEFAULT_TOKEN_PATTERN
     assert "ingress_threshold" in artifact
     assert classifier.classify_text(artifact, "casino bonus")["score"] > 0.5
+
+
+def test_custom_token_pattern_is_rejected(tmp_path):
+    config = _config(tmp_path)
+    with pytest.raises(ValueError):
+        store.create_classifier(
+            config,
+            {
+                "name": "test",
+                "feature_config": {
+                    "token_pattern": "(a+)+",
+                    "include_repository_name": False,
+                },
+            },
+        )
+
+
+def test_duplicate_artifact_version_is_rejected_before_overwrite(tmp_path):
+    config = _config(tmp_path)
+    first = store.create_classifier(config, {"name": "first", "enabled": True})
+    second = store.create_classifier(config, {"name": "second"})
+    for created in [first, second]:
+        store.add_training_example(config, created["uuid"], {"text": "casino bonus", "label": "spam"})
+        store.add_training_example(config, created["uuid"], {"text": "container image", "label": "ham"})
+
+    classifier.train_classifier(config, first["uuid"], artifact_version="test-v1")
+
+    with pytest.raises(classifier.ClassifierError):
+        classifier.train_classifier(config, second["uuid"], artifact_version="test-v1")

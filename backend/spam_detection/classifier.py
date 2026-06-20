@@ -14,6 +14,7 @@ DEFAULT_FEATURE_CONFIG = {
     "token_pattern": DEFAULT_TOKEN_PATTERN,
     "include_repository_name": False,
 }
+MAX_ARTIFACT_VERSION_LENGTH = 128
 
 
 class ClassifierError(Exception):
@@ -24,8 +25,29 @@ def artifact_dir(config):
     return config.get("SPAM_DETECTION_ARTIFACT_DIR") or "spam_detection_artifacts"
 
 
-def tokenize(text, feature_config=None):
+def validate_artifact_version(version):
+    if not version or not isinstance(version, str):
+        raise ClassifierError("artifact version is required")
+    if len(version) > MAX_ARTIFACT_VERSION_LENGTH:
+        raise ClassifierError("artifact version is too long")
+    if not re.fullmatch(r"[A-Za-z0-9._-]+", version):
+        raise ClassifierError("artifact version may only contain letters, numbers, dots, underscores, and dashes")
+    return version
+
+
+def validate_feature_config(feature_config):
     feature_config = feature_config or DEFAULT_FEATURE_CONFIG
+    token_pattern = feature_config.get("token_pattern", DEFAULT_TOKEN_PATTERN)
+    if token_pattern != DEFAULT_TOKEN_PATTERN:
+        raise ClassifierError("custom token_pattern is not supported in the initial spam detector")
+    return {
+        "token_pattern": DEFAULT_TOKEN_PATTERN,
+        "include_repository_name": bool(feature_config.get("include_repository_name", False)),
+    }
+
+
+def tokenize(text, feature_config=None):
+    feature_config = validate_feature_config(feature_config)
     pattern = feature_config.get("token_pattern", DEFAULT_TOKEN_PATTERN)
     return [match.group(0).lower() for match in re.finditer(pattern, text or "", re.IGNORECASE)]
 
@@ -43,7 +65,7 @@ def train_classifier(config, classifier_uuid, artifact_version=None):
     if not classifier:
         raise ClassifierError("classifier not found")
 
-    feature_config = classifier.get("feature_config_json") or DEFAULT_FEATURE_CONFIG
+    feature_config = validate_feature_config(classifier.get("feature_config_json") or DEFAULT_FEATURE_CONFIG)
     examples = store.list_training_examples(config, classifier["id"])
     if not examples:
         raise ClassifierError("at least one training example is required")
@@ -72,7 +94,9 @@ def train_classifier(config, classifier_uuid, artifact_version=None):
 
     vocabulary = set(spam_counts) | set(ham_counts)
     total_examples = spam_examples + ham_examples
-    version = artifact_version or datetime.utcnow().strftime("%Y%m%d%H%M%S")
+    version = validate_artifact_version(artifact_version or datetime.utcnow().strftime("%Y%m%d%H%M%S"))
+    if store.artifact_version_exists(config, version, classifier["id"]):
+        raise ClassifierError("artifact version is already used by another classifier")
     training_corpus_version = f"{len(examples)}-{hash_examples(examples)}"
 
     artifact = {
@@ -119,15 +143,31 @@ def artifact_bytes(artifact):
 
 
 def write_artifact(config, artifact):
+    validate_artifact_version(artifact["version"])
     output_dir = artifact_dir(config)
     os.makedirs(output_dir, exist_ok=True)
     path = os.path.join(output_dir, f"spam-classifier-{artifact['version']}.json")
     content = artifact_bytes(artifact)
-    with open(path, "wb") as artifact_file:
-        artifact_file.write(content)
+    if os.path.exists(path):
+        with open(path, "rb") as existing_file:
+            existing_content = existing_file.read()
+        if existing_content != content:
+            raise ClassifierError("artifact path already exists with different content")
+    else:
+        tmp_path = f"{path}.tmp.{os.getpid()}"
+        with open(tmp_path, "wb") as artifact_file:
+            artifact_file.write(content)
+            artifact_file.flush()
+            os.fsync(artifact_file.fileno())
+        os.replace(tmp_path, path)
     sha256 = hashlib.sha256(content).hexdigest()
-    with open(f"{path}.sha256", "w", encoding="utf-8") as sha_file:
+    sha_path = f"{path}.sha256"
+    tmp_sha_path = f"{sha_path}.tmp.{os.getpid()}"
+    with open(tmp_sha_path, "w", encoding="utf-8") as sha_file:
         sha_file.write(f"{sha256}  {os.path.basename(path)}\n")
+        sha_file.flush()
+        os.fsync(sha_file.fileno())
+    os.replace(tmp_sha_path, sha_path)
     return path, sha256
 
 
