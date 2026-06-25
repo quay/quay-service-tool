@@ -172,8 +172,8 @@ importers:
         specifier: 26.5.6
         version: 26.5.6(jest@26.6.3)(typescript@4.9.5)
       ts-loader:
-        specifier: 8.4.0
-        version: 8.4.0(typescript@4.9.5)(webpack@5.106.2)
+        specifier: 9.6.2
+        version: 9.6.2(loader-utils@2.0.4)(typescript@4.9.5)(webpack@5.106.2)
       tsconfig-paths-webpack-plugin:
         specifier: 3.5.2
         version: 3.5.2
@@ -5739,6 +5739,10 @@ packages:
     resolution: {integrity: sha512-JU3teHTNjmE2VCGFzuY8EXzCDVwEqB2a8fsIvwaStHhAWJEeVd1o1QD80CU6+ZdEXXSLbSsuLwJjkCBWqRQUVA==}
     engines: {node: '>=8.6'}
 
+  picomatch@4.0.4:
+    resolution: {integrity: sha512-QP88BAKvMam/3NxH6vj2o21R6MjxZUAd6nlwAS/pnGvN9IVLocLHxGYIzFhg6fUQ+5th6P4dv4eW9jX3DSIj7A==}
+    engines: {node: '>=12'}
+
   pify@2.3.0:
     resolution: {integrity: sha512-udgsAY+fTnvv7kI7aaxbqwWNb0AHiB0qBO89PZKPkoTmGOgdbrHDKD+0B2X4uTfJ/FT1R09r9gTsjUjNJotuog==}
     engines: {node: '>=0.10.0'}
@@ -7275,12 +7279,16 @@ packages:
       jest: '>=26 <27'
       typescript: '>=3.8 <5.0'
 
-  ts-loader@8.4.0:
-    resolution: {integrity: sha512-6nFY3IZ2//mrPc+ImY3hNWx1vCHyEhl6V+wLmL4CZcm6g1CqX7UKrkc6y0i4FwcfOhxyMPCfaEvh20f4r9GNpw==}
-    engines: {node: '>=10.0.0'}
+  ts-loader@9.6.2:
+    resolution: {integrity: sha512-R4iuczmtgxvtuI556s+hTZ6/7Ee03VCAk/l/M8LY1OAsUgB7YydsCxkgq9D9pKRaD7GJqUi2u8fp9zZP/ufjKA==}
+    engines: {node: '>=12.0.0'}
     peerDependencies:
+      loader-utils: '*'
       typescript: '*'
-      webpack: '*'
+      webpack: ^4.0.0 || ^5.0.0
+    peerDependenciesMeta:
+      loader-utils:
+        optional: true
 
   ts-pnp@1.2.0:
     resolution: {integrity: sha512-csd+vJOb/gkzvcCHgTGSChYpy5f1/XKNsmvBGO4JXS+z1v2HobugDz4s1IeFXM3wZB44uczs+eazB5Q/ccdhQw==}
@@ -9128,11 +9136,7 @@ snapshots:
       jest-runner: 26.6.3
       jest-runtime: 26.6.3
     transitivePeerDependencies:
-      - bufferutil
-      - canvas
       - supports-color
-      - ts-node
-      - utf-8-validate
 
   '@jest/transform@26.6.2':
     dependencies:
@@ -15642,6 +15646,8 @@ snapshots:
 
   picomatch@2.3.1: {}
 
+  picomatch@4.0.4: {}
+
   pify@2.3.0:
     optional: true
 
@@ -17530,15 +17536,15 @@ snapshots:
       typescript: 4.9.5
       yargs-parser: 20.2.9
 
-  ts-loader@8.4.0(typescript@4.9.5)(webpack@5.106.2):
+  ts-loader@9.6.2(loader-utils@2.0.4)(typescript@4.9.5)(webpack@5.106.2):
     dependencies:
       chalk: 4.1.2
-      enhanced-resolve: 4.5.0
-      loader-utils: 2.0.4
-      micromatch: 4.0.8
-      semver: 7.7.4
+      picomatch: 4.0.4
+      source-map: 0.7.4
       typescript: 4.9.5
       webpack: 5.106.2(webpack-cli@4.10.0)
+    optionalDependencies:
+      loader-utils: 2.0.4
 
   ts-pnp@1.2.0(typescript@4.9.5):
     optionalDependencies:
