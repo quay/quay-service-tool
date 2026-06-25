@@ -70,8 +70,8 @@ importers:
         specifier: 12.1.5
         version: 12.1.5(react-dom@17.0.2(react@17.0.2))(react@17.0.2)
       '@types/enzyme':
-        specifier: 3.10.12
-        version: 3.10.12
+        specifier: 3.10.19
+        version: 3.10.19
       '@types/enzyme-adapter-react-16':
         specifier: 1.0.9
         version: 1.0.9
@@ -1530,8 +1530,8 @@ packages:
   '@types/enzyme-adapter-react-16@1.0.9':
     resolution: {integrity: sha512-z24MMxGtUL8HhXdye3tWzjp+19QTsABqLaX2oOZpxMPHRJgLfahQmOeTTrEBQd9ogW20+UmPBXD9j+XOasFHvw==}
 
-  '@types/enzyme@3.10.12':
-    resolution: {integrity: sha512-xryQlOEIe1TduDWAOphR0ihfebKFSWOXpIsk+70JskCfRfW+xALdnJ0r1ZOTo85F9Qsjk6vtlU7edTYHbls9tA==}
+  '@types/enzyme@3.10.19':
+    resolution: {integrity: sha512-kIfCo6/DdpgCHgmrLgPTugjzbZ46BUK8S2IP0kYo8+62LD2l1k8mSVsc+zQYNTdjDRoh2E9Spxu6F1NnEiW38Q==}
 
   '@types/eslint-scope@3.7.7':
     resolution: {integrity: sha512-MzMFlSLBqNF2gcHWO0G1vP/YQyfvrxZ0bF+u7mzUdZ1/xK4A4sru+nraZz5i3iEIk1l1uyicaDVTB4QbbEkAYg==}
@@ -1667,6 +1667,9 @@ packages:
 
   '@types/react-textarea-autosize@4.3.6':
     resolution: {integrity: sha512-cTf8tCem0c8A7CERYbTuF+bRFaqYu7N7HLCa6ZhUhDx8XnUsTpGx5udMWljt87JpciUKuUkImKPEsy6kcKhrcQ==}
+
+  '@types/react@16.14.70':
+    resolution: {integrity: sha512-DM5Q7rSx9G6QYcVvMgxvEurL5P06OxcDNUXrLxlpBzG4ccUewcBCmsztYbxJBobzO8RIwwmjoaD5OsKqdHDuYQ==}
 
   '@types/react@17.0.53':
     resolution: {integrity: sha512-1yIpQR2zdYu1Z/dc1OxC+MA6GR240u3gcnP4l6mvj/PJiVaqHsQPmWttsvHsfnhfPbU2FuGmo0wSITPygjBmsw==}
@@ -2953,6 +2956,9 @@ packages:
 
   csstype@3.1.1:
     resolution: {integrity: sha512-DJR/VvkAvSZW9bTouZue2sSxDwdTN92uHjqeKVm+0dAqdfNykRzQ95tay8aXMBAAPpUiq4Qcug2L7neoRh2Egw==}
+
+  csstype@3.2.3:
+    resolution: {integrity: sha512-z1HGKcYy2xA8AGQfwrn0PAy+PB7X/GSj3UVJW9qKyn43xWa+gl5nXmU4qqLMRzWVLFC8KusUX8T/0kCiOYpAIQ==}
 
   currently-unhandled@0.4.1:
     resolution: {integrity: sha512-/fITjgjGU50vjQ4FH6eUoYu+iUoUKIXws2hL15JJpIR+BbTxaXQsMuuyjtNh2WqsSBS5nsaZHFsFecyw5CCAng==}
@@ -10266,12 +10272,12 @@ snapshots:
 
   '@types/enzyme-adapter-react-16@1.0.9':
     dependencies:
-      '@types/enzyme': 3.10.12
+      '@types/enzyme': 3.10.19
 
-  '@types/enzyme@3.10.12':
+  '@types/enzyme@3.10.19':
     dependencies:
       '@types/cheerio': 0.22.31
-      '@types/react': 18.0.28
+      '@types/react': 16.14.70
 
   '@types/eslint-scope@3.7.7':
     dependencies:
@@ -10424,6 +10430,12 @@ snapshots:
   '@types/react-textarea-autosize@4.3.6':
     dependencies:
       '@types/react': 18.0.28
+
+  '@types/react@16.14.70':
+    dependencies:
+      '@types/prop-types': 15.7.5
+      '@types/scheduler': 0.16.2
+      csstype: 3.2.3
 
   '@types/react@17.0.53':
     dependencies:
@@ -12142,6 +12154,8 @@ snapshots:
   csstype@2.6.21: {}
 
   csstype@3.1.1: {}
+
+  csstype@3.2.3: {}
 
   currently-unhandled@0.4.1:
     dependencies:
@@ -14403,11 +14417,7 @@ snapshots:
       pretty-format: 26.6.2
       throat: 5.0.0
     transitivePeerDependencies:
-      - bufferutil
-      - canvas
       - supports-color
-      - ts-node
-      - utf-8-validate
 
   jest-leak-detector@26.6.2:
     dependencies:
