@@ -33,7 +33,7 @@
     "build:storybook": "build-storybook"
   },
   "devDependencies": {
-    "@playwright/test": "1.59.1",
+    "@playwright/test": "1.61.1",
     "@storybook/addon-actions": "6.5.16",
     "@storybook/addon-info": "5.3.21",
     "@storybook/addon-links": "6.5.16",
