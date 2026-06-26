@@ -18,8 +18,8 @@ Important boundary decisions for this repository:
 
 * Quay must not call `quay-service-tool` on the request path.
 * `quay-service-tool` may generate a versioned local artifact for Quay to load.
-* Broad scans read directly from the Quay database, preferably from a read-only
-  replica.
+* Broad scans read directly from the Quay database through a read-only user or
+  replica, with a read-only session enabled where the database supports it.
 * Approved quarantine, restore, and redaction use explicit direct Quay database
   writes, not user-scoped Quay repository APIs.
 * Remediation must use conditional writes and retry-safe service-tool state
@@ -82,6 +82,11 @@ the SHA256 of the exact JSON bytes. Operators configure Quay with
 `SPAM_DETECTION_CLASSIFIER_PATH`, `SPAM_DETECTION_CLASSIFIER_VERSION`, and
 optionally `SPAM_DETECTION_CLASSIFIER_SHA256`.
 
+The active service-tool policy is the source of truth for the ingress threshold
+embedded in the artifact. Training and artifact export must write a new
+versioned artifact when the active policy threshold changes, so Quay never has
+to consult service-tool on the request path.
+
 ## Proposed Backend Layout
 
 Add these backend modules:
@@ -96,7 +101,8 @@ Add these backend modules:
     artifact loading, scoring, and explanations.
   * `training_import.py` for reviewed-label and seed CSV import.
   * `quay_db.py` for explicit read-only and write-capable Quay DB connection
-    helpers.
+    helpers, including session-level read-only protection for scan/preview
+    connections where supported.
   * `scanner.py` for cursor-paginated repository scans.
   * `remediation.py` for quarantine, restore, dismiss, and redact state
     transitions and Quay DB mutations.
@@ -132,8 +138,8 @@ Register resources in `backend/app.py`:
 Extend `backend/config/config.yaml` and app startup handling with:
 
 * `SPAM_DETECTION_STATE_DB_URI`: service-tool-owned state database.
-* `SPAM_DETECTION_READONLY_DB_URI`: read-only Quay replica for preview, scans,
-  run-history enrichment, and training candidates.
+* `SPAM_DETECTION_READONLY_DB_URI`: read-only Quay user or replica for preview,
+  scans, run-history enrichment, and training candidates.
 * `SPAM_DETECTION_WRITE_DB_URI`: write-capable Quay DB path for approved
   quarantine, restore, and redaction.
 * `SPAM_DETECTION_ARTIFACT_DIR`: output directory for generated JSON artifacts.
@@ -166,7 +172,8 @@ Implement service-tool-owned tables. These are not Quay application tables.
 * `model_snapshot_json`
 * `feature_config_json`
 * `scan_threshold`
-* `ingress_threshold`
+* `ingress_threshold`: default threshold used when training/exporting outside
+  the active policy.
 * `created_at`
 * `updated_at`
 * `created_by`
@@ -206,7 +213,7 @@ Indexes:
 * `uuid`
 * `active_classifier_id`
 * `scan_threshold`
-* `ingress_threshold`
+* `ingress_threshold`: source of truth for active Quay ingress artifacts.
 * `include_private`
 * `public_only_default`
 * `scan_empty_repositories_only`

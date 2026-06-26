@@ -65,7 +65,7 @@ class SpamDetectionHealthTask(Resource):
         ]:
             uri = config.get(key)
             try:
-                quay_db.check_connection(uri)
+                quay_db.check_connection(uri, read_only=key == "SPAM_DETECTION_READONLY_DB_URI")
                 status[label] = "ok"
             except Exception as exc:
                 logger.exception("Spam detection %s healthcheck failed", label)
@@ -203,7 +203,11 @@ class SpamClassifierExportArtifactTask(Resource):
     @login_required
     def post(self, classifier_uuid):
         try:
-            updated = classifier.export_artifact(current_app.config, classifier_uuid)
+            updated = classifier.export_artifact(
+                current_app.config,
+                classifier_uuid,
+                artifact_version=_body().get("artifact_version"),
+            )
             store.add_action(
                 current_app.config,
                 None,

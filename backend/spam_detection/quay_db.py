@@ -15,11 +15,23 @@ def _connect(uri):
     return db
 
 
+def _enable_readonly_session(db):
+    class_name = db.__class__.__name__.lower()
+    try:
+        if "sqlite" in class_name:
+            db.execute_sql("PRAGMA query_only = ON")
+        elif "postgres" in class_name:
+            db.execute_sql("SET default_transaction_read_only = on")
+    except Exception as exc:
+        raise QuayDBError("Unable to enable read-only Quay DB session") from exc
+
+
 @contextmanager
 def readonly_db(config):
     uri = config.get("SPAM_DETECTION_READONLY_DB_URI")
     db = _connect(uri)
     try:
+        _enable_readonly_session(db)
         yield db
     finally:
         if not db.is_closed():
@@ -37,9 +49,11 @@ def write_db(config):
             db.close()
 
 
-def check_connection(uri):
+def check_connection(uri, read_only=False):
     db = _connect(uri)
     try:
+        if read_only:
+            _enable_readonly_session(db)
         db.execute_sql("SELECT 1")
     finally:
         if not db.is_closed():

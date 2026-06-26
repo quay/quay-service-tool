@@ -47,7 +47,9 @@ DEBUG: true
 
 # Quay spam detection service-tool state and DB access.
 SPAM_DETECTION_STATE_DB_URI: sqlite:///spam_detection_state.db
+# Production deployments should point this at a read-only Quay user or replica.
 SPAM_DETECTION_READONLY_DB_URI: postgresql://quay:quay@quay-db/quay
+# Only approved quarantine, restore, and redaction actions use this write-capable path.
 SPAM_DETECTION_WRITE_DB_URI: postgresql://quay:quay@quay-db/quay
 SPAM_DETECTION_ARTIFACT_DIR: spam_detection_artifacts
 SPAM_DETECTION_BATCH_SIZE: 200

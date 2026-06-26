@@ -25,6 +25,10 @@ def artifact_dir(config):
     return config.get("SPAM_DETECTION_ARTIFACT_DIR") or "spam_detection_artifacts"
 
 
+def generated_artifact_version():
+    return datetime.utcnow().strftime("%Y%m%d%H%M%S%f")
+
+
 def validate_artifact_version(version):
     if not version or not isinstance(version, str):
         raise ClassifierError("artifact version is required")
@@ -58,6 +62,35 @@ def repository_text(description, repository_name=None, feature_config=None):
     if feature_config.get("include_repository_name") and repository_name:
         parts.append(repository_name)
     return " ".join(parts)
+
+
+def effective_ingress_threshold(config, classifier):
+    policy = store.get_policy(config)
+    if policy and policy.get("active_classifier_id") == classifier["id"]:
+        return float(policy.get("ingress_threshold"))
+    return float(classifier["ingress_threshold"])
+
+
+def ingress_thresholds(threshold):
+    return {
+        "public": float(threshold),
+        "private": max(float(threshold), 0.98),
+    }
+
+
+def apply_ingress_policy(config, classifier, artifact, artifact_version=None):
+    artifact = dict(artifact)
+    threshold = effective_ingress_threshold(config, classifier)
+    previous_threshold = float(artifact.get("ingress_threshold", threshold))
+
+    if artifact_version:
+        artifact["version"] = validate_artifact_version(artifact_version)
+    elif previous_threshold != threshold:
+        artifact["version"] = generated_artifact_version()
+
+    artifact["ingress_threshold"] = threshold
+    artifact["ingress_thresholds"] = ingress_thresholds(threshold)
+    return artifact
 
 
 def train_classifier(config, classifier_uuid, artifact_version=None):
@@ -94,10 +127,11 @@ def train_classifier(config, classifier_uuid, artifact_version=None):
 
     vocabulary = set(spam_counts) | set(ham_counts)
     total_examples = spam_examples + ham_examples
-    version = validate_artifact_version(artifact_version or datetime.utcnow().strftime("%Y%m%d%H%M%S"))
+    version = validate_artifact_version(artifact_version or generated_artifact_version())
     if store.artifact_version_exists(config, version, classifier["id"]):
         raise ClassifierError("artifact version is already used by another classifier")
     training_corpus_version = f"{len(examples)}-{hash_examples(examples)}"
+    threshold = effective_ingress_threshold(config, classifier)
 
     artifact = {
         "version": version,
@@ -109,11 +143,8 @@ def train_classifier(config, classifier_uuid, artifact_version=None):
         "ham_token_total": sum(ham_counts.values()),
         "vocabulary_size": max(len(vocabulary), 1),
         "smoothing": 1.0,
-        "ingress_threshold": float(classifier["ingress_threshold"]),
-        "ingress_thresholds": {
-            "public": float(classifier["ingress_threshold"]),
-            "private": max(float(classifier["ingress_threshold"]), 0.98),
-        },
+        "ingress_threshold": threshold,
+        "ingress_thresholds": ingress_thresholds(threshold),
         "feature_config": feature_config,
         "training_corpus_version": training_corpus_version,
     }
@@ -122,11 +153,14 @@ def train_classifier(config, classifier_uuid, artifact_version=None):
     return store.update_classifier_artifact(config, classifier["id"], artifact, path, sha256)
 
 
-def export_artifact(config, classifier_uuid):
+def export_artifact(config, classifier_uuid, artifact_version=None):
     classifier = store.get_classifier(config, classifier_uuid)
     if not classifier:
         raise ClassifierError("classifier not found")
     artifact = load_artifact_from_classifier(classifier)
+    artifact = apply_ingress_policy(config, classifier, artifact, artifact_version)
+    if store.artifact_version_exists(config, artifact["version"], classifier["id"]):
+        raise ClassifierError("artifact version is already used by another classifier")
     path, sha256 = write_artifact(config, artifact)
     return store.update_classifier_artifact(config, classifier["id"], artifact, path, sha256)
 

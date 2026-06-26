@@ -2,7 +2,7 @@ import sqlite3
 
 import pytest
 
-from spam_detection import classifier, remediation, scanner, store
+from spam_detection import classifier, quay_db, remediation, scanner, store
 
 
 def _config(tmp_path, quay_db_path):
@@ -89,6 +89,21 @@ def test_preview_scans_public_repositories_by_default(tmp_path):
     }
     assert "publicns/spam" in repositories
     assert "privatens/private-spam" not in repositories
+
+
+def test_readonly_quay_connection_rejects_repository_updates(tmp_path):
+    quay_db_path = tmp_path / "quay.db"
+    _create_quay_db(quay_db_path)
+    config = _config(tmp_path, quay_db_path)
+
+    with quay_db.readonly_db(config) as db:
+        with pytest.raises(Exception):
+            quay_db.update_repository_description(db, 1, "changed")
+
+    conn = sqlite3.connect(quay_db_path)
+    description = conn.execute('SELECT description FROM "repository" WHERE id = 1').fetchone()[0]
+    conn.close()
+    assert description == "casino bonus jackpot"
 
 
 def test_quarantine_writes_repository_description_directly(tmp_path):

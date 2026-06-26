@@ -42,6 +42,40 @@ def test_training_writes_quay_compatible_artifact_and_sha(tmp_path):
     assert classifier.classify_text(artifact, "casino bonus")["score"] > 0.5
 
 
+def test_training_uses_active_policy_ingress_threshold(tmp_path):
+    config = _config(tmp_path)
+    created = store.create_classifier(config, {"name": "test", "enabled": True})
+    store.update_policy(config, {"ingress_threshold": 0.82})
+    store.add_training_example(config, created["uuid"], {"text": "casino bonus", "label": "spam"})
+    store.add_training_example(config, created["uuid"], {"text": "container image", "label": "ham"})
+
+    trained = classifier.train_classifier(config, created["uuid"], artifact_version="test-v1")
+
+    with open(trained["artifact_path"], encoding="utf-8") as artifact_file:
+        artifact = json.load(artifact_file)
+    assert artifact["ingress_threshold"] == 0.82
+    assert artifact["ingress_thresholds"]["public"] == 0.82
+    assert artifact["ingress_thresholds"]["private"] == 0.98
+
+
+def test_export_refreshes_active_policy_ingress_threshold(tmp_path):
+    config = _config(tmp_path)
+    created = store.create_classifier(config, {"name": "test", "enabled": True})
+    store.add_training_example(config, created["uuid"], {"text": "casino bonus", "label": "spam"})
+    store.add_training_example(config, created["uuid"], {"text": "container image", "label": "ham"})
+    trained = classifier.train_classifier(config, created["uuid"], artifact_version="test-v1")
+
+    store.update_policy(config, {"ingress_threshold": 0.75})
+    exported = classifier.export_artifact(config, created["uuid"])
+
+    with open(exported["artifact_path"], encoding="utf-8") as artifact_file:
+        artifact = json.load(artifact_file)
+    assert exported["artifact_version"] != trained["artifact_version"]
+    assert artifact["ingress_threshold"] == 0.75
+    assert artifact["ingress_thresholds"]["public"] == 0.75
+    assert artifact["ingress_thresholds"]["private"] == 0.98
+
+
 def test_custom_token_pattern_is_rejected(tmp_path):
     config = _config(tmp_path)
     with pytest.raises(ValueError):

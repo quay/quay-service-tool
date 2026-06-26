@@ -50,6 +50,7 @@ def main():
 
     export_artifact = subparsers.add_parser("export-artifact")
     export_artifact.add_argument("--classifier", required=True)
+    export_artifact.add_argument("--artifact-version")
 
     scan = subparsers.add_parser("scan")
     scan.add_argument("--source", default="cli")
@@ -67,7 +68,7 @@ def main():
 
     if args.command == "healthcheck":
         migrate_state_db(config)
-        check_connection(config.get("SPAM_DETECTION_READONLY_DB_URI"))
+        check_connection(config.get("SPAM_DETECTION_READONLY_DB_URI"), read_only=True)
         check_connection(config.get("SPAM_DETECTION_WRITE_DB_URI"))
         print_json({"status": "ok"})
         return
@@ -102,7 +103,11 @@ def main():
         return
 
     if args.command == "export-artifact":
-        updated = classifier.export_artifact(config, args.classifier)
+        updated = classifier.export_artifact(
+            config,
+            args.classifier,
+            artifact_version=args.artifact_version,
+        )
         print_json({"classifier": updated})
         return
 
