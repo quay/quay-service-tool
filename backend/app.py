@@ -37,6 +37,7 @@ from utils import *
 from util.marketplace import MarketplaceUserApi
 from data import database
 import os
+from spam_detection import DEFAULT_QUARANTINE_DESCRIPTION
 
 logging.basicConfig()
 logging.root.setLevel(logging.INFO)
@@ -66,7 +67,7 @@ app.config.setdefault("SPAM_DETECTION_MAX_TRAINING_TEXT_LENGTH", 10000)
 app.config.setdefault("SPAM_DETECTION_INCLUDE_PRIVATE", False)
 app.config.setdefault(
     "SPAM_DETECTION_QUARANTINE_DESCRIPTION",
-    "[removed by Quay spam detection review]",
+    DEFAULT_QUARANTINE_DESCRIPTION,
 )
 
 

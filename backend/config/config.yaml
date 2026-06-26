@@ -59,4 +59,4 @@ SPAM_DETECTION_MAX_REPOS: 0
 SPAM_DETECTION_API_SCAN_LIMIT: 10000
 SPAM_DETECTION_MAX_TRAINING_TEXT_LENGTH: 10000
 SPAM_DETECTION_INCLUDE_PRIVATE: false
-SPAM_DETECTION_QUARANTINE_DESCRIPTION: "[removed by Quay spam detection review]"
+SPAM_DETECTION_QUARANTINE_DESCRIPTION: "This repository description was removed by Quay spam detection. If you believe this was a mistake, contact Quay support to request restoration."

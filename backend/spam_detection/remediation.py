@@ -1,4 +1,4 @@
-from . import quay_db, store
+from . import DEFAULT_QUARANTINE_DESCRIPTION, quay_db, store
 
 
 class RemediationError(Exception):
@@ -16,7 +16,7 @@ def quarantine(config, record_uuid, operator=None):
     quarantine_description = (
         record.get("quarantine_description")
         or policy.get("quarantine_description")
-        or "[removed by Quay spam detection review]"
+        or DEFAULT_QUARANTINE_DESCRIPTION
     )
 
     with quay_db.write_db(config) as db:

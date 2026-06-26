@@ -153,7 +153,7 @@ def train_classifier(config, classifier_uuid, artifact_version=None):
     return store.update_classifier_artifact(config, classifier["id"], artifact, path, sha256)
 
 
-def export_artifact(config, classifier_uuid, artifact_version=None):
+def export_artifact(config, classifier_uuid, artifact_version=None, output_path=None):
     classifier = store.get_classifier(config, classifier_uuid)
     if not classifier:
         raise ClassifierError("classifier not found")
@@ -162,7 +162,12 @@ def export_artifact(config, classifier_uuid, artifact_version=None):
     if store.artifact_version_exists(config, artifact["version"], classifier["id"]):
         raise ClassifierError("artifact version is already used by another classifier")
     path, sha256 = write_artifact(config, artifact)
-    return store.update_classifier_artifact(config, classifier["id"], artifact, path, sha256)
+    updated = store.update_classifier_artifact(config, classifier["id"], artifact, path, sha256)
+    if output_path:
+        export_path, export_sha256 = write_artifact_to_path(artifact, output_path)
+        updated["export_path"] = export_path
+        updated["export_sha256"] = export_sha256
+    return updated
 
 
 def hash_examples(examples):
@@ -181,6 +186,14 @@ def write_artifact(config, artifact):
     output_dir = artifact_dir(config)
     os.makedirs(output_dir, exist_ok=True)
     path = os.path.join(output_dir, f"spam-classifier-{artifact['version']}.json")
+    return write_artifact_to_path(artifact, path)
+
+
+def write_artifact_to_path(artifact, path):
+    validate_artifact_version(artifact["version"])
+    output_dir = os.path.dirname(os.path.abspath(path))
+    if output_dir:
+        os.makedirs(output_dir, exist_ok=True)
     content = artifact_bytes(artifact)
     if os.path.exists(path):
         with open(path, "rb") as existing_file:

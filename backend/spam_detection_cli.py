@@ -51,6 +51,10 @@ def main():
     export_artifact = subparsers.add_parser("export-artifact")
     export_artifact.add_argument("--classifier", required=True)
     export_artifact.add_argument("--artifact-version")
+    export_artifact.add_argument(
+        "--output-path",
+        help="Optional exact artifact file path for build jobs that copy the classifier into the Quay image.",
+    )
 
     scan = subparsers.add_parser("scan")
     scan.add_argument("--source", default="cli")
@@ -107,6 +111,7 @@ def main():
             config,
             args.classifier,
             artifact_version=args.artifact_version,
+            output_path=args.output_path,
         )
         print_json({"classifier": updated})
         return

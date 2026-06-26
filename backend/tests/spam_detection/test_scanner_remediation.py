@@ -125,6 +125,25 @@ def test_quarantine_writes_repository_description_directly(tmp_path):
     assert description == "quarantined"
 
 
+def test_default_quarantine_description_includes_restore_instructions(tmp_path):
+    quay_db_path = tmp_path / "quay.db"
+    _create_quay_db(quay_db_path)
+    config = _config(tmp_path, quay_db_path)
+    _trained_classifier(config)
+    store.update_policy(config, {"scan_dry_run": False})
+
+    scanner.run_scan(config, dry_run=False)
+    record = store.list_review(config)[0]
+    remediation.quarantine(config, record["uuid"], operator="tester")
+
+    conn = sqlite3.connect(quay_db_path)
+    description = conn.execute('SELECT description FROM "repository" WHERE id = 1').fetchone()[0]
+    conn.close()
+
+    assert "contact Quay support" in description
+    assert "request restoration" in description
+
+
 def test_scan_stores_compact_classifier_snapshots(tmp_path):
     quay_db_path = tmp_path / "quay.db"
     _create_quay_db(quay_db_path)

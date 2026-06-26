@@ -87,6 +87,11 @@ embedded in the artifact. Training and artifact export must write a new
 versioned artifact when the active policy threshold changes, so Quay never has
 to consult service-tool on the request path.
 
+For production handoff, service-tool must support exporting an additional copy
+of the artifact to an explicit build output path. The Quay image build can copy
+that JSON file and its `.sha256` sidecar into the image, and Quay can then load
+the baked artifact from `SPAM_DETECTION_CLASSIFIER_PATH`.
+
 ## Proposed Backend Layout
 
 Add these backend modules:
@@ -148,6 +153,9 @@ Extend `backend/config/config.yaml` and app startup handling with:
 * `SPAM_DETECTION_SCAN_DRY_RUN`: default `true`.
 * `SPAM_DETECTION_MAX_REPOS`: default `0` for unlimited.
 * `SPAM_DETECTION_INCLUDE_PRIVATE`: default `false`.
+* `SPAM_DETECTION_QUARANTINE_DESCRIPTION`: default replacement text that tells
+  repository owners spam detection removed the description and explains how to
+  contact Quay support to request restoration.
 * `SPAM_DETECTION_ROLE`: read/report/preview access.
 * `SPAM_DETECTION_REMEDIATION_ROLE`: write/remediation access.
 
@@ -445,6 +453,7 @@ Add command-line entry points that can run inside the service-tool image:
 * `uv run python -m spam_detection_cli import-csv --classifier <uuid> --path <csv> --source seed_import`
 * `uv run python -m spam_detection_cli train --classifier <uuid> --artifact-version <version>`
 * `uv run python -m spam_detection_cli export-artifact --classifier <uuid>`
+* `uv run python -m spam_detection_cli export-artifact --classifier <uuid> --output-path <quay-build-context>/spam-classifier.json`
 * `uv run python -m spam_detection_cli scan --source cronjob --dry-run`
 * `uv run python -m spam_detection_cli scan --source manual --max-repos <n>`
 * `uv run python -m spam_detection_cli healthcheck`

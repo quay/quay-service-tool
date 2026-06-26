@@ -5,6 +5,8 @@ import uuid
 from contextlib import contextmanager
 from datetime import datetime
 
+from . import DEFAULT_QUARANTINE_DESCRIPTION
+
 
 DEFAULT_STATE_DB_URI = "sqlite:///spam_detection_state.db"
 
@@ -266,7 +268,7 @@ def ensure_policy(conn, config):
             "{}",
             config.get(
                 "SPAM_DETECTION_QUARANTINE_DESCRIPTION",
-                "[removed by Quay spam detection review]",
+                DEFAULT_QUARANTINE_DESCRIPTION,
             ),
             1 if config.get("SPAM_DETECTION_SCAN_DRY_RUN", True) else 0,
             int(config.get("SPAM_DETECTION_MAX_REPOS", 0)),
