@@ -1,11 +1,14 @@
-from flask_restful import Resource
+import json
+import logging
+
+from flask_restful import Resource, reqparse
 from flask_login import login_required
 from flask import make_response
-from flask_restful import reqparse
 from data import model
 from data.model import InvalidUsernameException, user
 from utils import log_response, verify_admin_permissions, protect_namespace
-import json
+
+logger = logging.getLogger(__name__)
 
 
 class UsernameTask(Resource):
@@ -45,6 +48,7 @@ class UsernameTask(Resource):
                 400,
             )
         except Exception as e:
+            logger.error("Unable to update username for %s", current_user_name, exc_info=True)
             return make_response(
                 json.dumps({"message": "Unable to update the username"}), 500
             )
