@@ -106,10 +106,11 @@ def healthcheck():
         database.db.close()
         return make_response(jsonify({'message': 'Healthy'}), 200)
     except Exception as e:
+        logger.error("Healthcheck failed", exc_info=True)
         if database.db.obj is not None and not database.db.is_closed():
-            logging.info("Closing database connection")
+            logger.info("Closing database connection")
             database.db.close()
-        return make_response(jsonify({'message': 'DB is not up: {}'.format(str(e))}), 503)
+        return make_response(jsonify({'message': 'Service unavailable'}), 503)
 
 
 @app.route("/")

@@ -1,10 +1,13 @@
+import json
+import logging
+
 from flask_login import login_required
 from flask_restful import Resource
 from flask import make_response
-import json
-
 from utils import log_response, verify_export_compliance_permissions
 from data.model import user
+
+logger = logging.getLogger(__name__)
 
 
 class FederatedUserTask(Resource):
@@ -43,7 +46,8 @@ class FederatedUserTask(Resource):
                 200,
             )
         # Same output for Quay username/email search.
-        except Exception:
+        except Exception as e:
+            logger.error("Unable to fetch federated user %s", username, exc_info=True)
             return make_response(
                 json.dumps({"message": "Unable to fetch user"}), 500
             )

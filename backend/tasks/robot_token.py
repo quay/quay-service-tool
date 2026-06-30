@@ -1,5 +1,8 @@
 import json
+import logging
 from typing import Union
+
+logger = logging.getLogger(__name__)
 
 from flask import make_response
 from flask_login import login_required
@@ -52,8 +55,9 @@ class RobotTokenTask(Resource):
         try:
             user.create_robot(robot_shortname=robot_name, parent=parent, token=token)
         except Union[DataModelException, InvalidRobotException] as e:
+            logger.error("Failed to create robot token", exc_info=True)
             return make_response(
-                json.dumps({"message": f"ERROR: {e}"}), 400
+                json.dumps({"message": "Failed to create robot token"}), 400
             )
 
         return make_response(

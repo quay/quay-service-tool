@@ -1,12 +1,15 @@
+import json
+import logging
+
 from flask_login import login_required
-from flask_restful import Resource
+from flask_restful import Resource, reqparse
 from flask import make_response
-from flask_restful import reqparse
 from playhouse.shortcuts import model_to_dict
 from utils import is_valid_severity, log_response, verify_admin_permissions
-import json
 from data.model import message, db_transaction
 from data.database import Messages
+
+logger = logging.getLogger(__name__)
 
 
 class BannerTask(Resource):
@@ -18,6 +21,7 @@ class BannerTask(Resource):
             messages = {"messages": [model_to_dict(m) for m in message.get_messages()]}
             return make_response(json.dumps(messages), 200)
         except Exception as e:
+            logger.error("Unable to fetch banners", exc_info=True)
             return make_response(
                 json.dumps({"message": "Unable to fetch banners"}), 500
             )
@@ -49,7 +53,7 @@ class BannerTask(Resource):
                 )
             return make_response(json.dumps({"message": "Banner created"}), 201)
         except Exception as e:
-            print(e)
+            logger.error("Unable to create banner", exc_info=True)
             return make_response(
                 json.dumps({"message": "Unable to create a new banner"}), 500
             )
@@ -81,6 +85,7 @@ class BannerTask(Resource):
                 ).execute()
             return make_response("updated", 200)
         except Exception as e:
+            logger.error("Unable to update banner", exc_info=True)
             return make_response(
                 json.dumps({"message": "Unable to update the banner"}), 500
             )
@@ -94,6 +99,7 @@ class BannerTask(Resource):
         except Messages.DoesNotExist:
             return make_response("Banner not found", 404)
         except Exception as e:
+            logger.error("Unable to check banner existence", exc_info=True)
             return make_response(
                 json.dumps({"message": "Unable to check banner existence"}), 500
             )
@@ -103,6 +109,7 @@ class BannerTask(Resource):
                 Messages.delete().where(Messages.id == id).execute()
             return make_response("deleted", 200)
         except Exception as e:
+            logger.error("Unable to delete banner", exc_info=True)
             return make_response(
                 json.dumps({"message": "Unable to delete the banner"}), 500
             )

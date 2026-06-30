@@ -2,6 +2,9 @@ from flask_restful import Resource, reqparse, inputs
 from flask_login import login_required
 from flask import make_response, current_app
 import json
+import logging
+
+logger = logging.getLogger(__name__)
 
 from utils import create_transaction as tf, log_response, verify_admin_permissions, verify_export_compliance_permissions, verify_admin_or_export_perm, protect_namespace
 from data.model import user, db_transaction
@@ -70,6 +73,7 @@ class UserTask(Resource):
                 200,
             )
         except Exception as e:
+            logger.error("Unable to fetch user %s", username, exc_info=True)
             return make_response(
                 json.dumps({"message": f"Unable to fetch user {username}"}), 500
             )
@@ -112,6 +116,7 @@ class UserTask(Resource):
                 found_user.save()
                 
         except Exception as e:
+            logger.error("Unable to update enable status for %s", username, exc_info=True)
             return make_response(
                 json.dumps({"message": "Unable to update enable status"}), 500
             )
@@ -185,6 +190,7 @@ class FetchUserFromNameTask(Resource):
                 200,
             )
         except Exception as e:
+            logger.error("Unable to fetch user %s", quayusername, exc_info=True)
             return make_response(
                 json.dumps({"message": f"Unable to fetch user {quayusername}"}), 500
             )
@@ -228,6 +234,7 @@ class FetchUserFromEmailTask(Resource):
                 200,
             )
         except Exception as e:
+            logger.error("Unable to fetch user by email", exc_info=True)
             return make_response(
                 json.dumps({"message": f"Unable to fetch user {quayuseremail}"}), 500
             )
@@ -268,6 +275,7 @@ class FetchUserFromStripeID(Resource):
                 200,
             )
         except Exception as e:
+            logger.error("Unable to fetch user by stripe ID", exc_info=True)
             return make_response(
                 json.dumps({"message": f"Unable to fetch user with stripe ID {stripe_id}"}), 500
             )
@@ -295,15 +303,13 @@ class UpdateEmailTask(Resource):
             user.update_email(curr_user, new_email, True)
             return make_response(f"email for user {username} has been updated to {new_email}", 200)
         except DataModelException as e:
+            logger.error("Failed to update email for user %s", username, exc_info=True)
             return make_response(
-                json.dumps(
-                    {
-                        "message": str(e)
-                    }
-                ),
+                json.dumps({"message": "Failed to update email"}),
                 400,
             )
         except Exception as e:
+            logger.error("Failed to update email for user %s", username, exc_info=True)
             return make_response(
-                json.dumps({"message": "Unable to update the username" + str(e)}), 500
+                json.dumps({"message": "Unable to update email"}), 500
             )
