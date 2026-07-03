@@ -51,6 +51,7 @@ export const SpamDetection: React.FunctionComponent = () => {
   const [trainingText, setTrainingText] = useState('');
   const [trainingLabel, setTrainingLabel] = useState('spam');
   const [csvPath, setCsvPath] = useState('');
+  const [exportOutputPath, setExportOutputPath] = useState('');
   const [selectedClassifier, setSelectedClassifier] = useState('');
   const [pendingReviewAction, setPendingReviewAction] = useState<{ recordUuid: string; action: string } | null>(null);
   const [redactedDescription, setRedactedDescription] = useState('');
@@ -153,9 +154,16 @@ export const SpamDetection: React.FunctionComponent = () => {
       return;
     }
     HttpService.axiosClient
-      .post(`/spam-detection/classifiers/${selectedClassifier}/export-artifact`, {})
+      .post(`/spam-detection/classifiers/${selectedClassifier}/export-artifact`, {
+        output_path: exportOutputPath || undefined,
+      })
       .then((response) => {
-        showMessage(`Artifact ${response.data.classifier.artifact_version} exported`);
+        const exportPath = response.data.classifier.export_path;
+        showMessage(
+          exportPath
+            ? `Artifact ${response.data.classifier.artifact_version} exported to ${exportPath}`
+            : `Artifact ${response.data.classifier.artifact_version} exported`
+        );
         loadClassifiers();
       })
       .catch((error) => showMessage(error.response?.data?.message || 'Unable to export artifact'));
@@ -218,10 +226,7 @@ export const SpamDetection: React.FunctionComponent = () => {
       return;
     }
     const { recordUuid, action } = pendingReviewAction;
-    const body =
-      action === 'redact'
-        ? { redacted_description: redactedDescription }
-        : {};
+    const body = action === 'redact' ? { redacted_description: redactedDescription } : {};
     HttpService.axiosClient
       .post(`/spam-detection/review/${recordUuid}/${action}`, body)
       .then(() => {
@@ -314,7 +319,11 @@ export const SpamDetection: React.FunctionComponent = () => {
                       />
                     </FormGroup>
                     <FormGroup label="Label" fieldId="training-label">
-                      <TextInput id="training-label" value={trainingLabel} onChange={(value) => setTrainingLabel(value)} />
+                      <TextInput
+                        id="training-label"
+                        value={trainingLabel}
+                        onChange={(value) => setTrainingLabel(value)}
+                      />
                     </FormGroup>
                     <FormGroup label="Text" fieldId="training-text">
                       <TextArea id="training-text" value={trainingText} onChange={(value) => setTrainingText(value)} />
@@ -324,11 +333,17 @@ export const SpamDetection: React.FunctionComponent = () => {
                     </Button>{' '}
                     <Button variant="primary" onClick={trainClassifier} isDisabled={!selectedClassifier}>
                       Train artifact
-                    </Button>
-                    {' '}
+                    </Button>{' '}
                     <Button variant="secondary" onClick={exportArtifact} isDisabled={!selectedClassifier}>
                       Export artifact
                     </Button>
+                    <FormGroup label="Build output path" fieldId="export-output-path">
+                      <TextInput
+                        id="export-output-path"
+                        value={exportOutputPath}
+                        onChange={(value) => setExportOutputPath(value)}
+                      />
+                    </FormGroup>
                     <FormGroup label="Seed CSV path" fieldId="seed-csv-path">
                       <TextInput id="seed-csv-path" value={csvPath} onChange={(value) => setCsvPath(value)} />
                     </FormGroup>

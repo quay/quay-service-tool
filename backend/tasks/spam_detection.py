@@ -207,6 +207,7 @@ class SpamClassifierExportArtifactTask(Resource):
                 current_app.config,
                 classifier_uuid,
                 artifact_version=_body().get("artifact_version"),
+                output_path=_body().get("output_path"),
             )
             store.add_action(
                 current_app.config,
