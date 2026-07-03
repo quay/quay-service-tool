@@ -17,7 +17,8 @@ This plan is aligned with:
 Important boundary decisions for this repository:
 
 * Quay must not call `quay-service-tool` on the request path.
-* `quay-service-tool` may generate a versioned local artifact for Quay to load.
+* `quay-service-tool` generates a versioned JSON artifact for the Quay image
+  build to bake into the image.
 * Broad scans read directly from the Quay database through a read-only user or
   replica, with a read-only session enabled where the database supports it.
 * Approved quarantine, restore, and redaction use explicit direct Quay database
@@ -78,9 +79,10 @@ emit at least:
 ```
 
 The trainer also writes a sidecar checksum file or API response field containing
-the SHA256 of the exact JSON bytes. Operators configure Quay with
-`SPAM_DETECTION_CLASSIFIER_PATH`, `SPAM_DETECTION_CLASSIFIER_VERSION`, and
-optionally `SPAM_DETECTION_CLASSIFIER_SHA256`.
+the SHA256 of the exact JSON bytes. Quay loads the baked JSON artifact from
+`/conf/spam-detection/classifier.json` by default and verifies
+`SPAM_DETECTION_CLASSIFIER_VERSION` and optionally
+`SPAM_DETECTION_CLASSIFIER_SHA256`.
 
 The active service-tool policy is the source of truth for the ingress threshold
 embedded in the artifact. Training and artifact export must write a new
@@ -88,9 +90,11 @@ versioned artifact when the active policy threshold changes, so Quay never has
 to consult service-tool on the request path.
 
 For production handoff, service-tool must support exporting an additional copy
-of the artifact to an explicit build output path. The Quay image build can copy
-that JSON file and its `.sha256` sidecar into the image, and Quay can then load
-the baked artifact from `SPAM_DETECTION_CLASSIFIER_PATH`.
+of the artifact to an explicit build output path. The Quay image build copies
+that JSON file and its `.sha256` sidecar into the image at
+`/conf/spam-detection/classifier.json`. The initial implementation should not
+require runtime artifact downloads, shared mutable volumes, or calls from Quay
+pods to service-tool.
 
 ## Proposed Backend Layout
 
@@ -153,9 +157,10 @@ Extend `backend/config/config.yaml` and app startup handling with:
 * `SPAM_DETECTION_SCAN_DRY_RUN`: default `true`.
 * `SPAM_DETECTION_MAX_REPOS`: default `0` for unlimited.
 * `SPAM_DETECTION_INCLUDE_PRIVATE`: default `false`.
-* `SPAM_DETECTION_QUARANTINE_DESCRIPTION`: default replacement text that tells
-  repository owners spam detection removed the description and explains how to
-  contact Quay support to request restoration.
+* `SPAM_DETECTION_QUARANTINE_DESCRIPTION`: standard quarantine notice that tells
+  repository owners spam detection removed the description, gives the restore
+  contact path, states owner remediation expectations, and names the expected
+  review timeline.
 * `SPAM_DETECTION_ROLE`: read/report/preview access.
 * `SPAM_DETECTION_REMEDIATION_ROLE`: write/remediation access.
 
@@ -489,7 +494,7 @@ Initial UI sections:
 * Classifier: list classifiers, thresholds, artifact version, SHA, train/export
   actions.
 * Policy: edit scan threshold, ingress threshold, public/private handling,
-  dry-run, max repos, batch size, quarantine placeholder.
+  dry-run, max repos, batch size, and quarantine notice.
 * Preview: run a read-only preview with filters and paginated matches.
 * Runs: list scan runs and drill into matches.
 * Review Queue: filter flagged/quarantined records and run quarantine, restore,
@@ -537,18 +542,14 @@ Frontend tests:
    views.
 10. Add deployment notes for the CronJob and artifact distribution to Quay.
 
-## Blocking Questions
+## Resolved Decisions
 
-1. What service-tool-owned state database should this implementation use:
-   a new `SPAM_DETECTION_STATE_DB_URI`, a dedicated schema in the existing Quay
-   database, or another existing Red Hat-managed persistence option?
-2. For quarantine, should the approved Quay repository mutation set
-   `Repository.description` to `NULL`, an empty string, or a standard
-   placeholder message?
-3. Should the first implementation include a frontend UI, or should the first
-   merge stop at backend APIs plus CLI commands for operator use?
-4. What exact Quay DB visibility predicate should be treated as authoritative
-   for public/private scanning in the pinned `quay` dependency?
-5. Where should generated classifier artifacts be delivered for Quay pods to
-   consume them: mounted ConfigMap/Secret, shared volume, image bake-in, or an
-   external deployment process?
+* Service-tool-owned spam detection state uses `SPAM_DETECTION_STATE_DB_URI`.
+* Approved quarantine replaces `Repository.description` with the configured
+  standard quarantine notice.
+* The first implementation includes backend APIs, CLI commands, and the
+  PatternFly operator UI.
+* Public/private scanning uses Quay's `repository.visibility_id` to
+  `visibility.name` relationship.
+* Generated classifier artifacts are exported as JSON plus `.sha256` sidecar
+  files for the Quay image build to bake into the image.

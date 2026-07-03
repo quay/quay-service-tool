@@ -4,7 +4,13 @@ import os
 
 import yaml
 
-from spam_detection import classifier, scanner, store, training_import
+from spam_detection import (
+    DEFAULT_QUARANTINE_DESCRIPTION,
+    classifier,
+    scanner,
+    store,
+    training_import,
+)
 from spam_detection.database import migrate_state_db
 from spam_detection.quay_db import check_connection
 
@@ -21,6 +27,10 @@ def load_config():
     config.setdefault("SPAM_DETECTION_API_SCAN_LIMIT", 10000)
     config.setdefault("SPAM_DETECTION_MAX_TRAINING_TEXT_LENGTH", 10000)
     config.setdefault("SPAM_DETECTION_INCLUDE_PRIVATE", False)
+    config.setdefault(
+        "SPAM_DETECTION_QUARANTINE_DESCRIPTION",
+        DEFAULT_QUARANTINE_DESCRIPTION,
+    )
     return config
 
 

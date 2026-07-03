@@ -141,7 +141,8 @@ def test_default_quarantine_description_includes_restore_instructions(tmp_path):
     conn.close()
 
     assert "contact Quay support" in description
-    assert "request restoration" in description
+    assert "remove promotional, deceptive, or unrelated link content" in description
+    assert "published support timeline" in description
 
 
 def test_scan_stores_compact_classifier_snapshots(tmp_path):
