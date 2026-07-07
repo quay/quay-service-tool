@@ -58,12 +58,15 @@ def state_transaction(config):
         conn.close()
 
 
+JSON_FIELDS = {"hard_filter_results"}
+
+
 def row_to_dict(row):
     if row is None:
         return None
     result = dict(row)
     for key, value in list(result.items()):
-        if key.endswith("_json") and value:
+        if (key.endswith("_json") or key in JSON_FIELDS) and value:
             result[key] = json.loads(value)
     return result
 
@@ -129,7 +132,7 @@ def migrate_state_db(config):
                 ingress_threshold REAL NOT NULL DEFAULT 0.9,
                 include_private INTEGER NOT NULL DEFAULT 0,
                 public_only_default INTEGER NOT NULL DEFAULT 1,
-                scan_empty_repositories_only INTEGER NOT NULL DEFAULT 0,
+                scan_empty_repositories_only INTEGER NOT NULL DEFAULT 1,
                 scan_filters_json TEXT NOT NULL DEFAULT '{}',
                 quarantine_description TEXT,
                 scan_dry_run INTEGER NOT NULL DEFAULT 1,
@@ -180,6 +183,7 @@ def migrate_state_db(config):
                 classifier_score REAL NOT NULL,
                 explanation_json TEXT NOT NULL DEFAULT '{}',
                 is_empty INTEGER NOT NULL DEFAULT 0,
+                hard_filter_results TEXT NOT NULL DEFAULT '{}',
                 quarantine_record_id INTEGER,
                 created_at TEXT NOT NULL,
                 FOREIGN KEY(run_id) REFERENCES spam_scan_run(id),
@@ -241,6 +245,19 @@ def migrate_state_db(config):
                 ON spam_action_history(action, created_at);
             """
         )
+        _ensure_column(
+            conn,
+            "spam_scan_match",
+            "hard_filter_results",
+            "TEXT NOT NULL DEFAULT '{}'",
+        )
+        conn.execute("UPDATE spam_policy SET scan_empty_repositories_only = 1")
+
+
+def _ensure_column(conn, table, column, definition):
+    columns = {row["name"] for row in conn.execute(f"PRAGMA table_info({table})").fetchall()}
+    if column not in columns:
+        conn.execute(f"ALTER TABLE {table} ADD COLUMN {column} {definition}")
 
 
 def ensure_policy(conn, config):
@@ -264,7 +281,7 @@ def ensure_policy(conn, config):
             float(config.get("SPAM_DETECTION_INGRESS_THRESHOLD", 0.9)),
             1 if config.get("SPAM_DETECTION_INCLUDE_PRIVATE", False) else 0,
             0 if config.get("SPAM_DETECTION_INCLUDE_PRIVATE", False) else 1,
-            0,
+            1,
             "{}",
             config.get(
                 "SPAM_DETECTION_QUARANTINE_DESCRIPTION",

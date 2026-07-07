@@ -204,6 +204,17 @@ export const SpamDetection: React.FunctionComponent = () => {
       .catch((error) => showMessage(error.response?.data?.message || 'Unable to preview scan'));
   }
 
+  function formatHardFilters(filters: any) {
+    const repositoryEmpty = filters?.repository_empty;
+    const visibility = filters?.visibility;
+    return [
+      repositoryEmpty ? `empty:${repositoryEmpty.matched ? 'yes' : 'no'}` : null,
+      visibility ? `visibility:${visibility.value || 'unknown'}` : null,
+    ]
+      .filter(Boolean)
+      .join(', ');
+  }
+
   async function runScan(dryRun: boolean) {
     const maxRepos = Number(policy.max_repos) > 0 ? Number(policy.max_repos) : undefined;
     HttpService.axiosClient
@@ -436,11 +447,12 @@ export const SpamDetection: React.FunctionComponent = () => {
             />
           )}
           <SimpleTable
-            columns={['Repository', 'Visibility', 'Score', 'Description']}
+            columns={['Repository', 'Visibility', 'Score', 'Hard filters', 'Description']}
             rows={(preview?.matches || []).map((item) => [
               `${item.namespace_name}/${item.repository_name}`,
               item.visibility,
               item.classifier_score.toFixed(4),
+              formatHardFilters(item.hard_filter_results),
               item.description_excerpt,
             ])}
           />

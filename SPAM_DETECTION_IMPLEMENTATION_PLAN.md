@@ -229,7 +229,8 @@ Indexes:
 * `ingress_threshold`: source of truth for active Quay ingress artifacts.
 * `include_private`
 * `public_only_default`
-* `scan_empty_repositories_only`
+* `scan_empty_repositories_only`: always enforced for scan matches and review
+  eligibility.
 * `scan_filters_json`
 * `quarantine_description`
 * `scan_dry_run`
@@ -279,6 +280,7 @@ Indexes:
 * `classifier_score`
 * `explanation_json`
 * `is_empty`
+* `hard_filter_results`
 * `quarantine_record_id`
 * `created_at`
 
@@ -380,10 +382,14 @@ Rules:
 * Default scan scope is public repository descriptions only.
 * Private repositories are excluded unless `SPAM_DETECTION_INCLUDE_PRIVATE` or
   the policy draft explicitly enables private scanning.
+* Repositories with pushed image content are always excluded from preview
+  results, scan match history, and flagged review records.
 * Use cursor-based pagination over repository IDs.
 * Avoid offset pagination.
 * Avoid per-repository tag queries; prefetch emptiness/tag-existence for the
   current batch.
+* Persist hard-filter results for each match so operators can see the objective
+  eligibility checks that allowed the classifier decision to matter.
 * Persist `spam_scan_run` and `spam_scan_match` rows for scans.
 * Preview uses the same read path and classifier but does not persist run,
   match, or quarantine rows.

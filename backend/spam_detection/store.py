@@ -313,7 +313,6 @@ def update_policy(config, payload, operator=None):
         "ingress_threshold",
         "include_private",
         "public_only_default",
-        "scan_empty_repositories_only",
         "quarantine_description",
         "scan_dry_run",
         "max_repos",
@@ -336,7 +335,7 @@ def update_policy(config, payload, operator=None):
             if key not in payload:
                 continue
             value = payload[key]
-            if key in ("include_private", "public_only_default", "scan_empty_repositories_only", "scan_dry_run"):
+            if key in ("include_private", "public_only_default", "scan_dry_run"):
                 value = 1 if value else 0
             elif key in ("scan_threshold", "ingress_threshold"):
                 value = _validate_probability(value, key)
@@ -399,7 +398,7 @@ def update_scan_run(config, run_id, **fields):
         conn.execute(f"UPDATE spam_scan_run SET {', '.join(assignments)} WHERE id = ?", tuple(params))
 
 
-def add_scan_match(config, run_id, repository, score, explanation):
+def add_scan_match(config, run_id, repository, score, explanation, hard_filter_results=None):
     now = utcnow()
     excerpt = (repository.get("description") or "")[:500]
     with connect_state_db(config) as conn:
@@ -408,8 +407,8 @@ def add_scan_match(config, run_id, repository, score, explanation):
             INSERT INTO spam_scan_match (
                 uuid, run_id, repository_id, namespace_name, repository_name,
                 visibility, description_excerpt, classifier_score, explanation_json,
-                is_empty, created_at
-            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                is_empty, hard_filter_results, created_at
+            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
             """,
             (
                 new_uuid(),
@@ -422,6 +421,7 @@ def add_scan_match(config, run_id, repository, score, explanation):
                 score,
                 json_dumps(explanation),
                 1 if repository.get("is_empty") else 0,
+                json_dumps(hard_filter_results),
                 now,
             ),
         )

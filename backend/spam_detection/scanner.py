@@ -13,6 +13,7 @@ def _load_active(config, policy_override=None):
     policy = store.get_policy(config)
     if policy_override:
         policy.update(policy_override)
+    policy["scan_empty_repositories_only"] = True
     classifier_id = policy.get("active_classifier_id")
     if not classifier_id:
         raise ScanError("spam detection policy has no active classifier")
@@ -23,10 +24,26 @@ def _load_active(config, policy_override=None):
     return classifier, artifact, policy
 
 
+def _hard_filter_results(repository, policy):
+    visibility = repository.get("visibility")
+    include_private = bool(policy.get("include_private"))
+    return {
+        "repository_empty": {
+            "required": True,
+            "matched": bool(repository.get("is_empty")),
+        },
+        "visibility": {
+            "include_private": include_private,
+            "value": visibility,
+            "matched": include_private or visibility == "public",
+        },
+    }
+
+
 def preview(config, policy_override=None, limit=100):
     classifier, artifact, policy = _load_active(config, policy_override)
     include_private = bool(policy.get("include_private"))
-    empty_only = bool(policy.get("scan_empty_repositories_only"))
+    empty_only = True
     batch_size = min(int(policy.get("batch_size") or 200), int(limit))
     threshold = float(policy.get("scan_threshold") or classifier["scan_threshold"])
     scanned = 0
@@ -54,6 +71,7 @@ def preview(config, policy_override=None, limit=100):
                     repository.get("visibility"),
                 )
                 if decision["score"] >= threshold:
+                    hard_filter_results = _hard_filter_results(repository, policy)
                     matched.append(
                         {
                             "repository_id": repository["id"],
@@ -64,6 +82,7 @@ def preview(config, policy_override=None, limit=100):
                             "classifier_score": decision["score"],
                             "explanation": decision["explanation"],
                             "is_empty": bool(repository.get("is_empty")),
+                            "hard_filter_results": hard_filter_results,
                         }
                     )
                     if len(matched) >= limit:
@@ -83,7 +102,7 @@ def run_scan(config, source="manual", dry_run=None, max_repos=None, operator=Non
     scan_dry_run = bool(policy.get("scan_dry_run")) if dry_run is None else bool(dry_run)
     threshold = float(policy.get("scan_threshold") or classifier["scan_threshold"])
     include_private = bool(policy.get("include_private"))
-    empty_only = bool(policy.get("scan_empty_repositories_only"))
+    empty_only = True
     batch_size = int(policy.get("batch_size") or config.get("SPAM_DETECTION_BATCH_SIZE", 200))
     sleep_between_batches = float(
         policy.get("sleep_between_batches")
@@ -133,12 +152,14 @@ def run_scan(config, source="manual", dry_run=None, max_repos=None, operator=Non
                     if decision["score"] < threshold:
                         continue
                     counters["repos_matched"] += 1
+                    hard_filter_results = _hard_filter_results(repository, policy)
                     match = store.add_scan_match(
                         config,
                         run["id"],
                         repository,
                         decision["score"],
                         decision["explanation"],
+                        hard_filter_results,
                     )
                     if not scan_dry_run:
                         record = store.create_flagged_record(

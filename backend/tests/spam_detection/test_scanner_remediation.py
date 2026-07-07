@@ -49,7 +49,10 @@ def _create_quay_db(path):
         VALUES
             (1, 1, 'spam', 1, 'casino bonus jackpot', 0),
             (2, 2, 'private-spam', 2, 'casino bonus jackpot', 0),
-            (3, 1, 'ham', 1, 'container image documentation', 0);
+            (3, 1, 'ham', 1, 'container image documentation', 0),
+            (4, 1, 'nonempty-spam', 1, 'casino bonus jackpot', 0);
+        INSERT INTO "tag" (id, repository_id, lifetime_end_ms, hidden)
+        VALUES (1, 4, NULL, 0);
         """
     )
     conn.commit()
@@ -89,6 +92,47 @@ def test_preview_scans_public_repositories_by_default(tmp_path):
     }
     assert "publicns/spam" in repositories
     assert "privatens/private-spam" not in repositories
+    assert "publicns/nonempty-spam" not in repositories
+    assert all(match["hard_filter_results"]["repository_empty"]["matched"] for match in result["matches"])
+
+
+def test_non_empty_repositories_are_hard_excluded_from_scan_and_review(tmp_path):
+    quay_db_path = tmp_path / "quay.db"
+    _create_quay_db(quay_db_path)
+    config = _config(tmp_path, quay_db_path)
+    _trained_classifier(config)
+    store.update_policy(
+        config,
+        {
+            "scan_dry_run": False,
+            "scan_empty_repositories_only": False,
+        },
+    )
+
+    preview = scanner.preview(config, policy_override={"scan_empty_repositories_only": False}, limit=10)
+    preview_repositories = {
+        f"{match['namespace_name']}/{match['repository_name']}" for match in preview["matches"]
+    }
+    assert "publicns/spam" in preview_repositories
+    assert "publicns/nonempty-spam" not in preview_repositories
+    assert preview["policy"]["scan_empty_repositories_only"] is True
+
+    run = scanner.run_scan(config, dry_run=False)
+    matches = store.list_matches(config, run["uuid"])
+    matched_repositories = {
+        f"{match['namespace_name']}/{match['repository_name']}" for match in matches
+    }
+    review_repositories = {
+        f"{record['namespace_name']}/{record['repository_name']}" for record in store.list_review(config)
+    }
+
+    assert "publicns/spam" in matched_repositories
+    assert "publicns/nonempty-spam" not in matched_repositories
+    assert "publicns/nonempty-spam" not in review_repositories
+    assert run["policy_snapshot_json"]["scan_empty_repositories_only"] is True
+    assert all(match["is_empty"] for match in matches)
+    assert all(match["hard_filter_results"]["repository_empty"]["required"] for match in matches)
+    assert all(match["hard_filter_results"]["repository_empty"]["matched"] for match in matches)
 
 
 def test_readonly_quay_connection_rejects_repository_updates(tmp_path):
