@@ -1,7 +1,7 @@
 networks:
   default:
     external: true
-    name: quay_default
+    name: ${QUAY_NETWORK_NAME:-quay_default}
 
 services:
 #  Not needed for local development
@@ -30,7 +30,7 @@ services:
       - ./backend/config:/backend/config
       - ./backend/tests:/backend/tests
     ports:
-      - '5000:5000'
+      - '${SERVICE_TOOL_API_PORT:-5000}:5000'
     environment:
       ENV: development
       DEBUG: "True"
@@ -48,7 +48,7 @@ services:
       - ./frontend/webpack.common.js:/frontend/webpack.common.js
       - ./frontend/webpack.dev.js:/frontend/webpack.dev.js
     ports:
-      - '9000:9000'
+      - '${SERVICE_TOOL_CLIENT_PORT:-9000}:9000'
     depends_on:
       - quay-service-tool-api
     env_file:
