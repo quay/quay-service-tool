@@ -15,6 +15,8 @@ DEFAULT_FEATURE_CONFIG = {
     "include_repository_name": False,
 }
 MAX_ARTIFACT_VERSION_LENGTH = 128
+DEFAULT_MIN_SPAM_EXAMPLES = 10
+DEFAULT_MIN_HAM_EXAMPLES = 10
 
 
 class ClassifierError(Exception):
@@ -23,6 +25,14 @@ class ClassifierError(Exception):
 
 def artifact_dir(config):
     return config.get("SPAM_DETECTION_ARTIFACT_DIR") or "spam_detection_artifacts"
+
+
+def min_spam_examples(config):
+    return int(config.get("SPAM_DETECTION_MIN_SPAM_EXAMPLES", DEFAULT_MIN_SPAM_EXAMPLES))
+
+
+def min_ham_examples(config):
+    return int(config.get("SPAM_DETECTION_MIN_HAM_EXAMPLES", DEFAULT_MIN_HAM_EXAMPLES))
 
 
 def generated_artifact_version():
@@ -78,6 +88,39 @@ def ingress_thresholds(threshold):
     }
 
 
+def training_metrics(config, total_examples, spam_examples, ham_examples):
+    return {
+        "example_count": total_examples,
+        "spam_examples": spam_examples,
+        "ham_examples": ham_examples,
+        "spam_ratio": spam_examples / total_examples if total_examples else 0,
+        "ham_ratio": ham_examples / total_examples if total_examples else 0,
+        "min_spam_examples": min_spam_examples(config),
+        "min_ham_examples": min_ham_examples(config),
+        "precision": None,
+        "recall": None,
+        "validation_status": "not_available",
+    }
+
+
+def validate_training_corpus(config, spam_examples, ham_examples):
+    min_spam = min_spam_examples(config)
+    min_ham = min_ham_examples(config)
+    if spam_examples < min_spam:
+        raise ClassifierError(f"training requires at least {min_spam} spam examples")
+    if ham_examples < min_ham:
+        raise ClassifierError(f"training requires at least {min_ham} ham examples")
+
+
+def validate_artifact_training_metrics(config, artifact):
+    metrics = artifact.get("training_metrics") or {}
+    spam_examples = metrics.get("spam_examples")
+    ham_examples = metrics.get("ham_examples")
+    if spam_examples is None or ham_examples is None:
+        raise ClassifierError("artifact is missing training metrics")
+    validate_training_corpus(config, int(spam_examples), int(ham_examples))
+
+
 def apply_ingress_policy(config, classifier, artifact, artifact_version=None):
     artifact = dict(artifact)
     threshold = effective_ingress_threshold(config, classifier)
@@ -122,8 +165,7 @@ def train_classifier(config, classifier_uuid, artifact_version=None):
             ham_examples += 1
             ham_counts.update(tokens)
 
-    if spam_examples == 0 or ham_examples == 0:
-        raise ClassifierError("training requires at least one spam and one ham example")
+    validate_training_corpus(config, spam_examples, ham_examples)
 
     vocabulary = set(spam_counts) | set(ham_counts)
     total_examples = spam_examples + ham_examples
@@ -147,6 +189,7 @@ def train_classifier(config, classifier_uuid, artifact_version=None):
         "ingress_thresholds": ingress_thresholds(threshold),
         "feature_config": feature_config,
         "training_corpus_version": training_corpus_version,
+        "training_metrics": training_metrics(config, total_examples, spam_examples, ham_examples),
     }
 
     path, sha256 = write_artifact(config, artifact)
@@ -159,6 +202,7 @@ def export_artifact(config, classifier_uuid, artifact_version=None, output_path=
         raise ClassifierError("classifier not found")
     artifact = load_artifact_from_classifier(classifier)
     artifact = apply_ingress_policy(config, classifier, artifact, artifact_version)
+    validate_artifact_training_metrics(config, artifact)
     if store.artifact_version_exists(config, artifact["version"], classifier["id"]):
         raise ClassifierError("artifact version is already used by another classifier")
     path, sha256 = write_artifact(config, artifact)

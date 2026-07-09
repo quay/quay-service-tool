@@ -10,22 +10,30 @@ def _config(tmp_path):
     return {
         "SPAM_DETECTION_STATE_DB_URI": f"sqlite:///{tmp_path / 'state.db'}",
         "SPAM_DETECTION_ARTIFACT_DIR": str(tmp_path / "artifacts"),
+        "SPAM_DETECTION_MIN_SPAM_EXAMPLES": 1,
+        "SPAM_DETECTION_MIN_HAM_EXAMPLES": 1,
     }
+
+
+def _add_examples(config, classifier_uuid, spam=1, ham=1):
+    for index in range(spam):
+        store.add_training_example(
+            config,
+            classifier_uuid,
+            {"text": f"casino bonus jackpot {index}", "label": "spam"},
+        )
+    for index in range(ham):
+        store.add_training_example(
+            config,
+            classifier_uuid,
+            {"text": f"container image documentation {index}", "label": "ham"},
+        )
 
 
 def test_training_writes_quay_compatible_artifact_and_sha(tmp_path):
     config = _config(tmp_path)
     created = store.create_classifier(config, {"name": "test", "enabled": True})
-    store.add_training_example(
-        config,
-        created["uuid"],
-        {"text": "casino bonus jackpot", "label": "spam"},
-    )
-    store.add_training_example(
-        config,
-        created["uuid"],
-        {"text": "container image documentation", "label": "ham"},
-    )
+    _add_examples(config, created["uuid"])
 
     trained = classifier.train_classifier(config, created["uuid"], artifact_version="test-v1")
 
@@ -39,15 +47,28 @@ def test_training_writes_quay_compatible_artifact_and_sha(tmp_path):
     assert artifact["token_ham_counts"]["container"] == 1
     assert artifact["feature_config"]["token_pattern"] == classifier.DEFAULT_TOKEN_PATTERN
     assert "ingress_threshold" in artifact
+    assert artifact["training_metrics"]["example_count"] == 2
+    assert artifact["training_metrics"]["spam_examples"] == 1
+    assert artifact["training_metrics"]["ham_examples"] == 1
     assert classifier.classify_text(artifact, "casino bonus")["score"] > 0.5
+
+
+def test_training_rejects_corpus_below_minimum_label_counts(tmp_path):
+    config = _config(tmp_path)
+    config["SPAM_DETECTION_MIN_SPAM_EXAMPLES"] = 2
+    config["SPAM_DETECTION_MIN_HAM_EXAMPLES"] = 2
+    created = store.create_classifier(config, {"name": "test", "enabled": True})
+    _add_examples(config, created["uuid"], spam=1, ham=2)
+
+    with pytest.raises(classifier.ClassifierError, match="at least 2 spam examples"):
+        classifier.train_classifier(config, created["uuid"], artifact_version="test-v1")
 
 
 def test_training_uses_active_policy_ingress_threshold(tmp_path):
     config = _config(tmp_path)
     created = store.create_classifier(config, {"name": "test", "enabled": True})
     store.update_policy(config, {"ingress_threshold": 0.82})
-    store.add_training_example(config, created["uuid"], {"text": "casino bonus", "label": "spam"})
-    store.add_training_example(config, created["uuid"], {"text": "container image", "label": "ham"})
+    _add_examples(config, created["uuid"])
 
     trained = classifier.train_classifier(config, created["uuid"], artifact_version="test-v1")
 
@@ -61,8 +82,7 @@ def test_training_uses_active_policy_ingress_threshold(tmp_path):
 def test_export_refreshes_active_policy_ingress_threshold(tmp_path):
     config = _config(tmp_path)
     created = store.create_classifier(config, {"name": "test", "enabled": True})
-    store.add_training_example(config, created["uuid"], {"text": "casino bonus", "label": "spam"})
-    store.add_training_example(config, created["uuid"], {"text": "container image", "label": "ham"})
+    _add_examples(config, created["uuid"])
     trained = classifier.train_classifier(config, created["uuid"], artifact_version="test-v1")
 
     store.update_policy(config, {"ingress_threshold": 0.75})
@@ -79,8 +99,7 @@ def test_export_refreshes_active_policy_ingress_threshold(tmp_path):
 def test_export_writes_build_artifact_copy(tmp_path):
     config = _config(tmp_path)
     created = store.create_classifier(config, {"name": "test", "enabled": True})
-    store.add_training_example(config, created["uuid"], {"text": "casino bonus", "label": "spam"})
-    store.add_training_example(config, created["uuid"], {"text": "container image", "label": "ham"})
+    _add_examples(config, created["uuid"])
     classifier.train_classifier(config, created["uuid"], artifact_version="test-v1")
     output_path = tmp_path / "quay-build" / "spam-classifier.json"
 
@@ -95,6 +114,34 @@ def test_export_writes_build_artifact_copy(tmp_path):
     assert exported_bytes == managed_bytes
     assert exported["export_sha256"] == hashlib.sha256(exported_bytes).hexdigest()
     assert output_path.with_suffix(".json.sha256").exists()
+
+
+def test_export_rejects_artifact_without_training_metrics(tmp_path):
+    config = _config(tmp_path)
+    created = store.create_classifier(config, {"name": "test", "enabled": True})
+    artifact = {
+        "version": "legacy-v1",
+        "spam_prior": 0.5,
+        "ham_prior": 0.5,
+        "token_spam_counts": {"casino": 1},
+        "token_ham_counts": {"container": 1},
+        "spam_token_total": 1,
+        "ham_token_total": 1,
+        "vocabulary_size": 2,
+        "smoothing": 1.0,
+        "ingress_threshold": 0.9,
+        "ingress_thresholds": {"public": 0.9, "private": 0.98},
+        "feature_config": {
+            "token_pattern": classifier.DEFAULT_TOKEN_PATTERN,
+            "include_repository_name": False,
+        },
+        "training_corpus_version": "legacy",
+    }
+    path, sha256 = classifier.write_artifact(config, artifact)
+    store.update_classifier_artifact(config, created["id"], artifact, path, sha256)
+
+    with pytest.raises(classifier.ClassifierError, match="missing training metrics"):
+        classifier.export_artifact(config, created["uuid"], artifact_version="legacy-v2")
 
 
 def test_custom_token_pattern_is_rejected(tmp_path):
@@ -117,8 +164,7 @@ def test_duplicate_artifact_version_is_rejected_before_overwrite(tmp_path):
     first = store.create_classifier(config, {"name": "first", "enabled": True})
     second = store.create_classifier(config, {"name": "second"})
     for created in [first, second]:
-        store.add_training_example(config, created["uuid"], {"text": "casino bonus", "label": "spam"})
-        store.add_training_example(config, created["uuid"], {"text": "container image", "label": "ham"})
+        _add_examples(config, created["uuid"])
 
     classifier.train_classifier(config, first["uuid"], artifact_version="test-v1")
 

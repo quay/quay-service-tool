@@ -26,6 +26,8 @@ def load_config():
     config.setdefault("SPAM_DETECTION_MAX_REPOS", 0)
     config.setdefault("SPAM_DETECTION_API_SCAN_LIMIT", 10000)
     config.setdefault("SPAM_DETECTION_MAX_TRAINING_TEXT_LENGTH", 10000)
+    config.setdefault("SPAM_DETECTION_MIN_SPAM_EXAMPLES", classifier.DEFAULT_MIN_SPAM_EXAMPLES)
+    config.setdefault("SPAM_DETECTION_MIN_HAM_EXAMPLES", classifier.DEFAULT_MIN_HAM_EXAMPLES)
     config.setdefault("SPAM_DETECTION_INCLUDE_PRIVATE", False)
     config.setdefault(
         "SPAM_DETECTION_QUARANTINE_DESCRIPTION",

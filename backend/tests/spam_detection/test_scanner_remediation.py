@@ -13,6 +13,8 @@ def _config(tmp_path, quay_db_path):
         "SPAM_DETECTION_WRITE_DB_URI": f"sqlite:///{quay_db_path}",
         "SPAM_DETECTION_SLEEP_BETWEEN_BATCHES": 0,
         "SPAM_DETECTION_BATCH_SIZE": 10,
+        "SPAM_DETECTION_MIN_SPAM_EXAMPLES": 1,
+        "SPAM_DETECTION_MIN_HAM_EXAMPLES": 1,
     }
 
 

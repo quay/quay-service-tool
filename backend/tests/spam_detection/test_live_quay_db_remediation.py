@@ -32,6 +32,8 @@ def _config(tmp_path):
         ),
         "SPAM_DETECTION_SLEEP_BETWEEN_BATCHES": 0,
         "SPAM_DETECTION_BATCH_SIZE": 200,
+        "SPAM_DETECTION_MIN_SPAM_EXAMPLES": 1,
+        "SPAM_DETECTION_MIN_HAM_EXAMPLES": 1,
     }
 
 
