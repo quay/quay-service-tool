@@ -117,6 +117,7 @@ def run_scan(config, source="manual", dry_run=None, max_repos=None, operator=Non
         "repos_matched": 0,
         "repos_flagged": 0,
         "repos_quarantined": 0,
+        "repos_skipped_terminal": 0,
     }
     last_seen_id = 0
 
@@ -167,8 +168,13 @@ def run_scan(config, source="manual", dry_run=None, max_repos=None, operator=Non
                             match,
                             repository,
                             classifier_snapshot,
+                            rescan_terminal_records=bool(
+                                policy.get("rescan_terminal_records")
+                            ),
                         )
-                        if record.get("match_id") == match["id"]:
+                        if record is None:
+                            counters["repos_skipped_terminal"] += 1
+                        elif record.get("match_id") == match["id"]:
                             counters["repos_flagged"] += 1
 
                 if sleep_between_batches:

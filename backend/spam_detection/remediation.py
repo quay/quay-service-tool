@@ -5,6 +5,17 @@ class RemediationError(Exception):
     pass
 
 
+def _terminal_fields(config, record, description):
+    return {
+        "terminal_classifier_snapshot_json": (
+            store.active_classifier_snapshot(config)
+            or record.get("classifier_snapshot_json")
+            or {}
+        ),
+        "terminal_description_fingerprint": store.description_fingerprint(description),
+    }
+
+
 def quarantine(config, record_uuid, operator=None):
     record = store.get_quarantine_record(config, record_uuid)
     if not record:
@@ -55,6 +66,7 @@ def quarantine(config, record_uuid, operator=None):
         "quarantine",
         operator=operator,
         details={"repository_id": record["repository_id"]},
+        training_feedback={"label": "spam", "text": original_description},
     )
 
 
@@ -86,13 +98,16 @@ def restore(config, record_uuid, operator=None):
             else:
                 raise RemediationError("repository description no longer matches quarantine text; refresh and retry")
 
+    fields = {"status": "restored"}
+    fields.update(_terminal_fields(config, record, original_description))
     return store.update_quarantine_record(
         config,
         record["id"],
-        {"status": "restored"},
+        fields,
         "restore",
         operator=operator,
         details={"repository_id": record["repository_id"]},
+        training_feedback={"label": "ham", "text": original_description},
     )
 
 
@@ -102,13 +117,25 @@ def dismiss(config, record_uuid, operator=None):
         raise RemediationError("quarantine record not found")
     if record["status"] not in ("flagged", "quarantined"):
         raise RemediationError("only flagged or quarantined records can be dismissed")
+    with quay_db.readonly_db(config) as db:
+        current_description, found = quay_db.fetch_repository_description(db, record["repository_id"])
+        if not found:
+            raise RemediationError("repository row was not found")
+    reviewed_description = (
+        record.get("original_description")
+        if record["status"] == "quarantined"
+        else current_description
+    )
+    fields = {"status": "dismissed"}
+    fields.update(_terminal_fields(config, record, current_description))
     return store.update_quarantine_record(
         config,
         record["id"],
-        {"status": "dismissed"},
+        fields,
         "dismiss",
         operator=operator,
         details={"repository_id": record["repository_id"]},
+        training_feedback={"label": "ham", "text": reviewed_description},
     )
 
 
@@ -141,11 +168,14 @@ def redact(config, record_uuid, redacted_description=None, operator=None):
             else:
                 raise RemediationError("repository description no longer matches quarantine text; refresh and retry")
 
+    fields = {"status": "redacted", "redacted_description": redacted_description}
+    fields.update(_terminal_fields(config, record, redacted_description))
     return store.update_quarantine_record(
         config,
         record["id"],
-        {"status": "redacted", "redacted_description": redacted_description},
+        fields,
         "redact",
         operator=operator,
         details={"repository_id": record["repository_id"]},
+        training_feedback={"label": "spam", "text": record.get("original_description")},
     )

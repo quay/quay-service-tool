@@ -407,6 +407,12 @@ export const SpamDetection: React.FunctionComponent = () => {
                   isChecked={Boolean(policy.scan_dry_run)}
                   onChange={(checked) => setPolicy({ ...policy, scan_dry_run: checked })}
                 />
+                <Checkbox
+                  id="rescan-terminal-records"
+                  label="Rescan unchanged terminal review records"
+                  isChecked={Boolean(policy.rescan_terminal_records)}
+                  onChange={(checked) => setPolicy({ ...policy, rescan_terminal_records: checked })}
+                />
                 <FormGroup label="Max repositories" fieldId="max-repos">
                   <TextInput
                     id="max-repos"
@@ -467,7 +473,7 @@ export const SpamDetection: React.FunctionComponent = () => {
             </Button>
           )}
           <SimpleTable
-            columns={['Run', 'Status', 'Dry run', 'Scanned', 'Matched', 'Flagged']}
+            columns={['Run', 'Status', 'Dry run', 'Scanned', 'Matched', 'Flagged', 'Terminal skips']}
             rows={runs.map((item) => [
               item.uuid,
               item.status,
@@ -475,6 +481,7 @@ export const SpamDetection: React.FunctionComponent = () => {
               item.repos_scanned,
               item.repos_matched,
               item.repos_flagged,
+              item.repos_skipped_terminal || 0,
             ])}
           />
         </Tab>

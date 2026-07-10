@@ -35,6 +35,7 @@ describe('Spam Detection', () => {
             ingress_threshold: 0.9,
             include_private: 0,
             scan_dry_run: 1,
+            rescan_terminal_records: 0,
           },
         },
       })
@@ -45,6 +46,8 @@ describe('Spam Detection', () => {
 
     expect(await screen.findByText('Default classifier')).toBeTruthy();
     expect(await screen.findByText('20260620.1')).toBeTruthy();
+    fireEvent.click(screen.getByRole('tab', { name: 'Policy' }));
+    expect(await screen.findByLabelText('Rescan unchanged terminal review records')).toBeTruthy();
   });
 
   it('requires confirmation and redaction text before redacting', async () => {
@@ -57,6 +60,7 @@ describe('Spam Detection', () => {
             ingress_threshold: 0.9,
             include_private: 0,
             scan_dry_run: 1,
+            rescan_terminal_records: 0,
           },
         },
       })

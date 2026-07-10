@@ -139,6 +139,7 @@ def migrate_state_db(config):
                 max_repos INTEGER NOT NULL DEFAULT 0,
                 batch_size INTEGER NOT NULL DEFAULT 200,
                 sleep_between_batches REAL NOT NULL DEFAULT 0.5,
+                rescan_terminal_records INTEGER NOT NULL DEFAULT 0,
                 created_at TEXT NOT NULL,
                 updated_at TEXT NOT NULL,
                 updated_by TEXT,
@@ -159,6 +160,7 @@ def migrate_state_db(config):
                 repos_matched INTEGER NOT NULL DEFAULT 0,
                 repos_flagged INTEGER NOT NULL DEFAULT 0,
                 repos_quarantined INTEGER NOT NULL DEFAULT 0,
+                repos_skipped_terminal INTEGER NOT NULL DEFAULT 0,
                 error TEXT,
                 created_by TEXT
             );
@@ -208,6 +210,9 @@ def migrate_state_db(config):
                 redacted_description TEXT,
                 classifier_score REAL NOT NULL,
                 classifier_snapshot_json TEXT NOT NULL DEFAULT '{}',
+                description_fingerprint TEXT,
+                terminal_classifier_snapshot_json TEXT,
+                terminal_description_fingerprint TEXT,
                 run_id INTEGER,
                 match_id INTEGER,
                 created_at TEXT NOT NULL,
@@ -251,6 +256,31 @@ def migrate_state_db(config):
             "hard_filter_results",
             "TEXT NOT NULL DEFAULT '{}'",
         )
+        _ensure_column(
+            conn,
+            "spam_policy",
+            "rescan_terminal_records",
+            "INTEGER NOT NULL DEFAULT 0",
+        )
+        _ensure_column(
+            conn,
+            "spam_scan_run",
+            "repos_skipped_terminal",
+            "INTEGER NOT NULL DEFAULT 0",
+        )
+        _ensure_column(conn, "spam_quarantine_record", "description_fingerprint", "TEXT")
+        _ensure_column(
+            conn,
+            "spam_quarantine_record",
+            "terminal_classifier_snapshot_json",
+            "TEXT",
+        )
+        _ensure_column(
+            conn,
+            "spam_quarantine_record",
+            "terminal_description_fingerprint",
+            "TEXT",
+        )
         conn.execute("UPDATE spam_policy SET scan_empty_repositories_only = 1")
 
 
@@ -272,8 +302,8 @@ def ensure_policy(conn, config):
             uuid, scan_threshold, ingress_threshold, include_private,
             public_only_default, scan_empty_repositories_only, scan_filters_json,
             quarantine_description, scan_dry_run, max_repos, batch_size,
-            sleep_between_batches, created_at, updated_at
-        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            sleep_between_batches, rescan_terminal_records, created_at, updated_at
+        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
         """,
         (
             new_uuid(),
@@ -291,6 +321,7 @@ def ensure_policy(conn, config):
             int(config.get("SPAM_DETECTION_MAX_REPOS", 0)),
             int(config.get("SPAM_DETECTION_BATCH_SIZE", 200)),
             float(config.get("SPAM_DETECTION_SLEEP_BETWEEN_BATCHES", 0.5)),
+            1 if config.get("SPAM_DETECTION_RESCAN_TERMINAL_RECORDS", False) else 0,
             now,
             now,
         ),

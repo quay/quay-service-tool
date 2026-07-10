@@ -55,6 +55,7 @@ test('Spam Detection operator workflow covers export, scans, restore, and cleanu
     ingress_threshold: 0.9,
     include_private: 0,
     scan_dry_run: 1,
+    rescan_terminal_records: 0,
     max_repos: 100,
     batch_size: 50,
     quarantine_description: quarantineNotice,
@@ -217,10 +218,12 @@ test('Spam Detection operator workflow covers export, scans, restore, and cleanu
 
   await page.getByRole('tab', { name: 'Policy' }).click();
   await expect(page.getByLabel('Quarantine description')).toHaveValue(/published support timeline/);
+  await page.getByLabel('Rescan unchanged terminal review records').check();
   await page.getByLabel('Max repositories').fill('25');
   await page.getByRole('button', { name: 'Save policy' }).click();
   await expect(page.getByText('Policy saved')).toBeVisible();
   expect(policyPayload.max_repos).toBe(25);
+  expect(policyPayload.rescan_terminal_records).toBe(true);
   expect(policyPayload.quarantine_description).toContain('remove promotional');
   await closeFeedback(page);
 

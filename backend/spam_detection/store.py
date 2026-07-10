@@ -1,3 +1,4 @@
+import hashlib
 import sqlite3
 
 from .database import (
@@ -65,6 +66,10 @@ def _validate_training_text(config, text):
     if len(text) > max_length:
         raise ValueError(f"text must be {max_length} characters or fewer")
     return text
+
+
+def description_fingerprint(description):
+    return hashlib.sha256((description or "").encode("utf-8")).hexdigest()
 
 
 def initialize(config):
@@ -299,6 +304,14 @@ def classifier_snapshot(classifier):
     }
 
 
+def active_classifier_snapshot(config):
+    policy = get_policy(config)
+    classifier_id = policy.get("active_classifier_id")
+    if not classifier_id:
+        return {}
+    return classifier_snapshot(get_classifier_by_id(config, classifier_id))
+
+
 def get_policy(config):
     initialize(config)
     with connect_state_db(config) as conn:
@@ -318,6 +331,7 @@ def update_policy(config, payload, operator=None):
         "max_repos",
         "batch_size",
         "sleep_between_batches",
+        "rescan_terminal_records",
     }
     with connect_state_db(config) as conn:
         policy = ensure_policy(conn, config)
@@ -335,7 +349,12 @@ def update_policy(config, payload, operator=None):
             if key not in payload:
                 continue
             value = payload[key]
-            if key in ("include_private", "public_only_default", "scan_dry_run"):
+            if key in (
+                "include_private",
+                "public_only_default",
+                "scan_dry_run",
+                "rescan_terminal_records",
+            ):
                 value = 1 if value else 0
             elif key in ("scan_threshold", "ingress_threshold"):
                 value = _validate_probability(value, key)
@@ -428,8 +447,15 @@ def add_scan_match(config, run_id, repository, score, explanation, hard_filter_r
         return row_to_dict(conn.execute("SELECT * FROM spam_scan_match WHERE id = ?", (cur.lastrowid,)).fetchone())
 
 
-def create_flagged_record(config, match, repository, classifier_snapshot):
+def create_flagged_record(
+    config,
+    match,
+    repository,
+    classifier_snapshot,
+    rescan_terminal_records=False,
+):
     now = utcnow()
+    fingerprint = description_fingerprint(repository.get("description"))
     with connect_state_db(config) as conn:
         existing = conn.execute(
             """
@@ -440,14 +466,32 @@ def create_flagged_record(config, match, repository, classifier_snapshot):
         ).fetchone()
         if existing:
             return row_to_dict(existing)
+        if not rescan_terminal_records:
+            terminal = conn.execute(
+                """
+                SELECT * FROM spam_quarantine_record
+                WHERE repository_id = ?
+                  AND status IN ('dismissed', 'restored', 'redacted')
+                ORDER BY id DESC
+                LIMIT 1
+                """,
+                (repository["id"],),
+            ).fetchone()
+            if terminal and _terminal_record_matches(
+                terminal,
+                fingerprint,
+                classifier_snapshot,
+            ):
+                return None
         try:
             cur = conn.execute(
                 """
                 INSERT INTO spam_quarantine_record (
                     uuid, repository_id, namespace_name, repository_name, visibility,
                     status, original_description, classifier_score,
-                    classifier_snapshot_json, run_id, match_id, created_at, updated_at
-                ) VALUES (?, ?, ?, ?, ?, 'flagged', ?, ?, ?, ?, ?, ?, ?)
+                    classifier_snapshot_json, description_fingerprint,
+                    run_id, match_id, created_at, updated_at
+                ) VALUES (?, ?, ?, ?, ?, 'flagged', ?, ?, ?, ?, ?, ?, ?, ?)
                 """,
                 (
                     new_uuid(),
@@ -458,6 +502,7 @@ def create_flagged_record(config, match, repository, classifier_snapshot):
                     repository.get("description"),
                     match["classifier_score"],
                     json_dumps(classifier_snapshot),
+                    fingerprint,
                     match["run_id"],
                     match["id"],
                     now,
@@ -486,7 +531,21 @@ def create_flagged_record(config, match, repository, classifier_snapshot):
         )
 
 
+def _terminal_record_matches(record, fingerprint, classifier_snapshot):
+    if record["terminal_description_fingerprint"] != fingerprint:
+        return False
+    terminal_snapshot = row_to_dict(record).get("terminal_classifier_snapshot_json") or {}
+    identity_fields = ("artifact_version", "artifact_sha256")
+    if not any(classifier_snapshot.get(field) for field in identity_fields):
+        return False
+    return all(
+        terminal_snapshot.get(field) == classifier_snapshot.get(field)
+        for field in identity_fields
+    )
+
+
 def add_action_with_conn(conn, record_id, action, from_status, to_status, operator, details):
+    action_uuid = new_uuid()
     conn.execute(
         """
         INSERT INTO spam_action_history (
@@ -494,8 +553,9 @@ def add_action_with_conn(conn, record_id, action, from_status, to_status, operat
             operator, created_at, details_json
         ) VALUES (?, ?, ?, ?, ?, ?, ?, ?)
         """,
-        (new_uuid(), record_id, action, from_status, to_status, operator, utcnow(), json_dumps(details)),
+        (action_uuid, record_id, action, from_status, to_status, operator, utcnow(), json_dumps(details)),
     )
+    return action_uuid
 
 
 def add_action(config, record_id, action, from_status, to_status, operator=None, details=None):
@@ -512,8 +572,22 @@ def get_quarantine_record(config, record_uuid):
         )
 
 
-def update_quarantine_record(config, record_id, fields, action, operator=None, details=None):
+def update_quarantine_record(
+    config,
+    record_id,
+    fields,
+    action,
+    operator=None,
+    details=None,
+    training_feedback=None,
+):
     now = utcnow()
+    if training_feedback:
+        training_feedback = dict(training_feedback)
+        training_feedback["text"] = _validate_training_text(config, training_feedback["text"])
+        training_feedback["label"] = training_feedback["label"].strip().lower()
+        if training_feedback["label"] not in ("spam", "ham"):
+            raise ValueError("label must be spam or ham")
     with connect_state_db(config) as conn:
         current = conn.execute("SELECT * FROM spam_quarantine_record WHERE id = ?", (record_id,)).fetchone()
         if not current:
@@ -522,12 +596,14 @@ def update_quarantine_record(config, record_id, fields, action, operator=None, d
         params = []
         for key, value in fields.items():
             assignments.append(f"{key} = ?")
+            if key.endswith("_json") and not isinstance(value, str):
+                value = json_dumps(value)
             params.append(value)
         assignments.extend(["updated_at = ?", "actioned_by = ?", "actioned_at = ?"])
         params.extend([now, operator, now, record_id])
         conn.execute(f"UPDATE spam_quarantine_record SET {', '.join(assignments)} WHERE id = ?", tuple(params))
         updated = conn.execute("SELECT * FROM spam_quarantine_record WHERE id = ?", (record_id,)).fetchone()
-        add_action_with_conn(
+        action_uuid = add_action_with_conn(
             conn,
             record_id,
             action,
@@ -536,6 +612,35 @@ def update_quarantine_record(config, record_id, fields, action, operator=None, d
             operator,
             details or {},
         )
+        if training_feedback:
+            snapshot = row_to_dict(current).get("classifier_snapshot_json") or {}
+            classifier_id = snapshot.get("id")
+            classifier = conn.execute(
+                "SELECT id FROM spam_classifier WHERE id = ?",
+                (classifier_id,),
+            ).fetchone()
+            if classifier:
+                conn.execute(
+                    """
+                    INSERT INTO spam_training_example (
+                        uuid, classifier_id, repository_id, namespace_name,
+                        repository_name, text, label, source, source_ref,
+                        created_by, created_at
+                    ) VALUES (?, ?, ?, ?, ?, ?, ?, 'review_action', ?, ?, ?)
+                    """,
+                    (
+                        new_uuid(),
+                        classifier["id"],
+                        current["repository_id"],
+                        current["namespace_name"],
+                        current["repository_name"],
+                        training_feedback["text"],
+                        training_feedback["label"],
+                        action_uuid,
+                        operator,
+                        now,
+                    ),
+                )
         return row_to_dict(updated)
 
 

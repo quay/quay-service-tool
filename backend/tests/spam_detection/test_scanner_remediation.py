@@ -290,3 +290,169 @@ def test_redact_requires_explicit_description(tmp_path):
 
     assert redacted["status"] == "redacted"
     assert description == "[redacted]"
+
+
+def test_dismiss_records_ham_feedback_for_next_training(tmp_path):
+    quay_db_path = tmp_path / "quay.db"
+    _create_quay_db(quay_db_path)
+    config = _config(tmp_path, quay_db_path)
+    created = _trained_classifier(config)
+    store.update_policy(config, {"scan_dry_run": False})
+
+    scanner.run_scan(config, dry_run=False)
+    record = store.list_review(config)[0]
+    dismissed = remediation.dismiss(config, record["uuid"], operator="reviewer")
+
+    examples = store.list_training_examples(config, created["id"])
+    feedback = [example for example in examples if example["source"] == "review_action"]
+    assert len(feedback) == 1
+    assert feedback[0]["label"] == "ham"
+    assert feedback[0]["text"] == "casino bonus jackpot"
+    assert feedback[0]["repository_id"] == 1
+    state_conn = sqlite3.connect(tmp_path / "state.db")
+    linked_record_id = state_conn.execute(
+        "SELECT quarantine_record_id FROM spam_action_history WHERE uuid = ?",
+        (feedback[0]["source_ref"],),
+    ).fetchone()[0]
+    state_conn.close()
+    assert linked_record_id == record["id"]
+    assert dismissed["description_fingerprint"] == store.description_fingerprint(
+        "casino bonus jackpot"
+    )
+    assert dismissed["terminal_description_fingerprint"] == store.description_fingerprint(
+        "casino bonus jackpot"
+    )
+    assert dismissed["terminal_classifier_snapshot_json"]["artifact_version"] == "test-v1"
+
+    trained = classifier.train_classifier(config, created["uuid"], artifact_version="test-v2")
+    assert trained["model_snapshot_json"]["training_metrics"]["example_count"] == 3
+    assert trained["model_snapshot_json"]["training_metrics"]["ham_examples"] == 2
+
+
+def test_restore_records_ham_feedback_after_quarantine_spam_feedback(tmp_path):
+    quay_db_path = tmp_path / "quay.db"
+    _create_quay_db(quay_db_path)
+    config = _config(tmp_path, quay_db_path)
+    created = _trained_classifier(config)
+    store.update_policy(config, {"scan_dry_run": False, "quarantine_description": "quarantined"})
+
+    scanner.run_scan(config, dry_run=False)
+    record = store.list_review(config)[0]
+    remediation.quarantine(config, record["uuid"], operator="reviewer")
+    restored = remediation.restore(config, record["uuid"], operator="reviewer")
+
+    feedback = [
+        (example["label"], example["text"], example["source_ref"])
+        for example in store.list_training_examples(config, created["id"])
+        if example["source"] == "review_action"
+    ]
+    assert [(label, text) for label, text, _ in feedback] == [
+        ("spam", "casino bonus jackpot"),
+        ("ham", "casino bonus jackpot"),
+    ]
+    assert all(source_ref for _, _, source_ref in feedback)
+    assert restored["terminal_description_fingerprint"] == store.description_fingerprint(
+        "casino bonus jackpot"
+    )
+
+
+def test_unchanged_terminal_record_is_not_reopened(tmp_path):
+    quay_db_path = tmp_path / "quay.db"
+    _create_quay_db(quay_db_path)
+    config = _config(tmp_path, quay_db_path)
+    _trained_classifier(config)
+    store.update_policy(config, {"scan_dry_run": False})
+
+    scanner.run_scan(config, dry_run=False)
+    record = store.list_review(config)[0]
+    remediation.dismiss(config, record["uuid"], operator="reviewer")
+
+    run = scanner.run_scan(config, dry_run=False)
+
+    assert run["repos_matched"] == 1
+    assert run["repos_flagged"] == 0
+    assert run["repos_skipped_terminal"] == 1
+    assert store.list_review(config) == []
+
+
+def test_changed_description_reopens_terminal_record(tmp_path):
+    quay_db_path = tmp_path / "quay.db"
+    _create_quay_db(quay_db_path)
+    config = _config(tmp_path, quay_db_path)
+    _trained_classifier(config)
+    store.update_policy(config, {"scan_dry_run": False})
+
+    scanner.run_scan(config, dry_run=False)
+    record = store.list_review(config)[0]
+    remediation.dismiss(config, record["uuid"], operator="reviewer")
+    conn = sqlite3.connect(quay_db_path)
+    conn.execute(
+        'UPDATE "repository" SET description = ? WHERE id = 1',
+        ("casino bonus jackpot offer",),
+    )
+    conn.commit()
+    conn.close()
+
+    run = scanner.run_scan(config, dry_run=False)
+
+    assert run["repos_flagged"] == 1
+    assert run["repos_skipped_terminal"] == 0
+    assert store.list_review(config)[0]["description_fingerprint"] == store.description_fingerprint(
+        "casino bonus jackpot offer"
+    )
+
+
+def test_new_classifier_artifact_reopens_terminal_record(tmp_path):
+    quay_db_path = tmp_path / "quay.db"
+    _create_quay_db(quay_db_path)
+    config = _config(tmp_path, quay_db_path)
+    created = _trained_classifier(config)
+    store.update_policy(config, {"scan_dry_run": False})
+
+    scanner.run_scan(config, dry_run=False)
+    record = store.list_review(config)[0]
+    remediation.dismiss(config, record["uuid"], operator="reviewer")
+    classifier.export_artifact(config, created["uuid"], artifact_version="test-v2")
+
+    run = scanner.run_scan(config, dry_run=False)
+
+    assert run["repos_flagged"] == 1
+    assert run["repos_skipped_terminal"] == 0
+
+
+def test_terminal_record_captures_classifier_active_at_review_time(tmp_path):
+    quay_db_path = tmp_path / "quay.db"
+    _create_quay_db(quay_db_path)
+    config = _config(tmp_path, quay_db_path)
+    created = _trained_classifier(config)
+    store.update_policy(config, {"scan_dry_run": False})
+
+    scanner.run_scan(config, dry_run=False)
+    record = store.list_review(config)[0]
+    classifier.export_artifact(config, created["uuid"], artifact_version="test-v2")
+    dismissed = remediation.dismiss(config, record["uuid"], operator="reviewer")
+
+    run = scanner.run_scan(config, dry_run=False)
+
+    assert dismissed["terminal_classifier_snapshot_json"]["artifact_version"] == "test-v2"
+    assert run["repos_flagged"] == 0
+    assert run["repos_skipped_terminal"] == 1
+
+
+def test_terminal_rescan_policy_reopens_unchanged_record(tmp_path):
+    quay_db_path = tmp_path / "quay.db"
+    _create_quay_db(quay_db_path)
+    config = _config(tmp_path, quay_db_path)
+    _trained_classifier(config)
+    store.update_policy(config, {"scan_dry_run": False})
+
+    scanner.run_scan(config, dry_run=False)
+    record = store.list_review(config)[0]
+    remediation.dismiss(config, record["uuid"], operator="reviewer")
+    policy = store.update_policy(config, {"rescan_terminal_records": True})
+
+    run = scanner.run_scan(config, dry_run=False)
+
+    assert policy["rescan_terminal_records"] == 1
+    assert run["repos_flagged"] == 1
+    assert run["repos_skipped_terminal"] == 0

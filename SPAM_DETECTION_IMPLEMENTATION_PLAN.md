@@ -155,6 +155,9 @@ Extend `backend/config/config.yaml` and app startup handling with:
 * `SPAM_DETECTION_BATCH_SIZE`: default `200`.
 * `SPAM_DETECTION_SLEEP_BETWEEN_BATCHES`: default `0.5`.
 * `SPAM_DETECTION_SCAN_DRY_RUN`: default `true`.
+* `SPAM_DETECTION_RESCAN_TERMINAL_RECORDS`: default `false`; unchanged
+  dismissed, restored, and redacted records remain closed until their
+  description or active classifier artifact changes.
 * `SPAM_DETECTION_MAX_REPOS`: default `0` for unlimited.
 * `SPAM_DETECTION_INCLUDE_PRIVATE`: default `false`.
 * `SPAM_DETECTION_QUARANTINE_DESCRIPTION`: standard quarantine notice that tells
@@ -208,9 +211,8 @@ Indexes:
 * `repository_name`
 * `text`
 * `label`: `spam` or `ham`
-* `source`: `manual_review`, `quarantine`, `restore`, `dismiss`, `redaction`,
-  `csv_import`, `seed_import`
-* `source_ref`
+* `source`: `manual_review`, `review_action`, `csv_import`, or `seed_import`
+* `source_ref`: action-history UUID for review-derived examples
 * `created_by`
 * `created_at`
 
@@ -237,6 +239,7 @@ Indexes:
 * `max_repos`
 * `batch_size`
 * `sleep_between_batches`
+* `rescan_terminal_records`
 * `created_at`
 * `updated_at`
 * `updated_by`
@@ -259,6 +262,7 @@ actions so historical decisions remain explainable.
 * `repos_matched`
 * `repos_flagged`
 * `repos_quarantined`
+* `repos_skipped_terminal`
 * `error`
 * `created_by`
 
@@ -303,6 +307,9 @@ Indexes:
 * `redacted_description`
 * `classifier_score`
 * `classifier_snapshot_json`
+* `description_fingerprint`
+* `terminal_classifier_snapshot_json`
+* `terminal_description_fingerprint`
 * `run_id`
 * `match_id`
 * `created_at`
@@ -397,6 +404,10 @@ Rules:
   and do not mutate Quay data.
 * Non-dry-run scans may open `flagged` review records but still require human
   approval for quarantine, restore, dismiss, and redaction.
+* A matching terminal `dismissed`, `restored`, or `redacted` record suppresses
+  a new review record when its description fingerprint and terminal classifier
+  artifact version/checksum still match. A changed description, changed
+  artifact, or `rescan_terminal_records` policy override reopens eligibility.
 
 The exact repository visibility join must be validated against the Quay models
 available through the pinned `quay` dependency before implementation. If model
@@ -428,6 +439,8 @@ Quarantine:
 8. Commit Quay write, then update service-tool status and action history.
 9. Log operator, repository ID, namespace/name, previous status, new status,
    and classifier score.
+10. Persist the reviewed original description as a `spam` training example
+    linked to the action-history UUID.
 
 Restore:
 
@@ -435,6 +448,7 @@ Restore:
 * Write `original_description` back to the Quay repository row.
 * Mark service-tool state `restored`.
 * Add action history and log entry.
+* Persist the restored description as a `ham` training example.
 
 Dismiss:
 
@@ -442,6 +456,7 @@ Dismiss:
 * Do not mutate Quay data.
 * Mark service-tool state `dismissed`.
 * Add action history and log entry.
+* Persist the reviewed description as a `ham` training example.
 
 Redact:
 
@@ -450,6 +465,11 @@ Redact:
 * Mark service-tool state `redacted`.
 * Preserve action history but treat content restoration as intentionally no
   longer available through the normal restore action.
+* Persist the original description as a `spam` training example.
+
+Review actions do not train, export, or deploy a classifier. The normal train
+operation consumes all stored review-derived examples for that classifier on
+the next operator-initiated model build.
 
 Because a single ACID transaction cannot reliably span two different database
 connections, implementation should make operations idempotent and record enough
@@ -520,8 +540,11 @@ Backend tests:
 * private repositories are skipped unless explicitly enabled;
 * dry-run scan persists run/match rows without quarantine records;
 * non-dry-run scan opens flagged records but does not mutate Quay content;
+* unchanged terminal records are suppressed unless policy, description, or
+  active artifact identity changes;
 * invalid review lifecycle transitions fail;
 * quarantine/restore/redact use write DB helper and update state history;
+* review actions persist linked training feedback used by the next train run;
 * remediation role gating differs from read/preview role gating;
 * healthcheck reports state DB, read-only Quay DB, and write DB status.
 

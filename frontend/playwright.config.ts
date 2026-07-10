@@ -1,6 +1,8 @@
 import { defineConfig, devices } from '@playwright/test';
 
 const slowMo = Number(process.env.PLAYWRIGHT_SLOW_MO ?? 0);
+const port = process.env.PLAYWRIGHT_PORT ?? '9000';
+const baseURL = `http://localhost:${port}`;
 const chromiumUse = {
   ...devices['Desktop Chrome'],
   ...(process.env.PLAYWRIGHT_USE_SYSTEM_CHROME ? { channel: 'chrome' as const } : {}),
@@ -15,7 +17,7 @@ export default defineConfig({
   workers: process.env.CI ? 1 : undefined,
   reporter: process.env.CI ? 'html' : 'list',
   use: {
-    baseURL: 'http://localhost:9000',
+    baseURL,
     trace: 'on-first-retry',
   },
   projects: [
@@ -26,7 +28,11 @@ export default defineConfig({
   ],
   webServer: {
     command: 'corepack pnpm start:dev',
-    url: 'http://localhost:9000',
+    url: baseURL,
+    env: {
+      ...process.env,
+      PORT: port,
+    },
     reuseExistingServer: !process.env.CI,
     timeout: 120_000,
   },
