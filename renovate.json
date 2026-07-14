@@ -3,5 +3,11 @@
   "extends": [
     "github>quay/quay-konflux-configs",
     "github>quay/quay-konflux-configs//renovate-presets/quay-uv"
+  ],
+  "packageRules": [
+    {
+      "matchPackageNames": ["quay/quay"],
+      "automerge": true
+    }
   ]
 }
