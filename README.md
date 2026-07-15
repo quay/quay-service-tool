@@ -55,8 +55,12 @@ workflow:
    the legacy repository, and runs a review scan.
 4. Quarantines the flagged repository and verifies the owner-facing notice in
    Quay.
-5. Opens the service-tool Audit tab and verifies the flag and quarantine
-   transitions.
+5. Restores the repository and verifies the original description returns in
+   Quay.
+6. Reopens the mistaken restore with a required reason and quarantines the
+   repository again without changing the classifier.
+7. Verifies the final Quay quarantine notice and the complete service-tool
+   audit history.
 
 The browser remains open for ten minutes by default.
 

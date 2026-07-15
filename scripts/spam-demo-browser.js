@@ -16,6 +16,7 @@ const namespace = 'admin';
 const legacyRepository = `legacy-spam-review-${Date.now()}`;
 const spamDescription = 'free casino bonus crypto gift cards click now';
 const quarantineNotice = 'This repository description was removed by Quay spam detection.';
+const reopenReason = 'Restore was approved in error';
 
 async function checkedJson(response, label) {
   if (!response.ok()) {
@@ -294,14 +295,58 @@ async function runVisibleDemo(classifierName) {
     await pause('Quay now shows the repository-owner quarantine notice');
 
     await serviceToolPage.bringToFront();
+    await serviceToolPage.getByRole('tab', {name: 'Review', exact: true}).click();
+    await expect(reviewRow).toContainText('quarantined');
+    await reviewRow.getByRole('button', {name: 'Restore'}).click();
+    await serviceToolPage.getByRole('button', {name: 'Confirm'}).click();
+    await expect(serviceToolPage.getByText('restore completed')).toBeVisible({
+      timeout: 20_000,
+    });
+    await pause('Operator restores the repository after review');
+    await closeFeedback(serviceToolPage);
+
+    await quayPage.bringToFront();
+    await quayPage.reload();
+    await expect(quayPage.getByText(spamDescription)).toBeVisible({
+      timeout: 20_000,
+    });
+    await pause('Quay shows the restored spam description');
+
+    await serviceToolPage.bringToFront();
+    await expect(reviewRow).toContainText('restored');
+    await reviewRow.getByRole('button', {name: 'Reopen review'}).click();
+    await serviceToolPage.getByLabel('Reason').fill(reopenReason);
+    await serviceToolPage.getByRole('button', {name: 'Confirm'}).click();
+    await expect(serviceToolPage.getByText('reopen completed')).toBeVisible({
+      timeout: 20_000,
+    });
+    await pause('Operator reopens the mistaken restore with an audit reason');
+    await closeFeedback(serviceToolPage);
+
+    await expect(reviewRow).toContainText('flagged');
+    await reviewRow.getByRole('button', {name: 'Quarantine'}).click();
+    await serviceToolPage.getByRole('button', {name: 'Confirm'}).click();
+    await expect(serviceToolPage.getByText('quarantine completed')).toBeVisible({timeout: 20_000});
+    await pause('Operator quarantines the reopened repository again');
+    await closeFeedback(serviceToolPage);
+
+    await quayPage.bringToFront();
+    await quayPage.reload();
+    await expect(quayPage.getByText(new RegExp(quarantineNotice))).toBeVisible({
+      timeout: 20_000,
+    });
+    await pause('Quay shows the quarantine notice after the correction');
+
+    await serviceToolPage.bringToFront();
     await serviceToolPage.getByRole('tab', {name: 'Audit'}).click();
     const auditPanel = serviceToolPage.getByLabel('Audit', {exact: true});
-    const auditRow = auditPanel.locator('tr', {
+    const auditRows = auditPanel.locator('tr', {
       hasText: `${namespace}/${legacyRepository}`,
-    }).first();
-    await expect(auditRow).toContainText('quarantine');
-    await expect(auditRow).toContainText('flagged -> quarantined');
-    await pause('Audit history records the flag and quarantine transitions');
+    });
+    await expect(auditRows.filter({hasText: 'restored -> flagged'}).first()).toContainText(reopenReason);
+    await expect(auditRows.filter({hasText: 'quarantined -> restored'}).first()).toContainText('restore');
+    await expect(auditRows.filter({hasText: 'flagged -> quarantined'})).toHaveCount(2);
+    await pause('Audit history records restore, reopen, and both quarantine decisions');
 
     console.log(`Opened ${quayUrl} and ${serviceToolUrl}/spam-detection`);
     console.log(`Keeping browser open for ${holdSeconds} seconds. Press Ctrl-C to stop earlier.`);
