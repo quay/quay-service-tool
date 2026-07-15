@@ -631,6 +631,76 @@ def create_flagged_record(
         )
 
 
+def create_manual_flagged_record(config, inspection, reason, operator=None):
+    now = utcnow()
+    text = _validate_training_text(config, inspection.get("description"))
+    with connect_state_db(config) as conn:
+        existing = conn.execute(
+            """
+            SELECT * FROM spam_quarantine_record
+            WHERE repository_id = ? AND status IN ('flagged', 'quarantined')
+            """,
+            (inspection["id"],),
+        ).fetchone()
+        if existing:
+            raise ValueError("repository already has an active review record")
+        try:
+            cur = conn.execute(
+                """
+                INSERT INTO spam_quarantine_record (
+                    uuid, repository_id, namespace_name, repository_name, visibility,
+                    status, original_description, classifier_score,
+                    classifier_snapshot_json, description_fingerprint,
+                    review_source, created_at, updated_at
+                ) VALUES (?, ?, ?, ?, ?, 'flagged', ?, ?, ?, ?, 'manual_false_negative', ?, ?)
+                """,
+                (
+                    new_uuid(),
+                    inspection["id"],
+                    inspection["namespace_name"],
+                    inspection["repository_name"],
+                    inspection.get("visibility"),
+                    inspection.get("description"),
+                    inspection["classifier_score"],
+                    json_dumps(inspection["classifier_snapshot"]),
+                    description_fingerprint(inspection.get("description")),
+                    now,
+                    now,
+                ),
+            )
+        except sqlite3.IntegrityError as exc:
+            raise ValueError("repository already has an active review record") from exc
+
+        record = conn.execute(
+            "SELECT * FROM spam_quarantine_record WHERE id = ?",
+            (cur.lastrowid,),
+        ).fetchone()
+        add_action_with_conn(
+            conn,
+            record["id"],
+            "manual_flag",
+            None,
+            "flagged",
+            operator,
+            {
+                "reason": reason,
+                "classifier_score": inspection["classifier_score"],
+                "scan_threshold": inspection["scan_threshold"],
+                "hard_filter_results": inspection["hard_filter_results"],
+            },
+        )
+        _replace_review_feedback(
+            conn,
+            record,
+            text,
+            "spam",
+            operator,
+            now,
+            "manual false-negative decision replaced",
+        )
+        return row_to_dict(record)
+
+
 def _terminal_record_matches(record, fingerprint, classifier_snapshot):
     if record["terminal_description_fingerprint"] != fingerprint:
         return False

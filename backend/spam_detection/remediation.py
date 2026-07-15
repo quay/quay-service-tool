@@ -1,8 +1,45 @@
-from . import DEFAULT_QUARANTINE_DESCRIPTION, quay_db, store
+from . import DEFAULT_QUARANTINE_DESCRIPTION, quay_db, scanner, store
 
 
 class RemediationError(Exception):
     pass
+
+
+def inspect_false_negative(config, namespace_name, repository_name):
+    try:
+        return scanner.inspect_repository(config, namespace_name, repository_name)
+    except (ValueError, scanner.ScanError) as exc:
+        raise RemediationError(str(exc)) from exc
+
+
+def add_false_negative(config, namespace_name, repository_name, reason=None, operator=None):
+    reason = (reason or "").strip()
+    if not reason:
+        raise RemediationError("reason is required")
+    if len(reason) > 1000:
+        raise RemediationError("reason must be 1000 characters or fewer")
+
+    inspection = inspect_false_negative(config, namespace_name, repository_name)
+    if inspection.get("state") != 0:
+        raise RemediationError("repository is not active")
+    failed_filters = [
+        name
+        for name, result in inspection["hard_filter_results"].items()
+        if not result.get("matched")
+    ]
+    if failed_filters:
+        raise RemediationError(
+            f"repository failed required eligibility checks: {', '.join(failed_filters)}"
+        )
+    try:
+        return store.create_manual_flagged_record(
+            config,
+            inspection,
+            reason,
+            operator=operator,
+        )
+    except ValueError as exc:
+        raise RemediationError(str(exc)) from exc
 
 
 def _terminal_fields(config, record, description):

@@ -164,6 +164,23 @@ def fetch_repository_for_remediation(db, repository_id):
     return dict(zip(columns, row))
 
 
+def fetch_repository_by_name(db, namespace_name, repository_name):
+    param = db.param
+    repository_table = _quote(db, "repository")
+    user_table = _quote(db, "user")
+    sql = f"""
+        SELECT r.id
+        FROM {repository_table} r
+        JOIN {user_table} u ON r.namespace_user_id = u.id
+        WHERE u.username = {param} AND r.name = {param}
+    """
+    cursor = db.execute_sql(sql, (namespace_name, repository_name))
+    row = cursor.fetchone()
+    if row is None:
+        return None
+    return fetch_repository_for_remediation(db, row[0])
+
+
 def update_repository_description_if_current(db, repository_id, description, expected_description):
     param = db.param
     repository_table = _quote(db, "repository")

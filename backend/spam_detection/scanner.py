@@ -48,6 +48,38 @@ def _passes_hard_filters(results):
     return all(result.get("matched") for result in results.values())
 
 
+def inspect_repository(config, namespace_name, repository_name):
+    namespace_name = (namespace_name or "").strip()
+    repository_name = (repository_name or "").strip()
+    if not namespace_name or not repository_name:
+        raise ValueError("namespace and repository are required")
+    if len(namespace_name) > 255 or len(repository_name) > 255:
+        raise ValueError("namespace and repository must be 255 characters or fewer")
+
+    classifier, artifact, policy = _load_active(config)
+    with quay_db.readonly_db(config) as db:
+        repository = quay_db.fetch_repository_by_name(db, namespace_name, repository_name)
+    if not repository:
+        raise ValueError("repository was not found")
+
+    decision = classifier_lib.classify_text(
+        artifact,
+        repository.get("description"),
+        repository.get("repository_name"),
+        repository.get("visibility"),
+    )
+    hard_filter_results = _hard_filter_results(repository, policy)
+    return {
+        **repository,
+        "classifier_score": decision["score"],
+        "scan_threshold": float(policy.get("scan_threshold") or classifier["scan_threshold"]),
+        "explanation": decision["explanation"],
+        "hard_filter_results": hard_filter_results,
+        "eligible": repository.get("state") == 0 and _passes_hard_filters(hard_filter_results),
+        "classifier_snapshot": store.classifier_snapshot(classifier),
+    }
+
+
 def preview(config, policy_override=None, limit=100):
     classifier, artifact, policy = _load_active(config, policy_override)
     include_private = bool(policy.get("include_private"))

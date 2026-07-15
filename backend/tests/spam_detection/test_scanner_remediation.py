@@ -121,6 +121,84 @@ def test_description_without_hyperlink_is_hard_excluded(tmp_path):
     assert store.list_review(config) == []
 
 
+def test_manual_false_negative_creates_canonical_spam_review(tmp_path):
+    quay_db_path = tmp_path / "quay.db"
+    _create_quay_db(quay_db_path)
+    conn = sqlite3.connect(quay_db_path)
+    conn.execute(
+        """
+        INSERT INTO repository
+            (id, namespace_user_id, name, visibility_id, description, state)
+        VALUES (?, ?, ?, ?, ?, ?)
+        """,
+        (5, 1, "missed-spam", 1, "container repository documentation https://spam.example", 0),
+    )
+    conn.commit()
+    conn.close()
+    config = _config(tmp_path, quay_db_path)
+    created = _trained_classifier(config)
+    store.update_policy(config, {"scan_dry_run": False, "quarantine_description": "quarantined"})
+
+    inspection = remediation.inspect_false_negative(config, "publicns", "missed-spam")
+    assert inspection["eligible"] is True
+    assert inspection["classifier_score"] < inspection["scan_threshold"]
+    assert store.list_review(config) == []
+
+    added = remediation.add_false_negative(
+        config,
+        "publicns",
+        "missed-spam",
+        reason="Confirmed promotional repository missed by the classifier",
+        operator="reviewer",
+    )
+
+    assert added["status"] == "flagged"
+    assert added["review_source"] == "manual_false_negative"
+    reviewed = store.list_review(config)
+    assert len(reviewed) == 1
+    assert reviewed[0]["repository_name"] == "missed-spam"
+    assert reviewed[0]["review_label"] == "spam"
+    feedback = [
+        example
+        for example in store.list_training_examples(config, created["id"])
+        if example["source"] == "review_decision"
+    ]
+    assert [(example["label"], example["source_ref"]) for example in feedback] == [
+        ("spam", added["uuid"])
+    ]
+    action = next(
+        item for item in store.list_audit_actions(config) if item["action"] == "manual_flag"
+    )
+    assert action["details_json"]["reason"] == (
+        "Confirmed promotional repository missed by the classifier"
+    )
+    assert action["details_json"]["classifier_score"] == inspection["classifier_score"]
+
+    quarantined = remediation.quarantine(config, added["uuid"], operator="reviewer")
+    assert quarantined["status"] == "quarantined"
+    conn = sqlite3.connect(quay_db_path)
+    description = conn.execute("SELECT description FROM repository WHERE id = 5").fetchone()[0]
+    conn.close()
+    assert description == "quarantined"
+
+
+def test_manual_false_negative_requires_hard_filters_and_reason(tmp_path):
+    quay_db_path = tmp_path / "quay.db"
+    _create_quay_db(quay_db_path)
+    config = _config(tmp_path, quay_db_path)
+    _trained_classifier(config)
+
+    with pytest.raises(remediation.RemediationError, match="reason is required"):
+        remediation.add_false_negative(config, "publicns", "ham", reason=" ")
+    with pytest.raises(remediation.RemediationError, match="description_hyperlink"):
+        remediation.add_false_negative(
+            config,
+            "publicns",
+            "ham",
+            reason="Operator believes this should be reviewed",
+        )
+
+
 def test_non_empty_repositories_are_hard_excluded_from_scan_and_review(tmp_path):
     quay_db_path = tmp_path / "quay.db"
     _create_quay_db(quay_db_path)

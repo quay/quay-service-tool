@@ -98,6 +98,8 @@ test('Spam Detection operator workflow covers export, labels, recovery, and clea
   let redactionPayload: any;
   let reopenPayload: any;
   let classifyPayload: any;
+  let manualInspectPayload: any;
+  let manualAddPayload: any;
   let artifactRequested = false;
   let artifactImported = false;
 
@@ -291,6 +293,49 @@ test('Spam Detection operator workflow covers export, labels, recovery, and clea
     }
     await fulfillJson(route, { record });
   });
+  await page.route('**/spam-detection/review/manual/inspect', async (route) => {
+    manualInspectPayload = route.request().postDataJSON();
+    await fulfillJson(route, {
+      repository: {
+        namespace_name: 'publicns',
+        repository_name: 'missed-spam',
+        description: 'stream free movies and promotions https://missed.example',
+        visibility: 'public',
+        classifier_score: 0.0001,
+        scan_threshold: 0.5,
+        eligible: true,
+        hard_filter_results: {
+          repository_empty: { matched: true },
+          visibility: { matched: true, value: 'public' },
+          description_hyperlink: { matched: true },
+        },
+      },
+    });
+  });
+  await page.route('**/spam-detection/review/manual', async (route) => {
+    manualAddPayload = route.request().postDataJSON();
+    const record: ReviewRecord = {
+      uuid: 'record-manual',
+      namespace_name: 'publicns',
+      repository_name: 'missed-spam',
+      status: 'flagged',
+      classifier_score: 0.0001,
+      original_description: 'stream free movies and promotions https://missed.example',
+      review_label: 'spam',
+    };
+    records.push(record);
+    auditActions.unshift({
+      created_at: '2026-07-15T01:00:00',
+      namespace_name: record.namespace_name,
+      repository_name: record.repository_name,
+      action: 'manual_flag',
+      from_status: null,
+      to_status: 'flagged',
+      operator: 'reviewer',
+      details_json: { reason: manualAddPayload.reason },
+    });
+    await fulfillJson(route, { record }, 201);
+  });
 
   await openSpamDetection(page);
 
@@ -366,6 +411,26 @@ test('Spam Detection operator workflow covers export, labels, recovery, and clea
 
   await page.getByRole('tab', { name: 'Review', exact: true }).click();
   const reviewPanel = page.getByLabel('Review', { exact: true });
+  await page.getByRole('button', { name: 'Add missed repository' }).click();
+  const manualReviewDialog = page.getByRole('dialog', { name: 'Add missed repository' });
+  await manualReviewDialog.getByRole('textbox', { name: 'Namespace' }).fill('publicns');
+  await manualReviewDialog.getByRole('textbox', { name: 'Repository' }).fill('missed-spam');
+  await manualReviewDialog.getByRole('textbox', { name: 'Reason' }).fill('Confirmed false negative');
+  await manualReviewDialog.getByRole('button', { name: 'Inspect' }).click();
+  await expect(page.getByText('Score 0.0001 / threshold 0.5000')).toBeVisible();
+  await expect(page.getByText('stream free movies and promotions https://missed.example')).toBeVisible();
+  await manualReviewDialog.getByRole('button', { name: 'Add as spam' }).click();
+  await expect(page.getByText('Repository added to review as spam')).toBeVisible();
+  await closeFeedback(page);
+  expect(manualInspectPayload).toEqual({ namespace: 'publicns', repository: 'missed-spam' });
+  expect(manualAddPayload).toEqual({
+    namespace: 'publicns',
+    repository: 'missed-spam',
+    reason: 'Confirmed false negative',
+  });
+  const manualRow = reviewPanel.locator('tr', { hasText: 'publicns/missed-spam' });
+  await expect(manualRow).toContainText('spam');
+  await expect(manualRow).toContainText('0.0001');
   const restoreRow = reviewPanel.locator('tr', { hasText: 'publicns/spam-restore' });
   await restoreRow.getByRole('button', { name: 'Quarantine' }).click();
   await page.getByRole('button', { name: 'Confirm' }).click();

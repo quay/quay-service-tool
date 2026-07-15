@@ -219,6 +219,7 @@ def migrate_state_db(config):
                 description_fingerprint TEXT,
                 terminal_classifier_snapshot_json TEXT,
                 terminal_description_fingerprint TEXT,
+                review_source TEXT NOT NULL DEFAULT 'scan',
                 run_id INTEGER,
                 match_id INTEGER,
                 created_at TEXT NOT NULL,
@@ -286,6 +287,12 @@ def migrate_state_db(config):
             "spam_quarantine_record",
             "terminal_description_fingerprint",
             "TEXT",
+        )
+        _ensure_column(
+            conn,
+            "spam_quarantine_record",
+            "review_source",
+            "TEXT NOT NULL DEFAULT 'scan'",
         )
         _ensure_column(conn, "spam_training_example", "invalidated_at", "TEXT")
         _ensure_column(conn, "spam_training_example", "invalidated_by", "TEXT")

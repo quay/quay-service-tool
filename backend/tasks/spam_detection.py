@@ -441,6 +441,45 @@ class SpamReviewTask(Resource):
             return _json_response({"message": str(exc)}, 400)
 
 
+class SpamReviewManualInspectTask(Resource):
+    @log_response
+    @verify_spam_detection_read_permissions
+    @login_required
+    def post(self):
+        payload = _body()
+        try:
+            return _json_response(
+                {
+                    "repository": remediation.inspect_false_negative(
+                        current_app.config,
+                        payload.get("namespace"),
+                        payload.get("repository"),
+                    )
+                }
+            )
+        except remediation.RemediationError as exc:
+            return _json_response({"message": str(exc)}, 400)
+
+
+class SpamReviewManualTask(Resource):
+    @log_response
+    @verify_spam_detection_write_permissions
+    @login_required
+    def post(self):
+        payload = _body()
+        try:
+            record = remediation.add_false_negative(
+                current_app.config,
+                payload.get("namespace"),
+                payload.get("repository"),
+                reason=payload.get("reason"),
+                operator=_operator(),
+            )
+            return _json_response({"record": record}, 201)
+        except remediation.RemediationError as exc:
+            return _json_response({"message": str(exc)}, 400)
+
+
 class SpamAuditTask(Resource):
     @log_response
     @verify_spam_detection_read_permissions

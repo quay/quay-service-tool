@@ -27,6 +27,8 @@ from tasks.spam_detection import (
     SpamPreviewTask,
     SpamReviewDismissTask,
     SpamReviewClassifyTask,
+    SpamReviewManualInspectTask,
+    SpamReviewManualTask,
     SpamReviewQuarantineTask,
     SpamReviewRedactTask,
     SpamReviewReopenTask,
@@ -208,6 +210,8 @@ api.add_resource(SpamPreviewTask, '/spam-detection/preview')
 api.add_resource(SpamRunsTask, '/spam-detection/runs')
 api.add_resource(SpamRunMatchesTask, '/spam-detection/runs/<run_uuid>/matches')
 api.add_resource(SpamReviewTask, '/spam-detection/review')
+api.add_resource(SpamReviewManualInspectTask, '/spam-detection/review/manual/inspect')
+api.add_resource(SpamReviewManualTask, '/spam-detection/review/manual')
 api.add_resource(SpamAuditTask, '/spam-detection/audit')
 api.add_resource(SpamReviewQuarantineTask, '/spam-detection/review/<record_uuid>/quarantine')
 api.add_resource(SpamReviewRestoreTask, '/spam-detection/review/<record_uuid>/restore')

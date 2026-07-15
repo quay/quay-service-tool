@@ -42,6 +42,23 @@
   margin-top: 0;
 }
 
+.spam-detection-review-toolbar + .spam-detection-section-header {
+  margin-top: var(--pf-global--spacer--lg);
+}
+
+.spam-detection-manual-inspection {
+  display: grid;
+  gap: var(--pf-global--spacer--sm);
+  padding: var(--pf-global--spacer--md);
+  background: var(--pf-global--BackgroundColor--200);
+  border-left: 3px solid var(--pf-global--primary-color--100);
+}
+
+.spam-detection-manual-inspection > span {
+  color: var(--pf-global--Color--200);
+  font-size: var(--pf-global--FontSize--sm);
+}
+
 .spam-detection-table-shell {
   width: 100%;
   overflow-x: auto;

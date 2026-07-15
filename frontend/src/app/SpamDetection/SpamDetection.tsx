@@ -110,6 +110,13 @@ export const SpamDetection: React.FunctionComponent = () => {
   } | null>(null);
   const [redactedDescription, setRedactedDescription] = useState('');
   const [reviewReason, setReviewReason] = useState('');
+  const [manualReviewOpen, setManualReviewOpen] = useState(false);
+  const [manualNamespace, setManualNamespace] = useState('');
+  const [manualRepository, setManualRepository] = useState('');
+  const [manualReason, setManualReason] = useState('');
+  const [manualInspection, setManualInspection] = useState<any>(null);
+  const [manualReviewError, setManualReviewError] = useState('');
+  const [manualReviewLoading, setManualReviewLoading] = useState(false);
 
   const canRemediate = UserService.hasRealmRole(SPAM_DETECTION_REMEDIATION_ROLE);
 
@@ -391,6 +398,62 @@ export const SpamDetection: React.FunctionComponent = () => {
       .catch((error) => showMessage(error.response?.data?.message || `Unable to ${action}`));
   }
 
+  function openManualReview() {
+    setManualNamespace('');
+    setManualRepository('');
+    setManualReason('');
+    setManualInspection(null);
+    setManualReviewError('');
+    setManualReviewOpen(true);
+  }
+
+  function updateManualRepository(value: string, field: 'namespace' | 'repository') {
+    if (field === 'namespace') {
+      setManualNamespace(value);
+    } else {
+      setManualRepository(value);
+    }
+    setManualInspection(null);
+    setManualReviewError('');
+  }
+
+  async function inspectManualRepository() {
+    setManualReviewLoading(true);
+    setManualReviewError('');
+    try {
+      const response = await HttpService.axiosClient.post('/spam-detection/review/manual/inspect', {
+        namespace: manualNamespace.trim(),
+        repository: manualRepository.trim(),
+      });
+      setManualInspection(response.data.repository);
+    } catch (error: any) {
+      setManualInspection(null);
+      setManualReviewError(error.response?.data?.message || 'Unable to inspect repository');
+    } finally {
+      setManualReviewLoading(false);
+    }
+  }
+
+  async function addManualReview() {
+    setManualReviewLoading(true);
+    setManualReviewError('');
+    try {
+      await HttpService.axiosClient.post('/spam-detection/review/manual', {
+        namespace: manualNamespace.trim(),
+        repository: manualRepository.trim(),
+        reason: manualReason.trim(),
+      });
+      setManualReviewOpen(false);
+      showMessage('Repository added to review as spam');
+      loadReview();
+      loadAudit();
+    } catch (error: any) {
+      setManualReviewError(error.response?.data?.message || 'Unable to add repository to review');
+    } finally {
+      setManualReviewLoading(false);
+    }
+  }
+
   if (!UserService.hasRealmRole(SPAM_DETECTION_ROLE)) {
     return null;
   }
@@ -457,6 +520,80 @@ export const SpamDetection: React.FunctionComponent = () => {
             <p>{pendingReviewAction.description || 'No description'}</p>
           </div>
         )}
+      </Modal>
+      <Modal
+        isOpen={manualReviewOpen}
+        variant={ModalVariant.medium}
+        title="Add missed repository"
+        onClose={() => setManualReviewOpen(false)}
+        actions={[
+          manualInspection ? (
+            <Button
+              key="add"
+              variant="primary"
+              onClick={addManualReview}
+              isDisabled={!manualInspection.eligible || manualReason.trim().length === 0 || manualReviewLoading}
+            >
+              Add as spam
+            </Button>
+          ) : (
+            <Button
+              key="inspect"
+              variant="primary"
+              onClick={inspectManualRepository}
+              isDisabled={
+                manualNamespace.trim().length === 0 || manualRepository.trim().length === 0 || manualReviewLoading
+              }
+            >
+              Inspect
+            </Button>
+          ),
+          <Button key="cancel" variant="link" onClick={() => setManualReviewOpen(false)}>
+            Cancel
+          </Button>,
+        ]}
+      >
+        <Form>
+          {manualReviewError && <Alert isInline variant="danger" title={manualReviewError} />}
+          <FormGroup label="Namespace" fieldId="manual-review-namespace">
+            <TextInput
+              id="manual-review-namespace"
+              value={manualNamespace}
+              onChange={(value) => updateManualRepository(value, 'namespace')}
+            />
+          </FormGroup>
+          <FormGroup label="Repository" fieldId="manual-review-repository">
+            <TextInput
+              id="manual-review-repository"
+              value={manualRepository}
+              onChange={(value) => updateManualRepository(value, 'repository')}
+            />
+          </FormGroup>
+          {manualInspection && (
+            <div className="spam-detection-manual-inspection">
+              <a href={repositoryUrl(manualInspection)} target="_blank" rel="noreferrer">
+                {manualInspection.namespace_name}/{manualInspection.repository_name}
+              </a>
+              <span>
+                Score {manualInspection.classifier_score.toFixed(4)} / threshold{' '}
+                {manualInspection.scan_threshold.toFixed(4)}
+              </span>
+              <span>{formatHardFilters(manualInspection.hard_filter_results)}</span>
+              {!manualInspection.eligible && (
+                <Alert isInline variant="warning" title="Repository does not pass required eligibility checks" />
+              )}
+              <DescriptionCell text={manualInspection.description} />
+            </div>
+          )}
+          <FormGroup label="Reason" fieldId="manual-review-reason">
+            <TextArea
+              id="manual-review-reason"
+              value={manualReason}
+              onChange={(value) => setManualReason(value)}
+              isRequired
+            />
+          </FormGroup>
+        </Form>
       </Modal>
       {loading && <Spinner role="spam-detection-loading" isSVG />}
       <div className="spam-detection-header">
@@ -776,6 +913,13 @@ export const SpamDetection: React.FunctionComponent = () => {
         </Tab>
         <Tab eventKey={4} title={<TabTitleText>Review</TabTitleText>}>
           <div className="spam-detection-tab-content">
+            {canRemediate && (
+              <div className="spam-detection-button-row spam-detection-review-toolbar">
+                <Button variant="primary" onClick={openManualReview}>
+                  Add missed repository
+                </Button>
+              </div>
+            )}
             <Title headingLevel="h2" size="md" className="spam-detection-section-header">
               Active review
             </Title>

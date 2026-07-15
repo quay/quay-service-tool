@@ -230,6 +230,68 @@ describe('Spam Detection', () => {
     });
   });
 
+  it('adds an eligible false negative to review as spam', async () => {
+    mocked(HttpService, true)
+      .axiosClient.get.mockResolvedValueOnce({ data: { classifiers: [] } })
+      .mockResolvedValueOnce({ data: { policy: {} } })
+      .mockResolvedValueOnce({ data: { runs: [] } })
+      .mockResolvedValueOnce({ data: { records: [] } })
+      .mockResolvedValueOnce({ data: { records: [] } })
+      .mockResolvedValueOnce({ data: { actions: [] } })
+      .mockResolvedValueOnce({ data: { records: [] } })
+      .mockResolvedValueOnce({ data: { records: [] } })
+      .mockResolvedValueOnce({ data: { actions: [] } });
+    mocked(HttpService, true).axiosClient.post.mockImplementation((url) => {
+      if (url === '/spam-detection/review/manual/inspect') {
+        return Promise.resolve({
+          data: {
+            repository: {
+              namespace_name: 'publicns',
+              repository_name: 'missed-spam',
+              description: 'promotional streaming links https://spam.example',
+              visibility: 'public',
+              classifier_score: 0.01,
+              scan_threshold: 0.5,
+              eligible: true,
+              hard_filter_results: {
+                repository_empty: { matched: true },
+                visibility: { matched: true, value: 'public' },
+                description_hyperlink: { matched: true },
+              },
+            },
+          },
+        });
+      }
+      return Promise.resolve({ data: { record: { uuid: 'manual-record', status: 'flagged' } } });
+    });
+
+    render(<SpamDetection />);
+
+    fireEvent.click(await screen.findByRole('tab', { name: 'Review' }));
+    fireEvent.click(await screen.findByRole('button', { name: 'Add missed repository' }));
+    const inspect = await screen.findByRole('button', { name: 'Inspect' });
+    expect(inspect.hasAttribute('disabled')).toBeTruthy();
+    fireEvent.change(screen.getByLabelText('Namespace'), { target: { value: 'publicns' } });
+    fireEvent.change(screen.getByLabelText('Repository'), { target: { value: 'missed-spam' } });
+    fireEvent.change(screen.getByLabelText('Reason'), {
+      target: { value: 'Confirmed false negative' },
+    });
+    fireEvent.click(inspect);
+
+    expect(await screen.findByText('Score 0.0100 / threshold 0.5000')).toBeTruthy();
+    expect(await screen.findByText('promotional streaming links https://spam.example')).toBeTruthy();
+    fireEvent.click(await screen.findByRole('button', { name: 'Add as spam' }));
+
+    await waitFor(() => {
+      expect(mocked(HttpService, true).axiosClient.post).toHaveBeenCalledWith('/spam-detection/review/manual', {
+        namespace: 'publicns',
+        repository: 'missed-spam',
+        reason: 'Confirmed false negative',
+      });
+    });
+    expect(await screen.findByText('Repository added to review as spam')).toBeTruthy();
+  });
+
   it('exports and downloads the generated classifier artifact', async () => {
     const artifact = new Blob(['{}'], { type: 'application/json' });
     const originalCreateObjectURL = window.URL.createObjectURL;
