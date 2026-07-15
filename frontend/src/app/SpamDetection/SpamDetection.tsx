@@ -24,6 +24,7 @@ import {
 import { useEffect, useState } from 'react';
 import HttpService from 'src/services/HttpService';
 import UserService from 'src/services/UserService';
+import './SpamDetection.css';
 
 const SPAM_DETECTION_ROLE = window.SPAM_DETECTION_ROLE || process.env.SPAM_DETECTION_ROLE;
 const SPAM_DETECTION_REMEDIATION_ROLE =
@@ -275,7 +276,7 @@ export const SpamDetection: React.FunctionComponent = () => {
   }
 
   return (
-    <PageSection>
+    <PageSection className="spam-detection-page">
       <Modal
         isOpen={message !== ''}
         variant={ModalVariant.small}
@@ -327,294 +328,365 @@ export const SpamDetection: React.FunctionComponent = () => {
         )}
       </Modal>
       {loading && <Spinner role="spam-detection-loading" isSVG />}
-      <Tabs activeKey={activeTab} onSelect={(_, key) => setActiveTab(key as number)}>
+      <div className="spam-detection-header">
+        <Title headingLevel="h1" size="xl">
+          Spam detection
+        </Title>
+      </div>
+      <Tabs className="spam-detection-tabs" activeKey={activeTab} onSelect={(_, key) => setActiveTab(key as number)}>
         <Tab eventKey={0} title={<TabTitleText>Classifier</TabTitleText>}>
-          <Grid hasGutter>
-            <GridItem span={5}>
-              <Card>
-                <CardTitle>Create classifier</CardTitle>
-                <CardBody>
-                  <Form>
-                    <FormGroup label="Name" fieldId="classifier-name">
-                      <TextInput
-                        id="classifier-name"
-                        value={classifierName}
-                        onChange={(value) => setClassifierName(value)}
-                      />
-                    </FormGroup>
-                    <Button variant="primary" onClick={createClassifier} isDisabled={!classifierName}>
-                      Create
-                    </Button>
-                  </Form>
-                </CardBody>
-              </Card>
-            </GridItem>
-            <GridItem span={7}>
-              <Card>
-                <CardTitle>Training</CardTitle>
-                <CardBody>
-                  <Form>
-                    <FormGroup label="Classifier UUID" fieldId="classifier-uuid">
-                      <TextInput
-                        id="classifier-uuid"
-                        value={selectedClassifier}
-                        onChange={(value) => setSelectedClassifier(value)}
-                      />
-                    </FormGroup>
-                    <FormGroup label="Label" fieldId="training-label">
-                      <TextInput
-                        id="training-label"
-                        value={trainingLabel}
-                        onChange={(value) => setTrainingLabel(value)}
-                      />
-                    </FormGroup>
-                    <FormGroup label="Text" fieldId="training-text">
-                      <TextArea id="training-text" value={trainingText} onChange={(value) => setTrainingText(value)} />
-                    </FormGroup>
-                    <Button variant="secondary" onClick={addTrainingExample} isDisabled={!trainingText}>
-                      Add example
-                    </Button>{' '}
-                    <Button variant="primary" onClick={trainClassifier} isDisabled={!selectedClassifier}>
-                      Train artifact
-                    </Button>{' '}
-                    <Button variant="secondary" onClick={exportArtifact} isDisabled={!selectedClassifier}>
-                      Export artifact
-                    </Button>
-                    <FormGroup label="Build output path" fieldId="export-output-path">
-                      <TextInput
-                        id="export-output-path"
-                        value={exportOutputPath}
-                        onChange={(value) => setExportOutputPath(value)}
-                      />
-                    </FormGroup>
-                    <FormGroup label="Seed CSV path" fieldId="seed-csv-path">
-                      <TextInput id="seed-csv-path" value={csvPath} onChange={(value) => setCsvPath(value)} />
-                    </FormGroup>
-                    <Button variant="secondary" onClick={importCsv} isDisabled={!csvPath || !selectedClassifier}>
-                      Import CSV
-                    </Button>
-                  </Form>
-                </CardBody>
-              </Card>
-            </GridItem>
-          </Grid>
-          <SimpleTable
-            columns={['Name', 'Enabled', 'Artifact', 'SHA256']}
-            rows={classifiers.map((item) => [
-              item.name,
-              item.enabled ? 'yes' : 'no',
-              item.artifact_version || '',
-              item.artifact_sha256 || '',
-            ])}
-          />
+          <div className="spam-detection-tab-content">
+            <Grid hasGutter className="spam-detection-card-grid">
+              <GridItem sm={12} lg={5}>
+                <Card>
+                  <CardTitle>Create classifier</CardTitle>
+                  <CardBody>
+                    <Form>
+                      <FormGroup label="Name" fieldId="classifier-name">
+                        <TextInput
+                          id="classifier-name"
+                          value={classifierName}
+                          onChange={(value) => setClassifierName(value)}
+                        />
+                      </FormGroup>
+                      <div className="spam-detection-button-row">
+                        <Button variant="primary" onClick={createClassifier} isDisabled={!classifierName}>
+                          Create
+                        </Button>
+                      </div>
+                    </Form>
+                  </CardBody>
+                </Card>
+              </GridItem>
+              <GridItem sm={12} lg={7}>
+                <Card>
+                  <CardTitle>Training</CardTitle>
+                  <CardBody>
+                    <Form>
+                      <FormGroup label="Classifier UUID" fieldId="classifier-uuid">
+                        <TextInput
+                          id="classifier-uuid"
+                          value={selectedClassifier}
+                          onChange={(value) => setSelectedClassifier(value)}
+                        />
+                      </FormGroup>
+                      <FormGroup label="Label" fieldId="training-label">
+                        <TextInput
+                          id="training-label"
+                          value={trainingLabel}
+                          onChange={(value) => setTrainingLabel(value)}
+                        />
+                      </FormGroup>
+                      <FormGroup label="Text" fieldId="training-text">
+                        <TextArea
+                          id="training-text"
+                          value={trainingText}
+                          onChange={(value) => setTrainingText(value)}
+                        />
+                      </FormGroup>
+                      <div className="spam-detection-button-row">
+                        <Button variant="secondary" onClick={addTrainingExample} isDisabled={!trainingText}>
+                          Add example
+                        </Button>
+                        <Button variant="primary" onClick={trainClassifier} isDisabled={!selectedClassifier}>
+                          Train artifact
+                        </Button>
+                        <Button variant="secondary" onClick={exportArtifact} isDisabled={!selectedClassifier}>
+                          Export artifact
+                        </Button>
+                      </div>
+                      <FormGroup label="Build output path" fieldId="export-output-path">
+                        <TextInput
+                          id="export-output-path"
+                          value={exportOutputPath}
+                          onChange={(value) => setExportOutputPath(value)}
+                        />
+                      </FormGroup>
+                      <FormGroup label="Seed CSV path" fieldId="seed-csv-path">
+                        <TextInput id="seed-csv-path" value={csvPath} onChange={(value) => setCsvPath(value)} />
+                      </FormGroup>
+                      <div className="spam-detection-button-row">
+                        <Button variant="secondary" onClick={importCsv} isDisabled={!csvPath || !selectedClassifier}>
+                          Import CSV
+                        </Button>
+                      </div>
+                    </Form>
+                  </CardBody>
+                </Card>
+              </GridItem>
+            </Grid>
+            <SimpleTable
+              ariaLabel="Classifiers"
+              variant="classifiers"
+              columns={['Name', 'Enabled', 'Artifact', 'SHA256']}
+              rows={classifiers.map((item) => [
+                item.name,
+                item.enabled ? 'yes' : 'no',
+                <span key="artifact" className="spam-detection-monospace">
+                  {item.artifact_version || ''}
+                </span>,
+                <span key="sha256" className="spam-detection-monospace">
+                  {item.artifact_sha256 || ''}
+                </span>,
+              ])}
+            />
+          </div>
         </Tab>
         <Tab eventKey={1} title={<TabTitleText>Policy</TabTitleText>}>
-          <Card>
-            <CardTitle>Policy</CardTitle>
-            <CardBody>
-              <Form>
-                <FormGroup label="Scan threshold" fieldId="scan-threshold">
-                  <TextInput
-                    id="scan-threshold"
-                    value={String(policy.scan_threshold || '')}
-                    onChange={(value) => setPolicy({ ...policy, scan_threshold: Number(value) })}
+          <div className="spam-detection-tab-content">
+            <Card>
+              <CardTitle>Policy</CardTitle>
+              <CardBody>
+                <Form>
+                  <FormGroup label="Scan threshold" fieldId="scan-threshold">
+                    <TextInput
+                      id="scan-threshold"
+                      value={String(policy.scan_threshold || '')}
+                      onChange={(value) => setPolicy({ ...policy, scan_threshold: Number(value) })}
+                    />
+                  </FormGroup>
+                  <FormGroup label="Ingress threshold" fieldId="ingress-threshold">
+                    <TextInput
+                      id="ingress-threshold"
+                      value={String(policy.ingress_threshold || '')}
+                      onChange={(value) => setPolicy({ ...policy, ingress_threshold: Number(value) })}
+                    />
+                  </FormGroup>
+                  <Checkbox
+                    id="include-private"
+                    label="Include private repositories"
+                    isChecked={Boolean(policy.include_private)}
+                    onChange={(checked) => setPolicy({ ...policy, include_private: checked })}
                   />
-                </FormGroup>
-                <FormGroup label="Ingress threshold" fieldId="ingress-threshold">
-                  <TextInput
-                    id="ingress-threshold"
-                    value={String(policy.ingress_threshold || '')}
-                    onChange={(value) => setPolicy({ ...policy, ingress_threshold: Number(value) })}
+                  <Checkbox
+                    id="scan-dry-run"
+                    label="Dry-run scans"
+                    isChecked={Boolean(policy.scan_dry_run)}
+                    onChange={(checked) => setPolicy({ ...policy, scan_dry_run: checked })}
                   />
-                </FormGroup>
-                <Checkbox
-                  id="include-private"
-                  label="Include private repositories"
-                  isChecked={Boolean(policy.include_private)}
-                  onChange={(checked) => setPolicy({ ...policy, include_private: checked })}
-                />
-                <Checkbox
-                  id="scan-dry-run"
-                  label="Dry-run scans"
-                  isChecked={Boolean(policy.scan_dry_run)}
-                  onChange={(checked) => setPolicy({ ...policy, scan_dry_run: checked })}
-                />
-                <Checkbox
-                  id="rescan-terminal-records"
-                  label="Rescan unchanged terminal review records"
-                  isChecked={Boolean(policy.rescan_terminal_records)}
-                  onChange={(checked) => setPolicy({ ...policy, rescan_terminal_records: checked })}
-                />
-                <FormGroup label="Max repositories" fieldId="max-repos">
-                  <TextInput
-                    id="max-repos"
-                    value={String(policy.max_repos || '')}
-                    onChange={(value) => setPolicy({ ...policy, max_repos: Number(value) })}
+                  <Checkbox
+                    id="rescan-terminal-records"
+                    label="Rescan unchanged terminal review records"
+                    isChecked={Boolean(policy.rescan_terminal_records)}
+                    onChange={(checked) => setPolicy({ ...policy, rescan_terminal_records: checked })}
                   />
-                </FormGroup>
-                <FormGroup label="Batch size" fieldId="batch-size">
-                  <TextInput
-                    id="batch-size"
-                    value={String(policy.batch_size || '')}
-                    onChange={(value) => setPolicy({ ...policy, batch_size: Number(value) })}
-                  />
-                </FormGroup>
-                <FormGroup label="Quarantine description" fieldId="quarantine-description">
-                  <TextArea
-                    id="quarantine-description"
-                    value={policy.quarantine_description || ''}
-                    onChange={(value) => setPolicy({ ...policy, quarantine_description: value })}
-                  />
-                </FormGroup>
-                <Button variant="primary" onClick={savePolicy}>
-                  Save policy
-                </Button>
-              </Form>
-            </CardBody>
-          </Card>
+                  <FormGroup label="Max repositories" fieldId="max-repos">
+                    <TextInput
+                      id="max-repos"
+                      value={String(policy.max_repos || '')}
+                      onChange={(value) => setPolicy({ ...policy, max_repos: Number(value) })}
+                    />
+                  </FormGroup>
+                  <FormGroup label="Batch size" fieldId="batch-size">
+                    <TextInput
+                      id="batch-size"
+                      value={String(policy.batch_size || '')}
+                      onChange={(value) => setPolicy({ ...policy, batch_size: Number(value) })}
+                    />
+                  </FormGroup>
+                  <FormGroup label="Quarantine description" fieldId="quarantine-description">
+                    <TextArea
+                      id="quarantine-description"
+                      value={policy.quarantine_description || ''}
+                      onChange={(value) => setPolicy({ ...policy, quarantine_description: value })}
+                    />
+                  </FormGroup>
+                  <div className="spam-detection-button-row">
+                    <Button variant="primary" onClick={savePolicy}>
+                      Save policy
+                    </Button>
+                  </div>
+                </Form>
+              </CardBody>
+            </Card>
+          </div>
         </Tab>
         <Tab eventKey={2} title={<TabTitleText>Preview</TabTitleText>}>
-          <Button variant="primary" onClick={runPreview}>
-            Preview
-          </Button>
-          {preview && (
-            <Alert
-              isInline
-              title={`${preview.repos_matched} matches from ${preview.repos_scanned} repositories scanned`}
-              variant="info"
+          <div className="spam-detection-tab-content">
+            <div className="spam-detection-button-row">
+              <Button variant="primary" onClick={runPreview}>
+                Preview
+              </Button>
+            </div>
+            {preview && (
+              <Alert
+                isInline
+                title={`${preview.repos_matched} matches from ${preview.repos_scanned} repositories scanned`}
+                variant="info"
+              />
+            )}
+            <SimpleTable
+              ariaLabel="Preview matches"
+              variant="preview"
+              columns={['Repository', 'Visibility', 'Score', 'Hard filters', 'Description']}
+              rows={(preview?.matches || []).map((item) => [
+                `${item.namespace_name}/${item.repository_name}`,
+                item.visibility,
+                <span key="score" className="spam-detection-score">
+                  {item.classifier_score.toFixed(4)}
+                </span>,
+                formatHardFilters(item.hard_filter_results),
+                item.description_excerpt,
+              ])}
             />
-          )}
-          <SimpleTable
-            columns={['Repository', 'Visibility', 'Score', 'Hard filters', 'Description']}
-            rows={(preview?.matches || []).map((item) => [
-              `${item.namespace_name}/${item.repository_name}`,
-              item.visibility,
-              item.classifier_score.toFixed(4),
-              formatHardFilters(item.hard_filter_results),
-              item.description_excerpt,
-            ])}
-          />
+          </div>
         </Tab>
         <Tab eventKey={3} title={<TabTitleText>Runs</TabTitleText>}>
-          <Button variant="primary" onClick={() => runScan(true)}>
-            Run dry scan
-          </Button>{' '}
-          {canRemediate && (
-            <Button variant="secondary" onClick={() => runScan(false)}>
-              Run review scan
-            </Button>
-          )}
-          <SimpleTable
-            columns={['Run', 'Status', 'Dry run', 'Scanned', 'Matched', 'Flagged', 'Terminal skips']}
-            rows={runs.map((item) => [
-              item.uuid,
-              item.status,
-              item.dry_run ? 'yes' : 'no',
-              item.repos_scanned,
-              item.repos_matched,
-              item.repos_flagged,
-              item.repos_skipped_terminal || 0,
-            ])}
-          />
+          <div className="spam-detection-tab-content">
+            <div className="spam-detection-button-row">
+              <Button variant="primary" onClick={() => runScan(true)}>
+                Run dry scan
+              </Button>
+              {canRemediate && (
+                <Button variant="secondary" onClick={() => runScan(false)}>
+                  Run review scan
+                </Button>
+              )}
+            </div>
+            <SimpleTable
+              ariaLabel="Scan runs"
+              variant="runs"
+              columns={['Run', 'Status', 'Dry run', 'Scanned', 'Matched', 'Flagged', 'Terminal skips']}
+              rows={runs.map((item) => [
+                <span key="run" className="spam-detection-monospace">
+                  {item.uuid}
+                </span>,
+                item.status,
+                item.dry_run ? 'yes' : 'no',
+                item.repos_scanned,
+                item.repos_matched,
+                item.repos_flagged,
+                item.repos_skipped_terminal || 0,
+              ])}
+            />
+          </div>
         </Tab>
         <Tab eventKey={4} title={<TabTitleText>Review</TabTitleText>}>
-          <Title headingLevel="h2" size="md">
-            Active review
-          </Title>
-          <SimpleTable
-            columns={['Repository', 'Status', 'Score', 'Actions']}
-            rows={records.map((item) => [
-              `${item.namespace_name}/${item.repository_name}`,
-              item.status,
-              item.classifier_score.toFixed(4),
-              canRemediate ? (
-                <span>
-                  {item.status === 'flagged' && (
-                    <Button variant="secondary" onClick={() => openReviewAction(item.uuid, 'quarantine')}>
-                      Quarantine
-                    </Button>
-                  )}{' '}
-                  {item.status === 'quarantined' && (
-                    <Button variant="secondary" onClick={() => openReviewAction(item.uuid, 'restore')}>
-                      Restore
-                    </Button>
-                  )}{' '}
-                  {item.status === 'quarantined' && (
-                    <Button variant="danger" onClick={() => openReviewAction(item.uuid, 'redact')}>
-                      Redact
-                    </Button>
-                  )}{' '}
-                  {['flagged', 'quarantined'].includes(item.status) && (
-                    <Button variant="link" onClick={() => openReviewAction(item.uuid, 'dismiss')}>
-                      Dismiss
-                    </Button>
-                  )}{' '}
-                </span>
-              ) : (
-                ''
-              ),
-            ])}
-          />
-          <Title headingLevel="h2" size="md">
-            Restored
-          </Title>
-          <SimpleTable
-            columns={['Repository', 'Status', 'Score', 'Actions']}
-            rows={restoredRecords.map((item) => [
-              `${item.namespace_name}/${item.repository_name}`,
-              item.status,
-              item.classifier_score.toFixed(4),
-              canRemediate ? (
-                <Button variant="secondary" onClick={() => openReviewAction(item.uuid, 'reopen')}>
-                  Reopen review
-                </Button>
-              ) : (
-                ''
-              ),
-            ])}
-          />
+          <div className="spam-detection-tab-content">
+            <Title headingLevel="h2" size="md" className="spam-detection-section-header">
+              Active review
+            </Title>
+            <SimpleTable
+              ariaLabel="Active review"
+              variant="review"
+              columns={['Repository', 'Status', 'Score', 'Actions']}
+              rows={records.map((item) => [
+                `${item.namespace_name}/${item.repository_name}`,
+                item.status,
+                <span key="score" className="spam-detection-score">
+                  {item.classifier_score.toFixed(4)}
+                </span>,
+                canRemediate ? (
+                  <span className="spam-detection-row-actions">
+                    {item.status === 'flagged' && (
+                      <Button variant="secondary" onClick={() => openReviewAction(item.uuid, 'quarantine')}>
+                        Quarantine
+                      </Button>
+                    )}{' '}
+                    {item.status === 'quarantined' && (
+                      <Button variant="secondary" onClick={() => openReviewAction(item.uuid, 'restore')}>
+                        Restore
+                      </Button>
+                    )}{' '}
+                    {item.status === 'quarantined' && (
+                      <Button variant="danger" onClick={() => openReviewAction(item.uuid, 'redact')}>
+                        Redact
+                      </Button>
+                    )}{' '}
+                    {['flagged', 'quarantined'].includes(item.status) && (
+                      <Button variant="link" onClick={() => openReviewAction(item.uuid, 'dismiss')}>
+                        Dismiss
+                      </Button>
+                    )}{' '}
+                  </span>
+                ) : (
+                  ''
+                ),
+              ])}
+            />
+            <Title headingLevel="h2" size="md" className="spam-detection-section-header">
+              Restored
+            </Title>
+            <SimpleTable
+              ariaLabel="Restored reviews"
+              variant="review"
+              columns={['Repository', 'Status', 'Score', 'Actions']}
+              rows={restoredRecords.map((item) => [
+                `${item.namespace_name}/${item.repository_name}`,
+                item.status,
+                <span key="score" className="spam-detection-score">
+                  {item.classifier_score.toFixed(4)}
+                </span>,
+                canRemediate ? (
+                  <Button variant="secondary" onClick={() => openReviewAction(item.uuid, 'reopen')}>
+                    Reopen review
+                  </Button>
+                ) : (
+                  ''
+                ),
+              ])}
+            />
+          </div>
         </Tab>
         <Tab eventKey={5} title={<TabTitleText>Audit</TabTitleText>}>
-          <SimpleTable
-            columns={['Time', 'Repository', 'Action', 'Transition', 'Operator', 'Reason']}
-            rows={actions.map((item) => [
-              item.created_at,
-              item.namespace_name && item.repository_name ? `${item.namespace_name}/${item.repository_name}` : '',
-              item.action,
-              [item.from_status, item.to_status].filter(Boolean).join(' -> '),
-              item.operator || '',
-              item.details_json?.reason || '',
-            ])}
-          />
+          <div className="spam-detection-tab-content">
+            <SimpleTable
+              ariaLabel="Audit history"
+              variant="audit"
+              columns={['Time', 'Repository', 'Action', 'Transition', 'Operator', 'Reason']}
+              rows={actions.map((item) => [
+                item.created_at,
+                item.namespace_name && item.repository_name ? `${item.namespace_name}/${item.repository_name}` : '',
+                item.action,
+                [item.from_status, item.to_status].filter(Boolean).join(' -> '),
+                item.operator || '',
+                item.details_json?.reason || '',
+              ])}
+            />
+          </div>
         </Tab>
       </Tabs>
     </PageSection>
   );
 };
 
-const SimpleTable = ({ columns, rows }: { columns: string[]; rows: any[][] }) => (
-  <table className="pf-c-table pf-m-grid-md" role="grid">
-    <thead>
-      <tr>
-        {columns.map((column) => (
-          <th key={column}>{column}</th>
-        ))}
-      </tr>
-    </thead>
-    <tbody>
-      {rows.length === 0 ? (
+const SimpleTable = ({
+  columns,
+  rows,
+  ariaLabel,
+  variant,
+}: {
+  columns: string[];
+  rows: any[][];
+  ariaLabel: string;
+  variant: string;
+}) => (
+  <div className="spam-detection-table-shell">
+    <table className={`pf-c-table spam-detection-table spam-detection-table--${variant}`} aria-label={ariaLabel}>
+      <thead>
         <tr>
-          <td colSpan={columns.length}>No records</td>
+          {columns.map((column) => (
+            <th key={column}>{column}</th>
+          ))}
         </tr>
-      ) : (
-        rows.map((row, rowIndex) => (
-          <tr key={rowIndex}>
-            {row.map((cell, cellIndex) => (
-              <td key={cellIndex}>{cell}</td>
-            ))}
+      </thead>
+      <tbody>
+        {rows.length === 0 ? (
+          <tr>
+            <td className="spam-detection-table__empty" colSpan={columns.length}>
+              No records
+            </td>
           </tr>
-        ))
-      )}
-    </tbody>
-  </table>
+        ) : (
+          rows.map((row, rowIndex) => (
+            <tr key={rowIndex}>
+              {row.map((cell, cellIndex) => (
+                <td key={cellIndex}>{cell}</td>
+              ))}
+            </tr>
+          ))
+        )}
+      </tbody>
+    </table>
+  </div>
 );

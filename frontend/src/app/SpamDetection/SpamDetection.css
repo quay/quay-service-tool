@@ -1,0 +1,207 @@
+.spam-detection-page {
+  background: var(--pf-global--BackgroundColor--200);
+}
+
+.spam-detection-header {
+  margin-bottom: var(--pf-global--spacer--lg);
+}
+
+.spam-detection-tabs {
+  background: var(--pf-global--BackgroundColor--100);
+  border: 1px solid var(--pf-global--BorderColor--100);
+}
+
+.spam-detection-tab-content {
+  padding: var(--pf-global--spacer--lg);
+}
+
+.spam-detection-card-grid {
+  align-items: start;
+}
+
+.spam-detection-card-grid .pf-c-card {
+  height: 100%;
+}
+
+.spam-detection-button-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--pf-global--spacer--sm);
+  margin-top: var(--pf-global--spacer--md);
+}
+
+.spam-detection-button-row .pf-c-button {
+  width: auto;
+}
+
+.spam-detection-section-header {
+  margin: var(--pf-global--spacer--xl) 0 var(--pf-global--spacer--sm);
+}
+
+.spam-detection-section-header:first-child {
+  margin-top: 0;
+}
+
+.spam-detection-table-shell {
+  width: 100%;
+  overflow-x: auto;
+  margin-top: var(--pf-global--spacer--md);
+  background: var(--pf-global--BackgroundColor--100);
+  border: 1px solid var(--pf-global--BorderColor--100);
+}
+
+.spam-detection-table {
+  width: 100%;
+  min-width: 720px;
+  table-layout: fixed;
+  border-collapse: collapse;
+  color: var(--pf-global--Color--100);
+  font-size: var(--pf-global--FontSize--sm);
+  line-height: var(--pf-global--LineHeight--md);
+}
+
+.spam-detection-table th,
+.spam-detection-table td {
+  padding: var(--pf-global--spacer--md);
+  text-align: left;
+  vertical-align: top;
+  overflow-wrap: anywhere;
+  border-bottom: 1px solid var(--pf-global--BorderColor--100);
+}
+
+.spam-detection-table th {
+  color: var(--pf-global--Color--200);
+  font-weight: var(--pf-global--FontWeight--semi-bold);
+  background: var(--pf-global--BackgroundColor--200);
+}
+
+.spam-detection-table tbody tr:last-child td {
+  border-bottom: 0;
+}
+
+.spam-detection-table tbody tr:hover td {
+  background: var(--pf-global--BackgroundColor--150, #f5f5f5);
+}
+
+.spam-detection-table__empty {
+  color: var(--pf-global--Color--200);
+  text-align: center !important;
+  padding: var(--pf-global--spacer--xl) !important;
+}
+
+.spam-detection-table--classifiers th:nth-child(1) {
+  width: 22%;
+}
+.spam-detection-table--classifiers th:nth-child(2) {
+  width: 10%;
+}
+.spam-detection-table--classifiers th:nth-child(3) {
+  width: 24%;
+}
+.spam-detection-table--classifiers th:nth-child(4) {
+  width: 44%;
+}
+
+.spam-detection-table--preview th:nth-child(1) {
+  width: 21%;
+}
+.spam-detection-table--preview th:nth-child(2) {
+  width: 11%;
+}
+.spam-detection-table--preview th:nth-child(3) {
+  width: 10%;
+}
+.spam-detection-table--preview th:nth-child(4) {
+  width: 22%;
+}
+.spam-detection-table--preview th:nth-child(5) {
+  width: 36%;
+}
+
+.spam-detection-table--runs {
+  min-width: 900px;
+}
+.spam-detection-table--runs th:nth-child(1) {
+  width: 34%;
+}
+.spam-detection-table--runs th:nth-child(2) {
+  width: 12%;
+}
+.spam-detection-table--runs th:nth-child(n + 3) {
+  width: 10.8%;
+}
+
+.spam-detection-table--review th:nth-child(1) {
+  width: 34%;
+}
+.spam-detection-table--review th:nth-child(2) {
+  width: 18%;
+}
+.spam-detection-table--review th:nth-child(3) {
+  width: 12%;
+}
+.spam-detection-table--review th:nth-child(4) {
+  width: 36%;
+}
+
+.spam-detection-table--audit {
+  min-width: 940px;
+}
+.spam-detection-table--audit th:nth-child(1) {
+  width: 17%;
+}
+.spam-detection-table--audit th:nth-child(2) {
+  width: 22%;
+}
+.spam-detection-table--audit th:nth-child(3) {
+  width: 14%;
+}
+.spam-detection-table--audit th:nth-child(4) {
+  width: 18%;
+}
+.spam-detection-table--audit th:nth-child(5) {
+  width: 17%;
+}
+.spam-detection-table--audit th:nth-child(6) {
+  width: 12%;
+}
+
+.spam-detection-table--audit td:nth-child(3),
+.spam-detection-table--audit td:nth-child(5) {
+  font-size: var(--pf-global--FontSize--xs);
+  overflow-wrap: normal;
+  word-break: normal;
+  white-space: nowrap;
+}
+
+.spam-detection-monospace {
+  font-family: var(--pf-global--FontFamily--monospace);
+  font-size: var(--pf-global--FontSize--xs);
+  overflow-wrap: anywhere;
+}
+
+.spam-detection-score {
+  font-variant-numeric: tabular-nums;
+}
+
+.spam-detection-row-actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--pf-global--spacer--xs);
+}
+
+.spam-detection-row-actions .pf-c-button {
+  white-space: nowrap;
+}
+
+@media (max-width: 768px) {
+  .spam-detection-tab-content {
+    padding: var(--pf-global--spacer--md);
+  }
+
+  .spam-detection-table th,
+  .spam-detection-table td {
+    padding: var(--pf-global--spacer--sm) var(--pf-global--spacer--md);
+  }
+}

@@ -67,16 +67,38 @@ browser remains open for ten minutes after the workflow completes.
 
 Prerequisites:
 
-- Check out quay/quay#6154 as a sibling directory named `quay`, or set
-  `QUAY_DIR` to that checkout.
-- Install the Quay `web` and service-tool `frontend` dependencies.
-- Install system Chrome.
-- Start Podman or Docker. The demo does not start or modify a Podman machine.
+- Check out quay/quay#6154 and this service-tool PR.
+- Install Node.js, Corepack, `make`, `curl`, and system Chrome.
+- Start Podman or Docker with Compose support. The demo does not start or
+  modify a Podman machine.
+- Keep ports `8080`, `5001`, and `9000` available.
+- Install the browser dependencies once:
+
+```sh
+corepack pnpm --dir /absolute/path/to/quay/web install --frozen-lockfile
+corepack pnpm@10.28.2 --dir /absolute/path/to/quay-service-tool/frontend install --frozen-lockfile
+```
+
+The Quay PR checkout contains the required local classifier artifact and spam
+detection configuration. Validate all prerequisites without starting anything:
+
+```sh
+QUAY_DIR=/absolute/path/to/quay \
+make -C /absolute/path/to/quay-service-tool spam-demo-check
+```
 
 From the service-tool repository, run:
 
 ```sh
 make spam-demo
+```
+
+From any directory, or when the Quay checkout is not the default sibling named
+`quay`, run:
+
+```sh
+QUAY_DIR=/absolute/path/to/quay \
+make -C /absolute/path/to/quay-service-tool spam-demo
 ```
 
 Use `PLAYWRIGHT_SLOW_MO` to change individual browser action timing,
@@ -92,8 +114,11 @@ QUAY_DIR=/path/to/quay PLAYWRIGHT_SLOW_MO=1500 DEMO_STEP_DELAY=10000 DEMO_CLICK_
 Stop the demo while preserving volumes, or remove its volumes completely:
 
 ```sh
-make spam-demo-down
-make spam-demo-clean
+QUAY_DIR=/absolute/path/to/quay \
+make -C /absolute/path/to/quay-service-tool spam-demo-down
+
+QUAY_DIR=/absolute/path/to/quay \
+make -C /absolute/path/to/quay-service-tool spam-demo-clean
 ```
 
 `make spam-demo-check` validates paths, configuration, required commands, and

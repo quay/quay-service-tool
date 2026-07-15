@@ -60,8 +60,10 @@ describe('Spam Detection', () => {
 
     render(<SpamDetection />);
 
+    expect(await screen.findByRole('heading', { name: 'Spam detection' })).toBeTruthy();
     expect(await screen.findByText('Default classifier')).toBeTruthy();
     expect(await screen.findByText('20260620.1')).toBeTruthy();
+    expect(await screen.findByRole('table', { name: 'Classifiers' })).toBeTruthy();
     fireEvent.click(screen.getByRole('tab', { name: 'Policy' }));
     expect(await screen.findByLabelText('Rescan unchanged terminal review records')).toBeTruthy();
     fireEvent.click(screen.getByRole('tab', { name: 'Audit' }));
