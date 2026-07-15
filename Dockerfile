@@ -26,7 +26,7 @@ RUN pnpm build
 
 ### --- Backend --- ###
 
-FROM registry.access.redhat.com/ubi9/python-312:latest@sha256:3c7c3399c4a02694ae53eb27d3dc9218cf889355b3f0ecbc04f81b06d47ff747 AS backend-base
+FROM registry.access.redhat.com/ubi9/python-312:latest@sha256:bc1178693261cb1c80447c7d88e9effb6a756030499875c511c685551b421ea2 AS backend-base
 
 ENV SERVICETOOLDIR=/backend
 
