@@ -13,6 +13,15 @@ from tasks.banner import BannerTask
 from tasks.username import UsernameTask
 from tasks.federateduser import FederatedUserTask
 from tasks.user import UserTask, FetchUserFromEmailTask, FetchUserFromNameTask, UpdateEmailTask, FetchUserFromStripeID
+from tasks.spam import (
+    SpamRuleListTask,
+    SpamRuleDetailTask,
+    FlaggedRepoListTask,
+    FlaggedRepoDetailTask,
+    QuarantineRepoTask,
+    RestoreRepoTask,
+    DismissRepoTask,
+)
 import yaml
 import logging
 from utils import *
@@ -134,6 +143,13 @@ api.add_resource(FederatedUserTask, '/federateduser/<username>')
 api.add_resource(UpdateEmailTask, '/user/email')
 api.add_resource(RobotTokenTask, '/robot/token')
 api.add_resource(AddOrgOwnerTask, '/org/owner')
+api.add_resource(SpamRuleListTask, '/spam/rules')
+api.add_resource(SpamRuleDetailTask, '/spam/rules/<rule_uuid>')
+api.add_resource(FlaggedRepoListTask, '/spam/flagged')
+api.add_resource(FlaggedRepoDetailTask, '/spam/flagged/<repo_uuid>')
+api.add_resource(QuarantineRepoTask, '/spam/flagged/<repo_uuid>/quarantine')
+api.add_resource(RestoreRepoTask, '/spam/flagged/<repo_uuid>/restore')
+api.add_resource(DismissRepoTask, '/spam/flagged/<repo_uuid>/dismiss')
 
 if __name__ == '__main__':
     app.run(debug=True, host="0.0.0.0")
