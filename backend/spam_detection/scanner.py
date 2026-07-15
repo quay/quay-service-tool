@@ -88,6 +88,7 @@ def preview(config, policy_override=None, limit=100):
                             "namespace_name": repository["namespace_name"],
                             "repository_name": repository["repository_name"],
                             "visibility": repository.get("visibility"),
+                            "description": repository.get("description") or "",
                             "description_excerpt": (repository.get("description") or "")[:500],
                             "classifier_score": decision["score"],
                             "explanation": decision["explanation"],

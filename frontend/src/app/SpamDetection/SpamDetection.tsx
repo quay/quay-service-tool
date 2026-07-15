@@ -739,7 +739,7 @@ export const SpamDetection: React.FunctionComponent = () => {
                   {item.classifier_score.toFixed(4)}
                 </span>,
                 formatHardFilters(item.hard_filter_results),
-                <DescriptionCell key="description" text={item.description_excerpt} />,
+                <DescriptionCell key="description" text={item.description || item.description_excerpt} />,
               ])}
             />
           </div>

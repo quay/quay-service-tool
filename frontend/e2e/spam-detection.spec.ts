@@ -204,6 +204,7 @@ test('Spam Detection operator workflow covers export, labels, recovery, and clea
           visibility: 'public',
           classifier_score: 0.9733,
           description_excerpt: 'crypto promotion https://spam.example',
+          description: dismissDescription,
         },
       ],
     });
@@ -345,6 +346,9 @@ test('Spam Detection operator workflow covers export, labels, recovery, and clea
   await expect(previewPanel.locator('tr', { hasText: 'publicns/spam-restore' })).toBeVisible();
   await expect(previewPanel.locator('tr', { hasText: 'publicns/spam-cleanup' })).toBeVisible();
   await expect(previewPanel.locator('tr', { hasText: 'publicns/spam-dismiss' })).toBeVisible();
+  await expect(
+    previewPanel.locator('tr', { hasText: 'publicns/spam-dismiss' }).getByRole('button', { name: 'Show more' })
+  ).toBeVisible();
   await expect(previewPanel.getByRole('link', { name: 'publicns/spam-restore' })).toHaveAttribute(
     'href',
     'http://localhost:8080/repository/publicns/spam-restore'

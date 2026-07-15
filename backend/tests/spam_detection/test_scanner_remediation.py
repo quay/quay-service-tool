@@ -96,6 +96,8 @@ def test_preview_scans_public_repositories_by_default(tmp_path):
     assert "privatens/private-spam" not in repositories
     assert "publicns/nonempty-spam" not in repositories
     assert all(match["hard_filter_results"]["repository_empty"]["matched"] for match in result["matches"])
+    spam_match = next(match for match in result["matches"] if match["repository_name"] == "spam")
+    assert spam_match["description"] == "casino bonus jackpot https://spam.example"
 
 
 def test_description_without_hyperlink_is_hard_excluded(tmp_path):
