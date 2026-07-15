@@ -10,6 +10,7 @@ from . import store
 
 
 DEFAULT_TOKEN_PATTERN = r"[a-z0-9][a-z0-9_-]*"
+HYPERLINK_PATTERN = re.compile(r"\bhttps?://[^\s<>()]+", re.IGNORECASE)
 DEFAULT_FEATURE_CONFIG = {
     "token_pattern": DEFAULT_TOKEN_PATTERN,
     "include_repository_name": False,
@@ -64,6 +65,10 @@ def tokenize(text, feature_config=None):
     feature_config = validate_feature_config(feature_config)
     pattern = feature_config.get("token_pattern", DEFAULT_TOKEN_PATTERN)
     return [match.group(0).lower() for match in re.finditer(pattern, text or "", re.IGNORECASE)]
+
+
+def contains_hyperlink(text):
+    return HYPERLINK_PATTERN.search(text or "") is not None
 
 
 def repository_text(description, repository_name=None, feature_config=None):

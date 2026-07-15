@@ -37,7 +37,15 @@ def _hard_filter_results(repository, policy):
             "value": visibility,
             "matched": include_private or visibility == "public",
         },
+        "description_hyperlink": {
+            "required": True,
+            "matched": classifier_lib.contains_hyperlink(repository.get("description")),
+        },
     }
+
+
+def _passes_hard_filters(results):
+    return all(result.get("matched") for result in results.values())
 
 
 def preview(config, policy_override=None, limit=100):
@@ -72,6 +80,8 @@ def preview(config, policy_override=None, limit=100):
                 )
                 if decision["score"] >= threshold:
                     hard_filter_results = _hard_filter_results(repository, policy)
+                    if not _passes_hard_filters(hard_filter_results):
+                        continue
                     matched.append(
                         {
                             "repository_id": repository["id"],
@@ -152,8 +162,10 @@ def run_scan(config, source="manual", dry_run=None, max_repos=None, operator=Non
                     )
                     if decision["score"] < threshold:
                         continue
-                    counters["repos_matched"] += 1
                     hard_filter_results = _hard_filter_results(repository, policy)
+                    if not _passes_hard_filters(hard_filter_results):
+                        continue
+                    counters["repos_matched"] += 1
                     match = store.add_scan_match(
                         config,
                         run["id"],

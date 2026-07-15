@@ -15,6 +15,7 @@ from tasks.federateduser import FederatedUserTask
 from tasks.user import UserTask, FetchUserFromEmailTask, FetchUserFromNameTask, UpdateEmailTask, FetchUserFromStripeID
 from tasks.spam_detection import (
     SpamAuditTask,
+    SpamClassifierArtifactTask,
     SpamClassifierImportCsvTask,
     SpamClassifierListTask,
     SpamClassifierTask,
@@ -24,6 +25,7 @@ from tasks.spam_detection import (
     SpamPolicyTask,
     SpamPreviewTask,
     SpamReviewDismissTask,
+    SpamReviewClassifyTask,
     SpamReviewQuarantineTask,
     SpamReviewRedactTask,
     SpamReviewReopenTask,
@@ -179,6 +181,7 @@ api.add_resource(SpamTrainingExamplesTask, '/spam-detection/classifiers/<classif
 api.add_resource(SpamClassifierImportCsvTask, '/spam-detection/classifiers/<classifier_uuid>/import-csv')
 api.add_resource(SpamClassifierTrainTask, '/spam-detection/classifiers/<classifier_uuid>/train')
 api.add_resource(SpamClassifierExportArtifactTask, '/spam-detection/classifiers/<classifier_uuid>/export-artifact')
+api.add_resource(SpamClassifierArtifactTask, '/spam-detection/classifiers/<classifier_uuid>/artifact')
 api.add_resource(SpamPolicyTask, '/spam-detection/policy')
 api.add_resource(SpamPreviewTask, '/spam-detection/preview')
 api.add_resource(SpamRunsTask, '/spam-detection/runs')
@@ -189,6 +192,7 @@ api.add_resource(SpamReviewQuarantineTask, '/spam-detection/review/<record_uuid>
 api.add_resource(SpamReviewRestoreTask, '/spam-detection/review/<record_uuid>/restore')
 api.add_resource(SpamReviewReopenTask, '/spam-detection/review/<record_uuid>/reopen')
 api.add_resource(SpamReviewDismissTask, '/spam-detection/review/<record_uuid>/dismiss')
+api.add_resource(SpamReviewClassifyTask, '/spam-detection/review/<record_uuid>/classify')
 api.add_resource(SpamReviewRedactTask, '/spam-detection/review/<record_uuid>/redact')
 
 if __name__ == '__main__':

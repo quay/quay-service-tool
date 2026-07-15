@@ -1,7 +1,8 @@
 import json
 import logging
+import os
 
-from flask import current_app, make_response, request
+from flask import current_app, make_response, request, send_file
 from flask_login import current_user, login_required
 from flask_restful import Resource
 
@@ -35,6 +36,18 @@ def _bounded_limit(raw_value, default, maximum, field="limit"):
         raise ValueError(f"{field} must be greater than 0")
     if value > maximum:
         raise ValueError(f"{field} must be less than or equal to {maximum}")
+    return value
+
+
+def _scan_limit(raw_value, default, maximum):
+    value = raw_value if raw_value is not None else default
+    if isinstance(value, str) and value.strip().lower() in ("all", "unbounded"):
+        return 0
+    value = int(value)
+    if value < 0:
+        raise ValueError("max_repos must be 0 or greater")
+    if value and maximum > 0 and value > maximum:
+        raise ValueError(f"max_repos must be less than or equal to {maximum}, or 0 for all")
     return value
 
 
@@ -226,6 +239,26 @@ class SpamClassifierExportArtifactTask(Resource):
             return _json_response({"message": str(exc)}, 500)
 
 
+class SpamClassifierArtifactTask(Resource):
+    @log_response
+    @verify_spam_detection_read_permissions
+    @login_required
+    def get(self, classifier_uuid):
+        configured = store.get_classifier(current_app.config, classifier_uuid)
+        if not configured:
+            return _json_response({"message": "classifier not found"}, 404)
+        artifact_path = configured.get("artifact_path")
+        if not artifact_path or not os.path.isfile(artifact_path):
+            return _json_response({"message": "classifier has no generated artifact"}, 404)
+        version = configured.get("artifact_version") or "unversioned"
+        return send_file(
+            artifact_path,
+            mimetype="application/json",
+            as_attachment=True,
+            download_name=f"quay-spam-classifier-{version}.json",
+        )
+
+
 class SpamPolicyTask(Resource):
     @log_response
     @verify_spam_detection_read_permissions
@@ -296,13 +329,11 @@ class SpamRunsTask(Resource):
         try:
             api_limit = int(current_app.config.get("SPAM_DETECTION_API_SCAN_LIMIT", 10000))
             configured_max = int(current_app.config.get("SPAM_DETECTION_MAX_REPOS") or 0)
-            default_max = configured_max if configured_max > 0 else api_limit
             requested_max = payload.get("max_repos")
-            max_repos = _bounded_limit(
+            max_repos = _scan_limit(
                 requested_max,
-                min(api_limit, default_max),
+                configured_max,
                 api_limit,
-                field="max_repos",
             )
             run = scanner.run_scan(
                 current_app.config,
@@ -410,6 +441,26 @@ class SpamReviewDismissTask(Resource):
     def post(self, record_uuid):
         try:
             return _json_response({"record": remediation.dismiss(current_app.config, record_uuid, _operator())})
+        except remediation.RemediationError as exc:
+            return _json_response({"message": str(exc)}, 400)
+
+
+class SpamReviewClassifyTask(Resource):
+    @log_response
+    @verify_spam_detection_write_permissions
+    @login_required
+    def post(self, record_uuid):
+        try:
+            return _json_response(
+                {
+                    "record": remediation.classify(
+                        current_app.config,
+                        record_uuid,
+                        _body().get("label"),
+                        _operator(),
+                    )
+                }
+            )
         except remediation.RemediationError as exc:
             return _json_response({"message": str(exc)}, 400)
 

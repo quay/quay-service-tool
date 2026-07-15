@@ -46,7 +46,7 @@ export const SpamDetection: React.FunctionComponent = () => {
   const [policy, setPolicy] = useState<any>({});
   const [runs, setRuns] = useState<any[]>([]);
   const [records, setRecords] = useState<any[]>([]);
-  const [restoredRecords, setRestoredRecords] = useState<any[]>([]);
+  const [terminalRecords, setTerminalRecords] = useState<any[]>([]);
   const [actions, setActions] = useState<any[]>([]);
   const [preview, setPreview] = useState<any>(null);
   const [loading, setLoading] = useState(false);
@@ -55,7 +55,6 @@ export const SpamDetection: React.FunctionComponent = () => {
   const [trainingText, setTrainingText] = useState('');
   const [trainingLabel, setTrainingLabel] = useState('spam');
   const [csvPath, setCsvPath] = useState('');
-  const [exportOutputPath, setExportOutputPath] = useState('');
   const [selectedClassifier, setSelectedClassifier] = useState('');
   const [pendingReviewAction, setPendingReviewAction] = useState<{ recordUuid: string; action: string } | null>(null);
   const [redactedDescription, setRedactedDescription] = useState('');
@@ -106,8 +105,8 @@ export const SpamDetection: React.FunctionComponent = () => {
       HttpService.axiosClient.get('/spam-detection/review').then((response) => {
         setRecords(response.data.records || []);
       }),
-      HttpService.axiosClient.get('/spam-detection/review?status=restored').then((response) => {
-        setRestoredRecords(response.data.records || []);
+      HttpService.axiosClient.get('/spam-detection/review?status=restored&status=dismissed').then((response) => {
+        setTerminalRecords(response.data.records || []);
       }),
     ]);
   }
@@ -170,16 +169,21 @@ export const SpamDetection: React.FunctionComponent = () => {
       return;
     }
     HttpService.axiosClient
-      .post(`/spam-detection/classifiers/${selectedClassifier}/export-artifact`, {
-        output_path: exportOutputPath || undefined,
-      })
-      .then((response) => {
-        const exportPath = response.data.classifier.export_path;
-        showMessage(
-          exportPath
-            ? `Artifact ${response.data.classifier.artifact_version} exported to ${exportPath}`
-            : `Artifact ${response.data.classifier.artifact_version} exported`
+      .post(`/spam-detection/classifiers/${selectedClassifier}/export-artifact`, {})
+      .then(async (response) => {
+        const artifact = await HttpService.axiosClient.get(
+          `/spam-detection/classifiers/${selectedClassifier}/artifact`,
+          { responseType: 'blob' }
         );
+        const url = window.URL.createObjectURL(artifact.data);
+        const link = document.createElement('a');
+        link.href = url;
+        link.download = `quay-spam-classifier-${response.data.classifier.artifact_version}.json`;
+        document.body.appendChild(link);
+        link.click();
+        link.remove();
+        window.URL.revokeObjectURL(url);
+        showMessage(`Artifact ${response.data.classifier.artifact_version} downloaded`);
         loadClassifiers();
       })
       .catch((error) => showMessage(error.response?.data?.message || 'Unable to export artifact'));
@@ -223,16 +227,18 @@ export const SpamDetection: React.FunctionComponent = () => {
   function formatHardFilters(filters: any) {
     const repositoryEmpty = filters?.repository_empty;
     const visibility = filters?.visibility;
+    const hyperlink = filters?.description_hyperlink;
     return [
       repositoryEmpty ? `empty:${repositoryEmpty.matched ? 'yes' : 'no'}` : null,
       visibility ? `visibility:${visibility.value || 'unknown'}` : null,
+      hyperlink ? `hyperlink:${hyperlink.matched ? 'yes' : 'no'}` : null,
     ]
       .filter(Boolean)
       .join(', ');
   }
 
   async function runScan(dryRun: boolean) {
-    const maxRepos = Number(policy.max_repos) > 0 ? Number(policy.max_repos) : undefined;
+    const maxRepos = Number(policy.max_repos) > 0 ? Number(policy.max_repos) : 0;
     HttpService.axiosClient
       .post('/spam-detection/runs', { source: 'manual', dry_run: dryRun, max_repos: maxRepos })
       .then(() => {
@@ -254,16 +260,20 @@ export const SpamDetection: React.FunctionComponent = () => {
       return;
     }
     const { recordUuid, action } = pendingReviewAction;
+    const classifyLabel = action.startsWith('classify-') ? action.substring('classify-'.length) : null;
+    const endpoint = classifyLabel ? 'classify' : action;
     const body =
       action === 'redact'
         ? { redacted_description: redactedDescription }
         : action === 'reopen'
         ? { reason: reviewReason.trim() }
+        : classifyLabel
+        ? { label: classifyLabel }
         : {};
     HttpService.axiosClient
-      .post(`/spam-detection/review/${recordUuid}/${action}`, body)
+      .post(`/spam-detection/review/${recordUuid}/${endpoint}`, body)
       .then(() => {
-        showMessage(`${action} completed`);
+        showMessage(classifyLabel ? `Match labeled ${classifyLabel}` : `${action} completed`);
         setPendingReviewAction(null);
         loadReview();
         loadAudit();
@@ -395,13 +405,6 @@ export const SpamDetection: React.FunctionComponent = () => {
                           Export artifact
                         </Button>
                       </div>
-                      <FormGroup label="Build output path" fieldId="export-output-path">
-                        <TextInput
-                          id="export-output-path"
-                          value={exportOutputPath}
-                          onChange={(value) => setExportOutputPath(value)}
-                        />
-                      </FormGroup>
                       <FormGroup label="Seed CSV path" fieldId="seed-csv-path">
                         <TextInput id="seed-csv-path" value={csvPath} onChange={(value) => setCsvPath(value)} />
                       </FormGroup>
@@ -473,10 +476,19 @@ export const SpamDetection: React.FunctionComponent = () => {
                   <FormGroup label="Max repositories" fieldId="max-repos">
                     <TextInput
                       id="max-repos"
-                      value={String(policy.max_repos || '')}
+                      value={Number(policy.max_repos) > 0 ? String(policy.max_repos) : ''}
                       onChange={(value) => setPolicy({ ...policy, max_repos: Number(value) })}
+                      isDisabled={Number(policy.max_repos) === 0}
                     />
                   </FormGroup>
+                  <Checkbox
+                    id="scan-all-repositories"
+                    label="Scan all repositories"
+                    isChecked={Number(policy.max_repos) === 0}
+                    onChange={(checked) =>
+                      setPolicy({ ...policy, max_repos: checked ? 0 : Number(policy.max_repos) || 1000 })
+                    }
+                  />
                   <FormGroup label="Batch size" fieldId="batch-size">
                     <TextInput
                       id="batch-size"
@@ -598,6 +610,12 @@ export const SpamDetection: React.FunctionComponent = () => {
                         Dismiss
                       </Button>
                     )}{' '}
+                    <Button variant="link" onClick={() => openReviewAction(item.uuid, 'classify-spam')}>
+                      Label spam
+                    </Button>{' '}
+                    <Button variant="link" onClick={() => openReviewAction(item.uuid, 'classify-ham')}>
+                      Label ham
+                    </Button>
                   </span>
                 ) : (
                   ''
@@ -605,13 +623,13 @@ export const SpamDetection: React.FunctionComponent = () => {
               ])}
             />
             <Title headingLevel="h2" size="md" className="spam-detection-section-header">
-              Restored
+              Closed reviews
             </Title>
             <SimpleTable
-              ariaLabel="Restored reviews"
+              ariaLabel="Closed reviews"
               variant="review"
               columns={['Repository', 'Status', 'Score', 'Actions']}
-              rows={restoredRecords.map((item) => [
+              rows={terminalRecords.map((item) => [
                 `${item.namespace_name}/${item.repository_name}`,
                 item.status,
                 <span key="score" className="spam-detection-score">

@@ -49,10 +49,10 @@ def _create_quay_db(path):
         INSERT INTO "repository"
             (id, namespace_user_id, name, visibility_id, description, state)
         VALUES
-            (1, 1, 'spam', 1, 'casino bonus jackpot', 0),
-            (2, 2, 'private-spam', 2, 'casino bonus jackpot', 0),
+            (1, 1, 'spam', 1, 'casino bonus jackpot https://spam.example', 0),
+            (2, 2, 'private-spam', 2, 'casino bonus jackpot https://spam.example', 0),
             (3, 1, 'ham', 1, 'container image documentation', 0),
-            (4, 1, 'nonempty-spam', 1, 'casino bonus jackpot', 0);
+            (4, 1, 'nonempty-spam', 1, 'casino bonus jackpot https://spam.example', 0);
         INSERT INTO "tag" (id, repository_id, lifetime_end_ms, hidden)
         VALUES (1, 4, NULL, 0);
         """
@@ -96,6 +96,27 @@ def test_preview_scans_public_repositories_by_default(tmp_path):
     assert "privatens/private-spam" not in repositories
     assert "publicns/nonempty-spam" not in repositories
     assert all(match["hard_filter_results"]["repository_empty"]["matched"] for match in result["matches"])
+
+
+def test_description_without_hyperlink_is_hard_excluded(tmp_path):
+    quay_db_path = tmp_path / "quay.db"
+    _create_quay_db(quay_db_path)
+    conn = sqlite3.connect(quay_db_path)
+    conn.execute(
+        'UPDATE "repository" SET description = ? WHERE id = 1',
+        ("casino bonus jackpot",),
+    )
+    conn.commit()
+    conn.close()
+    config = _config(tmp_path, quay_db_path)
+    _trained_classifier(config)
+
+    preview = scanner.preview(config, limit=10)
+    run = scanner.run_scan(config, dry_run=False)
+
+    assert preview["repos_matched"] == 0
+    assert run["repos_matched"] == 0
+    assert store.list_review(config) == []
 
 
 def test_non_empty_repositories_are_hard_excluded_from_scan_and_review(tmp_path):
@@ -149,7 +170,7 @@ def test_readonly_quay_connection_rejects_repository_updates(tmp_path):
     conn = sqlite3.connect(quay_db_path)
     description = conn.execute('SELECT description FROM "repository" WHERE id = 1').fetchone()[0]
     conn.close()
-    assert description == "casino bonus jackpot"
+    assert description == "casino bonus jackpot https://spam.example"
 
 
 def test_quarantine_writes_repository_description_directly(tmp_path):
@@ -307,7 +328,7 @@ def test_dismiss_records_ham_feedback_for_next_training(tmp_path):
     feedback = [example for example in examples if example["source"] == "review_action"]
     assert len(feedback) == 1
     assert feedback[0]["label"] == "ham"
-    assert feedback[0]["text"] == "casino bonus jackpot"
+    assert feedback[0]["text"] == "casino bonus jackpot https://spam.example"
     assert feedback[0]["repository_id"] == 1
     state_conn = sqlite3.connect(tmp_path / "state.db")
     linked_record_id = state_conn.execute(
@@ -322,10 +343,10 @@ def test_dismiss_records_ham_feedback_for_next_training(tmp_path):
     assert dismiss_action["namespace_name"] == "publicns"
     assert dismiss_action["repository_name"] == "spam"
     assert dismissed["description_fingerprint"] == store.description_fingerprint(
-        "casino bonus jackpot"
+        "casino bonus jackpot https://spam.example"
     )
     assert dismissed["terminal_description_fingerprint"] == store.description_fingerprint(
-        "casino bonus jackpot"
+        "casino bonus jackpot https://spam.example"
     )
     assert dismissed["terminal_classifier_snapshot_json"]["artifact_version"] == "test-v1"
 
@@ -352,12 +373,12 @@ def test_restore_records_ham_feedback_after_quarantine_spam_feedback(tmp_path):
         if example["source"] == "review_action"
     ]
     assert [(label, text) for label, text, _ in feedback] == [
-        ("spam", "casino bonus jackpot"),
-        ("ham", "casino bonus jackpot"),
+        ("spam", "casino bonus jackpot https://spam.example"),
+        ("ham", "casino bonus jackpot https://spam.example"),
     ]
     assert all(source_ref for _, _, source_ref in feedback)
     assert restored["terminal_description_fingerprint"] == store.description_fingerprint(
-        "casino bonus jackpot"
+        "casino bonus jackpot https://spam.example"
     )
 
 
@@ -433,6 +454,71 @@ def test_reopen_restored_record_invalidates_ham_feedback_and_allows_requarantine
     assert metrics["example_count"] == 4
     assert metrics["spam_examples"] == 3
     assert metrics["ham_examples"] == 1
+
+
+def test_reopen_dismissed_record_invalidates_ham_feedback(tmp_path):
+    quay_db_path = tmp_path / "quay.db"
+    _create_quay_db(quay_db_path)
+    config = _config(tmp_path, quay_db_path)
+    created = _trained_classifier(config)
+    store.update_policy(config, {"scan_dry_run": False})
+
+    scanner.run_scan(config, dry_run=False)
+    record = store.list_review(config)[0]
+    remediation.dismiss(config, record["uuid"], operator="reviewer")
+    reopened = remediation.reopen(
+        config,
+        record["uuid"],
+        reason="Dismissal was approved in error",
+        operator="lead-reviewer",
+    )
+
+    assert reopened["status"] == "flagged"
+    feedback = [
+        example
+        for example in store.list_training_examples(config, created["id"])
+        if example["source"] == "review_action"
+    ]
+    assert feedback == []
+    reopen_action = next(
+        action for action in store.list_audit_actions(config) if action["action"] == "reopen"
+    )
+    assert reopen_action["from_status"] == "dismissed"
+    assert reopen_action["details_json"] == {
+        "invalidated_training_examples": 1,
+        "reason": "Dismissal was approved in error",
+    }
+
+
+def test_review_match_can_be_reclassified_for_training(tmp_path):
+    quay_db_path = tmp_path / "quay.db"
+    _create_quay_db(quay_db_path)
+    config = _config(tmp_path, quay_db_path)
+    created = _trained_classifier(config)
+    store.update_policy(config, {"scan_dry_run": False})
+
+    scanner.run_scan(config, dry_run=False)
+    record = store.list_review(config)[0]
+    first = remediation.classify(config, record["uuid"], "ham", operator="reviewer")
+    second = remediation.classify(config, record["uuid"], "spam", operator="reviewer")
+
+    assert first["status"] == "flagged"
+    assert second["status"] == "flagged"
+    feedback = [
+        example
+        for example in store.list_training_examples(config, created["id"])
+        if example["source"] == "match_review"
+    ]
+    assert [(example["label"], example["source_ref"]) for example in feedback] == [
+        ("spam", record["uuid"])
+    ]
+    classify_actions = [
+        action for action in store.list_audit_actions(config) if action["action"] == "classify"
+    ]
+    assert classify_actions[0]["details_json"] == {
+        "invalidated_training_examples": 1,
+        "label": "spam",
+    }
 
 
 def test_reopen_requires_reason_and_empty_repository(tmp_path):
@@ -534,7 +620,7 @@ def test_changed_description_reopens_terminal_record(tmp_path):
     conn = sqlite3.connect(quay_db_path)
     conn.execute(
         'UPDATE "repository" SET description = ? WHERE id = 1',
-        ("casino bonus jackpot offer",),
+        ("casino bonus jackpot offer https://spam.example",),
     )
     conn.commit()
     conn.close()
@@ -544,7 +630,7 @@ def test_changed_description_reopens_terminal_record(tmp_path):
     assert run["repos_flagged"] == 1
     assert run["repos_skipped_terminal"] == 0
     assert store.list_review(config)[0]["description_fingerprint"] == store.description_fingerprint(
-        "casino bonus jackpot offer"
+        "casino bonus jackpot offer https://spam.example"
     )
 
 

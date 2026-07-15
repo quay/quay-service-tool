@@ -15,7 +15,8 @@ const clickDelay = Number(process.env.DEMO_CLICK_DELAY || 670);
 const holdSeconds = Number(process.env.HOLD_SECONDS || 600);
 const namespace = 'admin';
 const legacyRepository = `legacy-spam-review-${Date.now()}`;
-const spamDescription = 'free casino bonus crypto gift cards click now';
+const spamDescription =
+  'free casino bonus crypto gift cards click now https://spam.example';
 const quarantineNotice = 'This repository description was removed by Quay spam detection.';
 const reopenReason = 'Restore was approved in error';
 
@@ -312,6 +313,24 @@ async function runVisibleDemo(classifierName) {
     await quayPage.goto(`${quayUrl}/repository/${namespace}/${legacyRepository}`);
     await expect(quayPage.getByText(spamDescription)).toBeVisible({timeout: 20_000});
     await pause('Quay shows a synthetic legacy spam repository that predates ingress enforcement');
+
+    await clickForDemo(quayPage, quayPage.getByRole('button', {name: 'Edit description'}));
+    await fillForDemo(
+      quayPage,
+      quayPage.getByRole('textbox', {name: 'Repository description'}),
+      `${spamDescription} updated`,
+    );
+    const rejectedUpdateResponse = quayPage.waitForResponse(
+      (response) =>
+        response.url().endsWith(`/api/v1/repository/${namespace}/${legacyRepository}`) &&
+        response.request().method() === 'PUT',
+    );
+    await clickForDemo(quayPage, quayPage.getByRole('button', {name: 'Save'}));
+    expect((await rejectedUpdateResponse).status()).toBe(400);
+    await expect(quayPage.getByText('Failed to update repository description')).toBeVisible();
+    await pause('Quay visibly rejected a spam update and preserved the existing description');
+    await clickForDemo(quayPage, quayPage.getByRole('button', {name: 'Cancel'}));
+    await expect(quayPage.getByText(spamDescription)).toBeVisible();
 
     await serviceToolPage.goto(serviceToolUrl, {waitUntil: 'domcontentloaded'});
     await expect(serviceToolPage.getByText(/add site banner/i)).toBeVisible({timeout: 20_000});

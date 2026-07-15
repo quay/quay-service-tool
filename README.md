@@ -51,16 +51,24 @@ workflow:
    description, showing the ingress rejection in the Quay UI.
 2. Creates a synthetic empty legacy repository that represents spam content
    predating ingress enforcement.
-3. Seeds a temporary service-tool classifier from synthetic examples, previews
+3. Attempts to update that repository with a spam description, showing the
+   update rejection and unchanged description in Quay.
+4. Seeds a temporary service-tool classifier from synthetic examples, previews
    the legacy repository, and runs a review scan.
-4. Quarantines the flagged repository and verifies the owner-facing notice in
+5. Quarantines the flagged repository and verifies the owner-facing notice in
    Quay.
-5. Restores the repository and verifies the original description returns in
+6. Restores the repository and verifies the original description returns in
    Quay.
-6. Reopens the mistaken restore with a required reason and quarantines the
+7. Reopens the mistaken restore with a required reason and quarantines the
    repository again without changing the classifier.
-7. Verifies the final Quay quarantine notice and the complete service-tool
+8. Verifies the final Quay quarantine notice and the complete service-tool
    audit history.
+
+Spam matching requires an HTTP or HTTPS hyperlink in addition to the classifier
+threshold. In the service-tool UI, operators can label review matches as spam
+or ham for future training, download an exported artifact, reopen mistaken
+restores or dismissals, and select **Scan all repositories** for an unbounded
+scan.
 
 Meaningful clicks and input focus are marked with an animated yellow ring. The
 browser remains open for ten minutes after the workflow completes.

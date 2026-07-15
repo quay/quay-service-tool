@@ -644,14 +644,14 @@ def update_quarantine_record(
         return row_to_dict(updated)
 
 
-def reopen_restored_record(config, record_id, fields, operator, reason):
+def reopen_terminal_record(config, record_id, fields, operator, reason):
     now = utcnow()
     with connect_state_db(config) as conn:
         current = conn.execute(
             "SELECT * FROM spam_quarantine_record WHERE id = ?", (record_id,)
         ).fetchone()
-        if not current or current["status"] != "restored":
-            raise ValueError("only restored records can be reopened")
+        if not current or current["status"] not in ("restored", "dismissed"):
+            raise ValueError("only restored or dismissed records can be reopened")
         active = conn.execute(
             """
             SELECT id FROM spam_quarantine_record
@@ -678,17 +678,18 @@ def reopen_restored_record(config, record_id, fields, operator, reason):
             tuple(params),
         )
 
-        restore_action = conn.execute(
+        terminal_action_name = "restore" if current["status"] == "restored" else "dismiss"
+        terminal_action = conn.execute(
             """
             SELECT uuid FROM spam_action_history
-            WHERE quarantine_record_id = ? AND action = 'restore'
+            WHERE quarantine_record_id = ? AND action = ?
             ORDER BY created_at DESC, id DESC
             LIMIT 1
             """,
-            (record_id,),
+            (record_id, terminal_action_name),
         ).fetchone()
         invalidated_feedback = 0
-        if restore_action:
+        if terminal_action:
             cursor = conn.execute(
                 """
                 UPDATE spam_training_example
@@ -696,7 +697,7 @@ def reopen_restored_record(config, record_id, fields, operator, reason):
                 WHERE source = 'review_action' AND source_ref = ?
                   AND label = 'ham' AND invalidated_at IS NULL
                 """,
-                (now, operator, reason, restore_action["uuid"]),
+                (now, operator, reason, terminal_action["uuid"]),
             )
             invalidated_feedback = cursor.rowcount
 
@@ -704,13 +705,86 @@ def reopen_restored_record(config, record_id, fields, operator, reason):
             conn,
             record_id,
             "reopen",
-            "restored",
+            current["status"],
             "flagged",
             operator,
             {
                 "reason": reason,
                 "invalidated_training_examples": invalidated_feedback,
             },
+        )
+        return row_to_dict(
+            conn.execute(
+                "SELECT * FROM spam_quarantine_record WHERE id = ?", (record_id,)
+            ).fetchone()
+        )
+
+
+def classify_quarantine_record(config, record_id, label, operator=None):
+    label = (label or "").strip().lower()
+    if label not in ("spam", "ham"):
+        raise ValueError("label must be spam or ham")
+    now = utcnow()
+    with connect_state_db(config) as conn:
+        current = conn.execute(
+            "SELECT * FROM spam_quarantine_record WHERE id = ?", (record_id,)
+        ).fetchone()
+        if not current:
+            return None
+        snapshot = row_to_dict(current).get("classifier_snapshot_json") or {}
+        classifier_id = snapshot.get("id")
+        classifier = conn.execute(
+            "SELECT id FROM spam_classifier WHERE id = ?", (classifier_id,)
+        ).fetchone()
+        if not classifier:
+            raise ValueError("review record classifier was not found")
+        text = _validate_training_text(config, current["original_description"])
+        cursor = conn.execute(
+            """
+            UPDATE spam_training_example
+            SET invalidated_at = ?, invalidated_by = ?, invalidation_reason = ?
+            WHERE source = 'match_review' AND source_ref = ?
+              AND invalidated_at IS NULL
+            """,
+            (now, operator, "match label replaced", current["uuid"]),
+        )
+        conn.execute(
+            """
+            INSERT INTO spam_training_example (
+                uuid, classifier_id, repository_id, namespace_name,
+                repository_name, text, label, source, source_ref,
+                created_by, created_at
+            ) VALUES (?, ?, ?, ?, ?, ?, ?, 'match_review', ?, ?, ?)
+            """,
+            (
+                new_uuid(),
+                classifier["id"],
+                current["repository_id"],
+                current["namespace_name"],
+                current["repository_name"],
+                text,
+                label,
+                current["uuid"],
+                operator,
+                now,
+            ),
+        )
+        conn.execute(
+            """
+            UPDATE spam_quarantine_record
+            SET updated_at = ?, actioned_by = ?, actioned_at = ?
+            WHERE id = ?
+            """,
+            (now, operator, now, record_id),
+        )
+        add_action_with_conn(
+            conn,
+            record_id,
+            "classify",
+            current["status"],
+            current["status"],
+            operator,
+            {"label": label, "invalidated_training_examples": cursor.rowcount},
         )
         return row_to_dict(
             conn.execute(

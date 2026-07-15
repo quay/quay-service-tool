@@ -322,7 +322,7 @@ function assertStatus(response, expected, label) {
       namespace: orgName,
       visibility: 'public',
       repository: spamRepo,
-      description: 'free casino bonus crypto gift cards click now',
+      description: 'free casino bonus crypto gift cards click now https://spam.example',
     });
     assertStatus(rejected, 400, 'create spam repository');
 
@@ -337,7 +337,7 @@ function assertStatus(response, expected, label) {
     hamCreated = true;
 
     const rejectedUpdate = await mutate(context, 'put', `/api/v1/repository/${orgName}/${hamRepo}`, {
-      description: 'free casino bonus crypto gift cards click now',
+      description: 'free casino bonus crypto gift cards click now https://spam.example',
     });
     assertStatus(rejectedUpdate, 400, 'update repository to spam description');
 

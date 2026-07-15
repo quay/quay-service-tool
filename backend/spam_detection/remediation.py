@@ -118,8 +118,8 @@ def reopen(config, record_uuid, reason=None, operator=None):
     record = store.get_quarantine_record(config, record_uuid)
     if not record:
         raise RemediationError("quarantine record not found")
-    if record["status"] != "restored":
-        raise RemediationError("only restored records can be reopened")
+    if record["status"] not in ("restored", "dismissed"):
+        raise RemediationError("only restored or dismissed records can be reopened")
     reason = (reason or "").strip()
     if not reason:
         raise RemediationError("reason is required")
@@ -135,10 +135,16 @@ def reopen(config, record_uuid, reason=None, operator=None):
     if not repository["is_empty"]:
         raise RemediationError("only empty repositories can be reopened")
 
+    repository_description = repository["description"]
+    reviewed_description = (
+        record.get("original_description")
+        if repository_description == record.get("quarantine_description")
+        else repository_description
+    )
     fields = {
         "status": "flagged",
-        "original_description": repository["description"],
-        "description_fingerprint": store.description_fingerprint(repository["description"]),
+        "original_description": reviewed_description,
+        "description_fingerprint": store.description_fingerprint(reviewed_description),
         "classifier_snapshot_json": (
             store.active_classifier_snapshot(config)
             or record.get("classifier_snapshot_json")
@@ -148,13 +154,23 @@ def reopen(config, record_uuid, reason=None, operator=None):
         "terminal_description_fingerprint": None,
     }
     try:
-        return store.reopen_restored_record(
+        return store.reopen_terminal_record(
             config,
             record["id"],
             fields,
             operator,
             reason,
         )
+    except ValueError as exc:
+        raise RemediationError(str(exc)) from exc
+
+
+def classify(config, record_uuid, label, operator=None):
+    record = store.get_quarantine_record(config, record_uuid)
+    if not record:
+        raise RemediationError("quarantine record not found")
+    try:
+        return store.classify_quarantine_record(config, record["id"], label, operator)
     except ValueError as exc:
         raise RemediationError(str(exc)) from exc
 

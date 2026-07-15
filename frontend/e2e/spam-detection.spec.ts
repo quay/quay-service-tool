@@ -40,7 +40,7 @@ async function openSpamDetection(page: Page) {
   await expect(page).toHaveURL(/\/spam-detection/);
 }
 
-test('Spam Detection operator workflow covers export, scans, restore, reopen, and cleanup', async ({ page }) => {
+test('Spam Detection operator workflow covers export, labels, recovery, and cleanup', async ({ page }) => {
   const classifiers: Classifier[] = [
     {
       uuid: 'classifier-1',
@@ -76,6 +76,13 @@ test('Spam Detection operator workflow covers export, scans, restore, reopen, an
       status: 'flagged',
       classifier_score: 0.9844,
     },
+    {
+      uuid: 'record-dismiss',
+      namespace_name: 'publicns',
+      repository_name: 'spam-dismiss',
+      status: 'flagged',
+      classifier_score: 0.9733,
+    },
   ];
   const reviewActions: string[] = [];
   const auditActions: any[] = [];
@@ -83,6 +90,8 @@ test('Spam Detection operator workflow covers export, scans, restore, reopen, an
   let policyPayload: any;
   let redactionPayload: any;
   let reopenPayload: any;
+  let classifyPayload: any;
+  let artifactRequested = false;
 
   await page.route('**/banner', async (route) => {
     await fulfillJson(route, { messages: [] });
@@ -120,6 +129,14 @@ test('Spam Detection operator workflow covers export, scans, restore, reopen, an
       },
     });
   });
+  await page.route('**/spam-detection/classifiers/classifier-1/artifact', async (route) => {
+    artifactRequested = true;
+    await route.fulfill({
+      status: 200,
+      contentType: 'application/json',
+      body: JSON.stringify({ version: classifiers[0].artifact_version }),
+    });
+  });
   await page.route('**/spam-detection/policy', async (route) => {
     if (route.request().method() === 'GET') {
       await fulfillJson(route, { policy });
@@ -131,22 +148,29 @@ test('Spam Detection operator workflow covers export, scans, restore, reopen, an
   });
   await page.route('**/spam-detection/preview', async (route) => {
     await fulfillJson(route, {
-      repos_scanned: 3,
-      repos_matched: 2,
+      repos_scanned: 4,
+      repos_matched: 3,
       matches: [
         {
           namespace_name: 'publicns',
           repository_name: 'spam-restore',
           visibility: 'public',
           classifier_score: 0.9912,
-          description_excerpt: 'free casino bonus crypto gift cards click now',
+          description_excerpt: 'free casino bonus crypto gift cards click now https://spam.example',
         },
         {
           namespace_name: 'publicns',
           repository_name: 'spam-cleanup',
           visibility: 'public',
           classifier_score: 0.9844,
-          description_excerpt: 'limited time crypto jackpot bonus',
+          description_excerpt: 'limited time crypto jackpot bonus https://spam.example',
+        },
+        {
+          namespace_name: 'publicns',
+          repository_name: 'spam-dismiss',
+          visibility: 'public',
+          classifier_score: 0.9733,
+          description_excerpt: 'crypto promotion https://spam.example',
         },
       ],
     });
@@ -161,9 +185,9 @@ test('Spam Detection operator workflow covers export, scans, restore, reopen, an
       uuid: payload.dry_run ? 'run-dry' : 'run-review',
       status: 'completed',
       dry_run: payload.dry_run ? 1 : 0,
-      repos_scanned: 3,
-      repos_matched: 2,
-      repos_flagged: payload.dry_run ? 0 : 2,
+      repos_scanned: 4,
+      repos_matched: 3,
+      repos_flagged: payload.dry_run ? 0 : 3,
     });
     await fulfillJson(route, { run: runs[0] }, 201);
   });
@@ -204,9 +228,11 @@ test('Spam Detection operator workflow covers export, scans, restore, reopen, an
           ? 'flagged'
           : action === 'redact'
           ? 'redacted'
+          : action === 'classify'
+          ? record.status
           : 'dismissed',
       operator: 'reviewer',
-      details_json: action === 'reopen' ? route.request().postDataJSON() : {},
+      details_json: ['reopen', 'classify'].includes(action) ? route.request().postDataJSON() : {},
     });
     if (action === 'quarantine') {
       record.status = 'quarantined';
@@ -220,6 +246,8 @@ test('Spam Detection operator workflow covers export, scans, restore, reopen, an
       record.status = 'redacted';
     } else if (action === 'dismiss') {
       record.status = 'dismissed';
+    } else if (action === 'classify') {
+      classifyPayload = route.request().postDataJSON();
     }
     await fulfillJson(route, { record });
   });
@@ -235,35 +263,30 @@ test('Spam Detection operator workflow covers export, scans, restore, reopen, an
   await page.getByRole('button', { name: 'Train artifact' }).click();
   await expect(page.getByText('Artifact e2e-trained generated')).toBeVisible();
   await closeFeedback(page);
-  await page
-    .getByLabel('Build output path')
-    .fill('/private/tmp/quay-image-context/conf/spam-detection/classifier.json');
   await page.getByRole('button', { name: 'Export artifact' }).click();
-  await expect(
-    page.getByText('Artifact e2e-v1 exported to /private/tmp/quay-image-context/conf/spam-detection/classifier.json')
-  ).toBeVisible();
-  expect(exportPayload).toEqual({
-    output_path: '/private/tmp/quay-image-context/conf/spam-detection/classifier.json',
-  });
+  await expect(page.getByText('Artifact e2e-v1 downloaded')).toBeVisible();
+  expect(artifactRequested).toBe(true);
+  expect(exportPayload).toEqual({});
   await closeFeedback(page);
 
   await page.getByRole('tab', { name: 'Policy' }).click();
   await expect(page.getByLabel('Quarantine description')).toHaveValue(/published support timeline/);
   await page.getByLabel('Rescan unchanged terminal review records').check();
-  await page.getByLabel('Max repositories').fill('25');
+  await page.getByLabel('Scan all repositories').check();
   await page.getByRole('button', { name: 'Save policy' }).click();
   await expect(page.getByText('Policy saved')).toBeVisible();
-  expect(policyPayload.max_repos).toBe(25);
+  expect(policyPayload.max_repos).toBe(0);
   expect(policyPayload.rescan_terminal_records).toBe(true);
   expect(policyPayload.quarantine_description).toContain('remove promotional');
   await closeFeedback(page);
 
   await page.getByRole('tab', { name: 'Preview' }).click();
   await page.getByRole('button', { name: 'Preview' }).click();
-  await expect(page.getByText('2 matches from 3 repositories scanned')).toBeVisible();
+  await expect(page.getByText('3 matches from 4 repositories scanned')).toBeVisible();
   const previewPanel = page.getByLabel('Preview', { exact: true });
   await expect(previewPanel.locator('tr', { hasText: 'publicns/spam-restore' })).toBeVisible();
   await expect(previewPanel.locator('tr', { hasText: 'publicns/spam-cleanup' })).toBeVisible();
+  await expect(previewPanel.locator('tr', { hasText: 'publicns/spam-dismiss' })).toBeVisible();
 
   await page.getByRole('tab', { name: 'Runs' }).click();
   await page.getByRole('button', { name: 'Run dry scan' }).click();
@@ -283,6 +306,24 @@ test('Spam Detection operator workflow covers export, scans, restore, reopen, an
   await expect(page.getByText('quarantine completed')).toBeVisible();
   await closeFeedback(page);
   await expect(restoreRow).toContainText('quarantined');
+
+  const dismissRow = reviewPanel.locator('tr', { hasText: 'publicns/spam-dismiss' });
+  await dismissRow.getByRole('button', { name: 'Label spam' }).click();
+  await page.getByRole('button', { name: 'Confirm' }).click();
+  await expect(page.getByText('Match labeled spam')).toBeVisible();
+  await closeFeedback(page);
+  expect(classifyPayload).toEqual({ label: 'spam' });
+  await dismissRow.getByRole('button', { name: 'Dismiss' }).click();
+  await page.getByRole('button', { name: 'Confirm' }).click();
+  await expect(page.getByText('dismiss completed')).toBeVisible();
+  await closeFeedback(page);
+  await expect(dismissRow).toContainText('dismissed');
+  await dismissRow.getByRole('button', { name: 'Reopen review' }).click();
+  await page.getByLabel('Reason').fill('Dismissal was approved in error');
+  await page.getByRole('button', { name: 'Confirm' }).click();
+  await expect(page.getByText('reopen completed')).toBeVisible();
+  await closeFeedback(page);
+  await expect(dismissRow).toContainText('flagged');
   await restoreRow.getByRole('button', { name: 'Restore' }).click();
   await page.getByRole('button', { name: 'Confirm' }).click();
   await expect(page.getByText('restore completed')).toBeVisible();
@@ -317,6 +358,9 @@ test('Spam Detection operator workflow covers export, scans, restore, reopen, an
   expect(redactionPayload).toEqual({ redacted_description: '[redacted by spam cleanup]' });
   expect(reviewActions).toEqual([
     'record-restore:quarantine',
+    'record-dismiss:classify',
+    'record-dismiss:dismiss',
+    'record-dismiss:reopen',
     'record-restore:restore',
     'record-restore:reopen',
     'record-restore:quarantine',
@@ -328,5 +372,6 @@ test('Spam Detection operator workflow covers export, scans, restore, reopen, an
   await expect(auditPanel).toContainText('publicns/spam-cleanup');
   await expect(auditPanel).toContainText('quarantined -> redacted');
   await expect(auditPanel).toContainText('restored -> flagged');
+  await expect(auditPanel).toContainText('dismissed -> flagged');
   await expect(auditPanel).toContainText('Restore was approved in error');
 });

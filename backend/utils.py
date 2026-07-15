@@ -58,10 +58,13 @@ def log_response(func):
         if response.status_code == 200 or response.status_code == 201:
             log_fn = logging.info
         request_payload = request.get_json(silent=True)
-        response_payload = response.data
         if request.path.startswith("/spam-detection"):
             request_payload = "[redacted spam detection payload]"
             response_payload = b"[redacted spam detection response]"
+        elif response.direct_passthrough:
+            response_payload = b"[streaming response]"
+        else:
+            response_payload = response.data
         log_fn(
             f"{datetime.utcnow().strftime('%d %b, %Y, %H:%M:%S')} - "
             f"{request.method} - "
