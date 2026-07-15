@@ -176,6 +176,8 @@ describe('Spam Detection', () => {
   });
 
   it('labels an existing review match for training', async () => {
+    const description =
+      'free casino bonus https://spam.example This deliberately long repository description gives reviewers enough context to decide whether the classifier result is correct without expanding every row by default.';
     mocked(HttpService, true)
       .axiosClient.get.mockResolvedValueOnce({ data: { classifiers: [] } })
       .mockResolvedValueOnce({ data: { policy: {} } })
@@ -189,7 +191,7 @@ describe('Spam Detection', () => {
               repository_name: 'spam',
               status: 'flagged',
               classifier_score: 0.99,
-              original_description: 'free casino bonus https://spam.example',
+              original_description: description,
               review_label: null,
             },
           ],
@@ -210,10 +212,14 @@ describe('Spam Detection', () => {
     expect((await screen.findByRole('link', { name: 'publicns/spam' })).getAttribute('href')).toBe(
       'https://quay.io/repository/publicns/spam'
     );
-    expect(await screen.findByText('free casino bonus https://spam.example')).toBeTruthy();
+    expect(await screen.findByText(description)).toBeTruthy();
+    const showMore = await screen.findByRole('button', { name: 'Show more' });
+    expect(showMore.getAttribute('aria-expanded')).toBe('false');
+    fireEvent.click(showMore);
+    expect(await screen.findByRole('button', { name: 'Show less' })).toBeTruthy();
     fireEvent.click(await screen.findByRole('button', { name: 'Label spam' }));
     expect(await screen.findByText('Description to label')).toBeTruthy();
-    expect(screen.getAllByText('free casino bonus https://spam.example')).toHaveLength(2);
+    expect(screen.getAllByText(description)).toHaveLength(2);
     fireEvent.click(await screen.findByRole('button', { name: 'Confirm' }));
 
     await waitFor(() => {

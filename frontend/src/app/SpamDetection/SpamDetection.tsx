@@ -34,17 +34,40 @@ const SPAM_DETECTION_REMEDIATION_ROLE =
   window.SPAM_DETECTION_REMEDIATION_ROLE || process.env.SPAM_DETECTION_REMEDIATION_ROLE;
 const QUAY_UI_URL = window.QUAY_UI_URL || process.env.QUAY_UI_URL || 'https://quay.io';
 
-function repositoryLink(item: any) {
+function repositoryUrl(item: any) {
   const namespace = encodeURIComponent(item.namespace_name);
   const repository = encodeURIComponent(item.repository_name);
+  return `${QUAY_UI_URL.replace(/\/$/, '')}/repository/${namespace}/${repository}`;
+}
+
+function repositoryLink(item: any) {
   return (
-    <a
-      href={`${QUAY_UI_URL.replace(/\/$/, '')}/repository/${namespace}/${repository}`}
-      target="_blank"
-      rel="noreferrer"
-    >
+    <a href={repositoryUrl(item)} target="_blank" rel="noreferrer">
       {item.namespace_name}/{item.repository_name}
     </a>
+  );
+}
+
+function DescriptionCell({ text }: { text?: string }) {
+  const [expanded, setExpanded] = useState(false);
+  const description = text || 'No description';
+  const canExpand = description.length > 180;
+
+  return (
+    <div className="spam-detection-description">
+      <span className={canExpand && !expanded ? 'spam-detection-description__text--collapsed' : ''}>{description}</span>
+      {canExpand && (
+        <Button
+          variant="link"
+          isInline
+          className="spam-detection-description__toggle"
+          aria-expanded={expanded}
+          onClick={() => setExpanded(!expanded)}
+        >
+          {expanded ? 'Show less' : 'Show more'}
+        </Button>
+      )}
+    </div>
   );
 }
 
@@ -82,6 +105,7 @@ export const SpamDetection: React.FunctionComponent = () => {
     recordUuid: string;
     action: string;
     repository: string;
+    repositoryUrl: string;
     description: string;
   } | null>(null);
   const [redactedDescription, setRedactedDescription] = useState('');
@@ -334,6 +358,7 @@ export const SpamDetection: React.FunctionComponent = () => {
       recordUuid: record.uuid,
       action,
       repository: `${record.namespace_name}/${record.repository_name}`,
+      repositoryUrl: repositoryUrl(record),
       description: record.original_description || '',
     });
     setRedactedDescription('');
@@ -423,7 +448,11 @@ export const SpamDetection: React.FunctionComponent = () => {
         )}
         {pendingReviewAction?.action.startsWith('classify-') && (
           <div className="spam-detection-label-summary">
-            <strong>{pendingReviewAction.repository}</strong>
+            <strong>
+              <a href={pendingReviewAction.repositoryUrl} target="_blank" rel="noreferrer">
+                {pendingReviewAction.repository}
+              </a>
+            </strong>
             <span>Description to label</span>
             <p>{pendingReviewAction.description || 'No description'}</p>
           </div>
@@ -704,13 +733,13 @@ export const SpamDetection: React.FunctionComponent = () => {
               variant="preview"
               columns={['Repository', 'Visibility', 'Score', 'Hard filters', 'Description']}
               rows={(preview?.matches || []).map((item) => [
-                `${item.namespace_name}/${item.repository_name}`,
+                repositoryLink(item),
                 item.visibility,
                 <span key="score" className="spam-detection-score">
                   {item.classifier_score.toFixed(4)}
                 </span>,
                 formatHardFilters(item.hard_filter_results),
-                item.description_excerpt,
+                <DescriptionCell key="description" text={item.description_excerpt} />,
               ])}
             />
           </div>
@@ -756,9 +785,7 @@ export const SpamDetection: React.FunctionComponent = () => {
               columns={['Repository', 'Description', 'Status', 'Training label', 'Score', 'Actions']}
               rows={records.map((item) => [
                 repositoryLink(item),
-                <span key="description" className="spam-detection-description">
-                  {item.original_description || 'No description'}
-                </span>,
+                <DescriptionCell key="description" text={item.original_description} />,
                 item.status,
                 item.review_label || 'Not labeled',
                 <span key="score" className="spam-detection-score">
@@ -811,9 +838,7 @@ export const SpamDetection: React.FunctionComponent = () => {
               columns={['Repository', 'Description', 'Status', 'Training label', 'Score', 'Actions']}
               rows={terminalRecords.map((item) => [
                 repositoryLink(item),
-                <span key="description" className="spam-detection-description">
-                  {item.original_description || 'No description'}
-                </span>,
+                <DescriptionCell key="description" text={item.original_description} />,
                 item.status,
                 item.review_label || 'Not labeled',
                 <span key="score" className="spam-detection-score">
@@ -838,7 +863,7 @@ export const SpamDetection: React.FunctionComponent = () => {
               columns={['Time', 'Repository', 'Action', 'Transition', 'Operator', 'Reason']}
               rows={actions.map((item) => [
                 item.created_at,
-                item.namespace_name && item.repository_name ? `${item.namespace_name}/${item.repository_name}` : '',
+                item.namespace_name && item.repository_name ? repositoryLink(item) : '',
                 item.action,
                 [item.from_status, item.to_status].filter(Boolean).join(' -> '),
                 item.operator || '',

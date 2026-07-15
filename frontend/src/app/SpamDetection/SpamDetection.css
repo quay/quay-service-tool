@@ -157,7 +157,22 @@
 }
 
 .spam-detection-description {
+  display: grid;
+  gap: var(--pf-global--spacer--xs);
   white-space: pre-wrap;
+}
+
+.spam-detection-description__text--collapsed {
+  display: -webkit-box;
+  overflow: hidden;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 3;
+}
+
+.spam-detection-description__toggle.pf-c-button {
+  width: max-content;
+  padding: 0;
+  font-size: var(--pf-global--FontSize--sm);
 }
 
 .spam-detection-label-summary {

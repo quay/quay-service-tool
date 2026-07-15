@@ -43,6 +43,8 @@ async function openSpamDetection(page: Page) {
 }
 
 test('Spam Detection operator workflow covers export, labels, recovery, and cleanup', async ({ page }) => {
+  const dismissDescription =
+    'gift card promotion https://dismiss.example This deliberately long repository description provides enough detail for an operator to review the complete classifier input without forcing every table row to remain expanded by default.';
   const classifiers: Classifier[] = [
     {
       uuid: 'classifier-1',
@@ -86,7 +88,7 @@ test('Spam Detection operator workflow covers export, labels, recovery, and clea
       repository_name: 'spam-dismiss',
       status: 'flagged',
       classifier_score: 0.9733,
-      original_description: 'gift card promotion https://dismiss.example',
+      original_description: dismissDescription,
     },
   ];
   const reviewActions: string[] = [];
@@ -343,6 +345,10 @@ test('Spam Detection operator workflow covers export, labels, recovery, and clea
   await expect(previewPanel.locator('tr', { hasText: 'publicns/spam-restore' })).toBeVisible();
   await expect(previewPanel.locator('tr', { hasText: 'publicns/spam-cleanup' })).toBeVisible();
   await expect(previewPanel.locator('tr', { hasText: 'publicns/spam-dismiss' })).toBeVisible();
+  await expect(previewPanel.getByRole('link', { name: 'publicns/spam-restore' })).toHaveAttribute(
+    'href',
+    'http://localhost:8080/repository/publicns/spam-restore'
+  );
 
   await page.getByRole('tab', { name: 'Runs' }).click();
   await page.getByRole('button', { name: 'Run dry scan' }).click();
@@ -371,10 +377,13 @@ test('Spam Detection operator workflow covers export, labels, recovery, and clea
     'href',
     'http://localhost:8080/repository/publicns/spam-dismiss'
   );
-  await expect(dismissRow).toContainText('gift card promotion https://dismiss.example');
+  const expandDescription = dismissRow.getByRole('button', { name: 'Show more' });
+  await expect(expandDescription).toHaveAttribute('aria-expanded', 'false');
+  await expandDescription.click();
+  await expect(dismissRow.getByRole('button', { name: 'Show less' })).toHaveAttribute('aria-expanded', 'true');
   await dismissRow.getByRole('button', { name: 'Label spam' }).click();
   await expect(page.getByText('Description to label')).toBeVisible();
-  await expect(page.getByText('gift card promotion https://dismiss.example').last()).toBeVisible();
+  await expect(page.getByText(dismissDescription).last()).toBeVisible();
   await page.getByRole('button', { name: 'Confirm' }).click();
   await expect(page.getByText('Match labeled spam')).toBeVisible();
   await closeFeedback(page);
@@ -437,6 +446,10 @@ test('Spam Detection operator workflow covers export, labels, recovery, and clea
   await page.getByRole('tab', { name: 'Audit' }).click();
   const auditPanel = page.getByLabel('Audit', { exact: true });
   await expect(auditPanel).toContainText('publicns/spam-cleanup');
+  await expect(auditPanel.getByRole('link', { name: 'publicns/spam-cleanup' }).first()).toHaveAttribute(
+    'href',
+    'http://localhost:8080/repository/publicns/spam-cleanup'
+  );
   await expect(auditPanel).toContainText('quarantined -> redacted');
   await expect(auditPanel).toContainText('restored -> flagged');
   await expect(auditPanel).toContainText('dismissed -> flagged');
