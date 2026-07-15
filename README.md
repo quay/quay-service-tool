@@ -62,7 +62,8 @@ workflow:
 7. Verifies the final Quay quarantine notice and the complete service-tool
    audit history.
 
-The browser remains open for ten minutes by default.
+Meaningful clicks and input focus are marked with an animated yellow ring. The
+browser remains open for ten minutes after the workflow completes.
 
 Prerequisites:
 
@@ -80,11 +81,12 @@ make spam-demo
 
 Use `PLAYWRIGHT_SLOW_MO` to change individual browser action timing,
 `DEMO_STEP_DELAY` to change the pause between visible stages, and
-`HOLD_SECONDS` to change how long the browser remains open. For a differently
-located Quay checkout:
+`DEMO_CLICK_DELAY` to change how long click highlighting remains visible.
+`HOLD_SECONDS` controls how long the browser remains open. For a differently
+located Quay checkout or a slower presentation:
 
 ```sh
-QUAY_DIR=/path/to/quay PLAYWRIGHT_SLOW_MO=750 DEMO_STEP_DELAY=4000 HOLD_SECONDS=900 make spam-demo
+QUAY_DIR=/path/to/quay PLAYWRIGHT_SLOW_MO=1500 DEMO_STEP_DELAY=10000 DEMO_CLICK_DELAY=2000 HOLD_SECONDS=900 make spam-demo
 ```
 
 Stop the demo while preserving volumes, or remove its volumes completely:

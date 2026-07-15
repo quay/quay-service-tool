@@ -9,8 +9,9 @@ const quayUrl = process.env.QUAY_URL || 'http://localhost:8080';
 const serviceToolUrl = process.env.SERVICE_TOOL_URL || 'http://localhost:9000';
 const serviceToolApiUrl = process.env.SERVICE_TOOL_API_URL || 'http://localhost:5001';
 const containerRuntime = process.env.CONTAINER_RUNTIME || 'podman';
-const slowMo = Number(process.env.PLAYWRIGHT_SLOW_MO || 500);
-const stepDelay = Number(process.env.DEMO_STEP_DELAY || 2500);
+const slowMo = Number(process.env.PLAYWRIGHT_SLOW_MO || 800);
+const stepDelay = Number(process.env.DEMO_STEP_DELAY || 5300);
+const clickDelay = Number(process.env.DEMO_CLICK_DELAY || 1000);
 const holdSeconds = Number(process.env.HOLD_SECONDS || 600);
 const namespace = 'admin';
 const legacyRepository = `legacy-spam-review-${Date.now()}`;
@@ -212,10 +213,64 @@ async function pause(label) {
   await new Promise((resolve) => setTimeout(resolve, stepDelay));
 }
 
+async function highlightTarget(page, locator) {
+  await locator.scrollIntoViewIfNeeded();
+  await locator.evaluate((element, duration) => {
+    document.getElementById('spam-demo-click-marker')?.remove();
+    const rect = element.getBoundingClientRect();
+    const marker = document.createElement('div');
+    marker.id = 'spam-demo-click-marker';
+    Object.assign(marker.style, {
+      position: 'fixed',
+      left: `${rect.left + rect.width / 2 - 18}px`,
+      top: `${rect.top + rect.height / 2 - 18}px`,
+      width: '36px',
+      height: '36px',
+      border: '4px solid #f0ab00',
+      borderRadius: '9999px',
+      boxShadow: '0 0 0 5px rgba(240, 171, 0, 0.35)',
+      pointerEvents: 'none',
+      zIndex: '2147483647',
+    });
+    document.body.appendChild(marker);
+    marker.animate(
+      [
+        {transform: 'scale(0.55)', opacity: 0},
+        {transform: 'scale(1)', opacity: 1},
+        {transform: 'scale(1.25)', opacity: 0.8},
+      ],
+      {duration: duration * 2, easing: 'ease-out'},
+    );
+    element.animate(
+      [
+        {outline: '0 solid rgba(240, 171, 0, 0)'},
+        {outline: '4px solid #f0ab00', outlineOffset: '4px'},
+        {outline: '0 solid rgba(240, 171, 0, 0)', outlineOffset: '8px'},
+      ],
+      {duration: duration * 2, easing: 'ease-out'},
+    );
+    window.setTimeout(() => marker.remove(), duration * 2);
+  }, clickDelay);
+  await page.waitForTimeout(clickDelay);
+}
+
+async function clickForDemo(page, locator) {
+  await highlightTarget(page, locator);
+  await locator.click();
+  await page.waitForTimeout(clickDelay);
+}
+
+async function fillForDemo(page, locator, value) {
+  await highlightTarget(page, locator);
+  await locator.click();
+  await locator.fill(value);
+  await page.waitForTimeout(clickDelay);
+}
+
 async function closeFeedback(page) {
   const close = page.getByRole('button', {name: 'Close'});
   if (await close.isVisible()) {
-    await close.click();
+    await clickForDemo(page, close);
   }
 }
 
@@ -229,22 +284,26 @@ async function runVisibleDemo(classifierName) {
     await quayPage.goto(`${quayUrl}/react`, {waitUntil: 'domcontentloaded'});
     await quayPage.goto(`${quayUrl}/signin`, {waitUntil: 'domcontentloaded'});
     await expect(quayPage.getByText('Log in to your account')).toBeVisible({timeout: 20_000});
-    await quayPage.getByRole('textbox', {name: /username/i}).fill(namespace);
-    await quayPage.getByLabel(/password/i).fill('password');
-    await quayPage.locator('button[type="submit"]').click();
+    await fillForDemo(quayPage, quayPage.getByRole('textbox', {name: /username/i}), namespace);
+    await fillForDemo(quayPage, quayPage.getByLabel(/password/i), 'password');
+    await clickForDemo(quayPage, quayPage.locator('button[type="submit"]'));
     await expect(quayPage).not.toHaveURL(/\/signin/, {timeout: 20_000});
 
     await quayPage.goto(`${quayUrl}/repository`);
     await expect(quayPage.getByRole('heading', {name: 'Repositories'})).toBeVisible({timeout: 20_000});
-    await quayPage.getByRole('button', {name: 'Create Repository'}).click();
-    await quayPage.getByTestId('repository-name-input').fill(`blocked-spam-${Date.now()}`);
-    await quayPage.getByTestId('repository-description-input').fill(spamDescription);
+    await clickForDemo(quayPage, quayPage.getByRole('button', {name: 'Create Repository'}));
+    await fillForDemo(
+      quayPage,
+      quayPage.getByTestId('repository-name-input'),
+      `blocked-spam-${Date.now()}`,
+    );
+    await fillForDemo(quayPage, quayPage.getByTestId('repository-description-input'), spamDescription);
     const rejectedResponse = quayPage.waitForResponse(
       (response) =>
         response.url().endsWith('/api/v1/repository') &&
         response.request().method() === 'POST',
     );
-    await quayPage.getByTestId('create-repository-submit-btn').click();
+    await clickForDemo(quayPage, quayPage.getByTestId('create-repository-submit-btn'));
     expect((await rejectedResponse).status()).toBe(400);
     await expect(quayPage.getByText(/Repository description was rejected by spam detection/)).toBeVisible();
     await pause('Quay visibly rejected the spam repository description');
@@ -262,8 +321,8 @@ async function runVisibleDemo(classifierName) {
     });
     await expect(serviceToolPage).toHaveURL(/\/spam-detection/);
     await expect(serviceToolPage.getByText(classifierName)).toBeVisible({timeout: 20_000});
-    await serviceToolPage.getByRole('tab', {name: 'Preview'}).click();
-    await serviceToolPage.getByRole('button', {name: 'Preview'}).click();
+    await clickForDemo(serviceToolPage, serviceToolPage.getByRole('tab', {name: 'Preview'}));
+    await clickForDemo(serviceToolPage, serviceToolPage.getByRole('button', {name: 'Preview'}));
     const previewPanel = serviceToolPage.getByLabel('Preview', {exact: true});
     const previewRow = previewPanel.locator('tr', {
       hasText: `${namespace}/${legacyRepository}`,
@@ -271,20 +330,20 @@ async function runVisibleDemo(classifierName) {
     await expect(previewRow).toBeVisible({timeout: 20_000});
     await pause('Service-tool preview identifies the legacy empty repository');
 
-    await serviceToolPage.getByRole('tab', {name: 'Runs'}).click();
-    await serviceToolPage.getByRole('button', {name: 'Run review scan'}).click();
+    await clickForDemo(serviceToolPage, serviceToolPage.getByRole('tab', {name: 'Runs'}));
+    await clickForDemo(serviceToolPage, serviceToolPage.getByRole('button', {name: 'Run review scan'}));
     await expect(serviceToolPage.getByText('Scan completed')).toBeVisible({timeout: 30_000});
     await pause('Service-tool scan creates a flagged review record');
     await closeFeedback(serviceToolPage);
 
-    await serviceToolPage.getByRole('tab', {name: 'Review', exact: true}).click();
+    await clickForDemo(serviceToolPage, serviceToolPage.getByRole('tab', {name: 'Review', exact: true}));
     const reviewPanel = serviceToolPage.getByLabel('Review', {exact: true});
     const reviewRow = reviewPanel.locator('tr', {
       hasText: `${namespace}/${legacyRepository}`,
     });
     await expect(reviewRow).toContainText('flagged');
-    await reviewRow.getByRole('button', {name: 'Quarantine'}).click();
-    await serviceToolPage.getByRole('button', {name: 'Confirm'}).click();
+    await clickForDemo(serviceToolPage, reviewRow.getByRole('button', {name: 'Quarantine'}));
+    await clickForDemo(serviceToolPage, serviceToolPage.getByRole('button', {name: 'Confirm'}));
     await expect(serviceToolPage.getByText('quarantine completed')).toBeVisible({timeout: 20_000});
     await pause('Operator quarantines the repository from the review queue');
     await closeFeedback(serviceToolPage);
@@ -295,10 +354,10 @@ async function runVisibleDemo(classifierName) {
     await pause('Quay now shows the repository-owner quarantine notice');
 
     await serviceToolPage.bringToFront();
-    await serviceToolPage.getByRole('tab', {name: 'Review', exact: true}).click();
+    await clickForDemo(serviceToolPage, serviceToolPage.getByRole('tab', {name: 'Review', exact: true}));
     await expect(reviewRow).toContainText('quarantined');
-    await reviewRow.getByRole('button', {name: 'Restore'}).click();
-    await serviceToolPage.getByRole('button', {name: 'Confirm'}).click();
+    await clickForDemo(serviceToolPage, reviewRow.getByRole('button', {name: 'Restore'}));
+    await clickForDemo(serviceToolPage, serviceToolPage.getByRole('button', {name: 'Confirm'}));
     await expect(serviceToolPage.getByText('restore completed')).toBeVisible({
       timeout: 20_000,
     });
@@ -314,9 +373,9 @@ async function runVisibleDemo(classifierName) {
 
     await serviceToolPage.bringToFront();
     await expect(reviewRow).toContainText('restored');
-    await reviewRow.getByRole('button', {name: 'Reopen review'}).click();
-    await serviceToolPage.getByLabel('Reason').fill(reopenReason);
-    await serviceToolPage.getByRole('button', {name: 'Confirm'}).click();
+    await clickForDemo(serviceToolPage, reviewRow.getByRole('button', {name: 'Reopen review'}));
+    await fillForDemo(serviceToolPage, serviceToolPage.getByLabel('Reason'), reopenReason);
+    await clickForDemo(serviceToolPage, serviceToolPage.getByRole('button', {name: 'Confirm'}));
     await expect(serviceToolPage.getByText('reopen completed')).toBeVisible({
       timeout: 20_000,
     });
@@ -324,8 +383,8 @@ async function runVisibleDemo(classifierName) {
     await closeFeedback(serviceToolPage);
 
     await expect(reviewRow).toContainText('flagged');
-    await reviewRow.getByRole('button', {name: 'Quarantine'}).click();
-    await serviceToolPage.getByRole('button', {name: 'Confirm'}).click();
+    await clickForDemo(serviceToolPage, reviewRow.getByRole('button', {name: 'Quarantine'}));
+    await clickForDemo(serviceToolPage, serviceToolPage.getByRole('button', {name: 'Confirm'}));
     await expect(serviceToolPage.getByText('quarantine completed')).toBeVisible({timeout: 20_000});
     await pause('Operator quarantines the reopened repository again');
     await closeFeedback(serviceToolPage);
@@ -338,7 +397,7 @@ async function runVisibleDemo(classifierName) {
     await pause('Quay shows the quarantine notice after the correction');
 
     await serviceToolPage.bringToFront();
-    await serviceToolPage.getByRole('tab', {name: 'Audit'}).click();
+    await clickForDemo(serviceToolPage, serviceToolPage.getByRole('tab', {name: 'Audit'}));
     const auditPanel = serviceToolPage.getByLabel('Audit', {exact: true});
     const auditRows = auditPanel.locator('tr', {
       hasText: `${namespace}/${legacyRepository}`,
