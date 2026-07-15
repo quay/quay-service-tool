@@ -42,7 +42,7 @@ Commands:
   test          Run a real Quay spam ingress API smoke test.
   service-tool  Start quay-service-tool against the same live Quay DB.
   browse        Open Quay and service-tool in system Chrome via Playwright.
-  explore       Start both applications and seed a review record without browser automation.
+  explore       Seed data, open both applications, and stop after signing in to Quay.
   demo          Run up, test, service-tool, then browse.
   status        Show compose status for both stacks.
   down          Stop both stacks, preserving volumes.
@@ -433,14 +433,13 @@ seed_service_tool() {
   (
     cd "$SERVICE_TOOL_DIR"
     QUAY_URL="$QUAY_URL" \
+      SERVICE_TOOL_URL="$SERVICE_TOOL_URL" \
       SERVICE_TOOL_API_URL="$SERVICE_TOOL_API_URL" \
       QUAY_DIR="$QUAY_DIR" \
       SPAM_CLASSIFIER_ARTIFACT="$classifier_artifact" \
       CONTAINER_RUNTIME="$CONTAINER_RUNTIME" \
-      node scripts/spam-demo-browser.js --seed-only
+      node scripts/spam-demo-browser.js --explore
   )
-  log "Quay UI: ${QUAY_URL}"
-  log "service-tool UI: ${SERVICE_TOOL_URL}/spam-detection"
   log "Both applications will remain running until make spam-demo-down is run"
 }
 

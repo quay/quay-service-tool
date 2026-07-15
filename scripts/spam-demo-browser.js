@@ -204,6 +204,41 @@ async function seedReviewData() {
   }
 }
 
+async function runExploreBrowser() {
+  const browser = await chromium.launch({channel: 'chrome', headless: false});
+  const context = await browser.newContext({viewport: null});
+  const quayPage = await context.newPage();
+  const serviceToolPage = await context.newPage();
+
+  try {
+    await quayPage.goto(`${quayUrl}/react`, {waitUntil: 'domcontentloaded'});
+    await quayPage.goto(`${quayUrl}/signin`, {waitUntil: 'domcontentloaded'});
+    await expect(quayPage.getByText('Log in to your account')).toBeVisible({timeout: 20_000});
+    await quayPage.getByRole('textbox', {name: /username/i}).fill(namespace);
+    await quayPage.getByLabel(/password/i).fill('password');
+    await quayPage.locator('button[type="submit"]').click();
+    await expect(quayPage).not.toHaveURL(/\/signin/, {timeout: 20_000});
+    await quayPage.goto(`${quayUrl}/repository`);
+
+    await serviceToolPage.goto(`${serviceToolUrl}/spam-detection`, {
+      waitUntil: 'domcontentloaded',
+    });
+    await expect(serviceToolPage.getByRole('heading', {name: 'Spam detection'})).toBeVisible({
+      timeout: 20_000,
+    });
+
+    console.log(`Quay is open and signed in at ${quayUrl}/repository`);
+    console.log(`Service-tool is open at ${serviceToolUrl}/spam-detection`);
+    console.log('No further browser actions will be automated. Press Ctrl-C when finished.');
+    await new Promise((resolve) => {
+      process.once('SIGINT', resolve);
+      process.once('SIGTERM', resolve);
+    });
+  } finally {
+    await browser.close();
+  }
+}
+
 async function pause(label) {
   console.log(`Demo: ${label}`);
   await new Promise((resolve) => setTimeout(resolve, stepDelay));
@@ -474,8 +509,11 @@ const run = async () => {
   }
   await prepareLegacyRepository();
   const classifierName = await importServiceToolClassifier();
-  if (process.argv.includes('--seed-only')) {
+  if (process.argv.includes('--seed-only') || process.argv.includes('--explore')) {
     await seedReviewData();
+    if (process.argv.includes('--explore')) {
+      await runExploreBrowser();
+    }
     return;
   }
   await runVisibleDemo(classifierName);

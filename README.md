@@ -119,9 +119,10 @@ QUAY_DIR=/absolute/path/to/quay \
 make -C /absolute/path/to/quay-service-tool spam-demo-explore
 ```
 
-The command returns after seeding data and leaves Quay at
-`http://localhost:8080` and Spam Detection at
-`http://localhost:9000/spam-detection` running for manual exploration.
+The command opens Quay and Spam Detection in separate Chrome tabs, signs in to
+Quay, and performs no further browser actions. Drive either application
+manually, then press `Ctrl+C` when finished. The services remain running until
+`make spam-demo-down` is run.
 
 To use a different local artifact without changing Quay configuration:
 
