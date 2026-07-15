@@ -17,6 +17,7 @@ PLAYWRIGHT_SLOW_MO="${PLAYWRIGHT_SLOW_MO:-530}"
 DEMO_STEP_DELAY="${DEMO_STEP_DELAY:-3500}"
 DEMO_CLICK_DELAY="${DEMO_CLICK_DELAY:-670}"
 HOLD_SECONDS="${HOLD_SECONDS:-600}"
+SPAM_CLASSIFIER_ARTIFACT="${SPAM_CLASSIFIER_ARTIFACT:-}"
 
 usage() {
   cat <<USAGE
@@ -58,6 +59,7 @@ Environment overrides:
   DEMO_STEP_DELAY=3500
   DEMO_CLICK_DELAY=670
   HOLD_SECONDS=600
+  SPAM_CLASSIFIER_ARTIFACT=/path/to/classifier.json (defaults to Quay config)
 USAGE
 }
 
@@ -85,10 +87,6 @@ check_paths() {
     printf 'Missing Quay local config: %s/local-dev/stack/config.yaml\n' "$QUAY_DIR" >&2
     exit 1
   }
-  test -f "$QUAY_DIR/local-dev/stack/spam-classifier-e2e-v1.json" || {
-    printf 'Missing Quay e2e classifier artifact: %s/local-dev/stack/spam-classifier-e2e-v1.json\n' "$QUAY_DIR" >&2
-    exit 1
-  }
   test -f "$SERVICE_TOOL_DIR/docker-compose.yml" || {
     printf 'Missing service-tool compose file: %s/docker-compose.yml\n' "$SERVICE_TOOL_DIR" >&2
     exit 1
@@ -101,6 +99,21 @@ check_paths() {
     printf 'Missing browser demo driver: %s/scripts/spam-demo-browser.js\n' "$SERVICE_TOOL_DIR" >&2
     exit 1
   }
+  local classifier_artifact
+  classifier_artifact="$(resolve_classifier_artifact)"
+  test -f "$classifier_artifact" || {
+    printf 'Configured classifier artifact not found: %s\n' "$classifier_artifact" >&2
+    exit 1
+  }
+}
+
+resolve_classifier_artifact() {
+  (
+    cd "$SERVICE_TOOL_DIR"
+    QUAY_DIR="$QUAY_DIR" \
+      SPAM_CLASSIFIER_ARTIFACT="$SPAM_CLASSIFIER_ARTIFACT" \
+      node scripts/spam-demo-browser.js --print-artifact-path
+  )
 }
 
 check_commands() {
@@ -389,10 +402,14 @@ browse_service_tool() {
   wait_for_http "$QUAY_URL" "Quay UI" 30
   wait_for_http "$SERVICE_TOOL_URL" "service-tool frontend" 30
   log "Opening Quay and service-tool UIs with system Chrome via Playwright"
+  local classifier_artifact
+  classifier_artifact="$(resolve_classifier_artifact)"
   (
     cd "$SERVICE_TOOL_DIR"
     QUAY_URL="$QUAY_URL" \
     SERVICE_TOOL_URL="$SERVICE_TOOL_URL" \
+      QUAY_DIR="$QUAY_DIR" \
+      SPAM_CLASSIFIER_ARTIFACT="$classifier_artifact" \
       SERVICE_TOOL_API_URL="$SERVICE_TOOL_API_URL" \
       CONTAINER_RUNTIME="$CONTAINER_RUNTIME" \
       PLAYWRIGHT_SLOW_MO="$PLAYWRIGHT_SLOW_MO" \

@@ -6,8 +6,11 @@ import {
   CardBody,
   CardTitle,
   Checkbox,
+  FileUpload,
   Form,
   FormGroup,
+  FormSelect,
+  FormSelectOption,
   Grid,
   GridItem,
   Modal,
@@ -52,6 +55,10 @@ export const SpamDetection: React.FunctionComponent = () => {
   const [loading, setLoading] = useState(false);
   const [message, setMessage] = useState('');
   const [classifierName, setClassifierName] = useState('');
+  const [artifactName, setArtifactName] = useState('');
+  const [artifactFile, setArtifactFile] = useState<File | undefined>();
+  const [artifactFilename, setArtifactFilename] = useState('');
+  const [activateImportedArtifact, setActivateImportedArtifact] = useState(true);
   const [trainingText, setTrainingText] = useState('');
   const [trainingLabel, setTrainingLabel] = useState('spam');
   const [csvPath, setCsvPath] = useState('');
@@ -131,6 +138,42 @@ export const SpamDetection: React.FunctionComponent = () => {
       .catch((error) => showMessage(error.response?.data?.message || 'Unable to create classifier'));
   }
 
+  async function importArtifact() {
+    if (!artifactFile || !artifactName.trim()) {
+      showMessage('Select an artifact and provide a name');
+      return;
+    }
+    const payload = new FormData();
+    payload.append('name', artifactName.trim());
+    payload.append('enabled', String(activateImportedArtifact));
+    payload.append('artifact', artifactFile);
+    HttpService.axiosClient
+      .post('/spam-detection/classifiers/import-artifact', payload)
+      .then((response) => {
+        const importedVersion = response.data.imported_artifact_version || response.data.classifier.artifact_version;
+        setArtifactName('');
+        setArtifactFile(undefined);
+        setArtifactFilename('');
+        showMessage(
+          response.data.created
+            ? `Artifact ${importedVersion} imported`
+            : `Artifact ${importedVersion} already imported`
+        );
+        return Promise.all([loadClassifiers(), loadPolicy()]);
+      })
+      .catch((error) => showMessage(error.response?.data?.message || 'Unable to import artifact'));
+  }
+
+  async function activateClassifier(classifierUuid: string) {
+    HttpService.axiosClient
+      .put(`/spam-detection/classifiers/${classifierUuid}`, { enabled: true })
+      .then((response) => {
+        showMessage(`Artifact ${response.data.classifier.artifact_version} activated`);
+        return Promise.all([loadClassifiers(), loadPolicy()]);
+      })
+      .catch((error) => showMessage(error.response?.data?.message || 'Unable to activate classifier'));
+  }
+
   async function addTrainingExample() {
     if (!selectedClassifier) {
       showMessage('Select a classifier');
@@ -187,6 +230,23 @@ export const SpamDetection: React.FunctionComponent = () => {
         loadClassifiers();
       })
       .catch((error) => showMessage(error.response?.data?.message || 'Unable to export artifact'));
+  }
+
+  async function downloadArtifact(classifier: Classifier) {
+    HttpService.axiosClient
+      .get(`/spam-detection/classifiers/${classifier.uuid}/artifact`, { responseType: 'blob' })
+      .then((response) => {
+        const url = window.URL.createObjectURL(response.data);
+        const link = document.createElement('a');
+        link.href = url;
+        link.download = `quay-spam-classifier-${classifier.artifact_version}.json`;
+        document.body.appendChild(link);
+        link.click();
+        link.remove();
+        window.URL.revokeObjectURL(url);
+        showMessage(`Artifact ${classifier.artifact_version} downloaded`);
+      })
+      .catch((error) => showMessage(error.response?.data?.message || 'Unable to download artifact'));
   }
 
   async function importCsv() {
@@ -347,7 +407,67 @@ export const SpamDetection: React.FunctionComponent = () => {
         <Tab eventKey={0} title={<TabTitleText>Classifier</TabTitleText>}>
           <div className="spam-detection-tab-content">
             <Grid hasGutter className="spam-detection-card-grid">
-              <GridItem sm={12} lg={5}>
+              <GridItem sm={12} lg={6}>
+                <Card>
+                  <CardTitle>Import artifact</CardTitle>
+                  <CardBody>
+                    <Form>
+                      <FormGroup label="Name" fieldId="artifact-name">
+                        <TextInput
+                          id="artifact-name"
+                          value={artifactName}
+                          onChange={(value) => setArtifactName(value)}
+                        />
+                      </FormGroup>
+                      <FormGroup label="Classifier artifact" fieldId="classifier-artifact">
+                        <FileUpload
+                          id="classifier-artifact"
+                          filename={artifactFilename}
+                          filenamePlaceholder="Select classifier JSON"
+                          value={artifactFile}
+                          hideDefaultPreview
+                          dropzoneProps={{ accept: 'application/json,.json' }}
+                          onChange={(value, filename) => {
+                            const file = value instanceof File ? value : undefined;
+                            setArtifactFile(file);
+                            setArtifactFilename(filename);
+                            if (!artifactName) {
+                              setArtifactName(filename.replace(/\.json$/i, ''));
+                            }
+                          }}
+                          onFileInputChange={(_, file) => {
+                            setArtifactFile(file);
+                            setArtifactFilename(file.name);
+                            if (!artifactName) {
+                              setArtifactName(file.name.replace(/\.json$/i, ''));
+                            }
+                          }}
+                          onClearClick={() => {
+                            setArtifactFile(undefined);
+                            setArtifactFilename('');
+                          }}
+                        />
+                      </FormGroup>
+                      <Checkbox
+                        id="activate-imported-artifact"
+                        label="Activate after import"
+                        isChecked={activateImportedArtifact}
+                        onChange={setActivateImportedArtifact}
+                      />
+                      <div className="spam-detection-button-row">
+                        <Button
+                          variant="primary"
+                          onClick={importArtifact}
+                          isDisabled={!artifactFile || !artifactName.trim()}
+                        >
+                          Import
+                        </Button>
+                      </div>
+                    </Form>
+                  </CardBody>
+                </Card>
+              </GridItem>
+              <GridItem sm={12} lg={6}>
                 <Card>
                   <CardTitle>Create classifier</CardTitle>
                   <CardBody>
@@ -368,17 +488,22 @@ export const SpamDetection: React.FunctionComponent = () => {
                   </CardBody>
                 </Card>
               </GridItem>
-              <GridItem sm={12} lg={7}>
+              <GridItem sm={12}>
                 <Card>
                   <CardTitle>Training</CardTitle>
                   <CardBody>
                     <Form>
-                      <FormGroup label="Classifier UUID" fieldId="classifier-uuid">
-                        <TextInput
-                          id="classifier-uuid"
-                          value={selectedClassifier}
-                          onChange={(value) => setSelectedClassifier(value)}
-                        />
+                      <FormGroup label="Classifier" fieldId="classifier-uuid">
+                        <FormSelect id="classifier-uuid" value={selectedClassifier} onChange={setSelectedClassifier}>
+                          <FormSelectOption value="" label="Select classifier" isDisabled />
+                          {classifiers.map((item) => (
+                            <FormSelectOption
+                              key={item.uuid}
+                              value={item.uuid}
+                              label={`${item.name}${item.enabled ? ' (active)' : ''}`}
+                            />
+                          ))}
+                        </FormSelect>
                       </FormGroup>
                       <FormGroup label="Label" fieldId="training-label">
                         <TextInput
@@ -399,7 +524,7 @@ export const SpamDetection: React.FunctionComponent = () => {
                           Add example
                         </Button>
                         <Button variant="primary" onClick={trainClassifier} isDisabled={!selectedClassifier}>
-                          Train artifact
+                          Train new version
                         </Button>
                         <Button variant="secondary" onClick={exportArtifact} isDisabled={!selectedClassifier}>
                           Export artifact
@@ -421,16 +546,31 @@ export const SpamDetection: React.FunctionComponent = () => {
             <SimpleTable
               ariaLabel="Classifiers"
               variant="classifiers"
-              columns={['Name', 'Enabled', 'Artifact', 'SHA256']}
+              columns={['Name', 'Status', 'Artifact', 'SHA256', 'Actions']}
               rows={classifiers.map((item) => [
                 item.name,
-                item.enabled ? 'yes' : 'no',
+                item.enabled ? 'Active' : 'Inactive',
                 <span key="artifact" className="spam-detection-monospace">
                   {item.artifact_version || ''}
                 </span>,
                 <span key="sha256" className="spam-detection-monospace">
                   {item.artifact_sha256 || ''}
                 </span>,
+                <div key="actions" className="spam-detection-row-actions">
+                  <Button variant="link" onClick={() => setSelectedClassifier(item.uuid)}>
+                    Select
+                  </Button>
+                  <Button
+                    variant="link"
+                    onClick={() => activateClassifier(item.uuid)}
+                    isDisabled={Boolean(item.enabled) || !item.artifact_version}
+                  >
+                    Activate
+                  </Button>
+                  <Button variant="link" onClick={() => downloadArtifact(item)} isDisabled={!item.artifact_version}>
+                    Download
+                  </Button>
+                </div>,
               ])}
             />
           </div>

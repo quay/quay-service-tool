@@ -89,6 +89,9 @@ def migrate_state_db(config):
                 artifact_sha256 TEXT,
                 artifact_path TEXT,
                 model_snapshot_json TEXT,
+                base_model_snapshot_json TEXT,
+                base_artifact_version TEXT,
+                base_artifact_sha256 TEXT,
                 feature_config_json TEXT NOT NULL DEFAULT '{}',
                 scan_threshold REAL NOT NULL DEFAULT 0.9,
                 ingress_threshold REAL NOT NULL DEFAULT 0.9,
@@ -287,6 +290,24 @@ def migrate_state_db(config):
         _ensure_column(conn, "spam_training_example", "invalidated_at", "TEXT")
         _ensure_column(conn, "spam_training_example", "invalidated_by", "TEXT")
         _ensure_column(conn, "spam_training_example", "invalidation_reason", "TEXT")
+        _ensure_column(conn, "spam_classifier", "base_model_snapshot_json", "TEXT")
+        _ensure_column(conn, "spam_classifier", "base_artifact_version", "TEXT")
+        _ensure_column(conn, "spam_classifier", "base_artifact_sha256", "TEXT")
+        conn.execute(
+            """
+            UPDATE spam_classifier
+            SET base_artifact_version = json_extract(base_model_snapshot_json, '$.version')
+            WHERE base_model_snapshot_json IS NOT NULL
+              AND base_artifact_version IS NULL
+            """
+        )
+        conn.execute(
+            """
+            CREATE UNIQUE INDEX IF NOT EXISTS spam_classifier_base_artifact_version_idx
+            ON spam_classifier(base_artifact_version)
+            WHERE base_artifact_version IS NOT NULL
+            """
+        )
         conn.execute("UPDATE spam_policy SET scan_empty_repositories_only = 1")
 
 

@@ -16,6 +16,7 @@ from tasks.user import UserTask, FetchUserFromEmailTask, FetchUserFromNameTask, 
 from tasks.spam_detection import (
     SpamAuditTask,
     SpamClassifierArtifactTask,
+    SpamClassifierImportArtifactTask,
     SpamClassifierImportCsvTask,
     SpamClassifierListTask,
     SpamClassifierTask,
@@ -61,7 +62,24 @@ with open(os.environ.get('CONFIG_PATH') + "/config.yaml") as f:
     config = yaml.load(f, Loader=yaml.FullLoader)
     app.config.update(config)
 
-app.config.setdefault("SPAM_DETECTION_STATE_DB_URI", "sqlite:///spam_detection_state.db")
+spam_detection_data_dir = os.environ.get("SPAM_DETECTION_DATA_DIR")
+default_state_db_uri = (
+    f"sqlite:////{spam_detection_data_dir.strip('/')}/state.db"
+    if spam_detection_data_dir
+    else "sqlite:///spam_detection_state.db"
+)
+default_artifact_dir = (
+    os.path.join(spam_detection_data_dir, "artifacts")
+    if spam_detection_data_dir
+    else "spam_detection_artifacts"
+)
+if spam_detection_data_dir:
+    app.config["SPAM_DETECTION_STATE_DB_URI"] = default_state_db_uri
+    app.config["SPAM_DETECTION_ARTIFACT_DIR"] = default_artifact_dir
+else:
+    app.config.setdefault("SPAM_DETECTION_STATE_DB_URI", default_state_db_uri)
+    app.config.setdefault("SPAM_DETECTION_ARTIFACT_DIR", default_artifact_dir)
+app.config.setdefault("SPAM_DETECTION_MAX_ARTIFACT_BYTES", 25 * 1024 * 1024)
 app.config.setdefault("SPAM_DETECTION_BATCH_SIZE", 200)
 app.config.setdefault("SPAM_DETECTION_SLEEP_BETWEEN_BATCHES", 0.5)
 app.config.setdefault("SPAM_DETECTION_SCAN_DRY_RUN", True)
@@ -176,6 +194,7 @@ api.add_resource(RobotTokenTask, '/robot/token')
 api.add_resource(AddOrgOwnerTask, '/org/owner')
 api.add_resource(SpamDetectionHealthTask, '/spam-detection/health')
 api.add_resource(SpamClassifierListTask, '/spam-detection/classifiers')
+api.add_resource(SpamClassifierImportArtifactTask, '/spam-detection/classifiers/import-artifact')
 api.add_resource(SpamClassifierTask, '/spam-detection/classifiers/<classifier_uuid>')
 api.add_resource(SpamTrainingExamplesTask, '/spam-detection/classifiers/<classifier_uuid>/training-examples')
 api.add_resource(SpamClassifierImportCsvTask, '/spam-detection/classifiers/<classifier_uuid>/import-csv')

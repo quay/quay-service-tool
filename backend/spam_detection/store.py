@@ -153,6 +153,102 @@ def list_classifiers(config):
         ]
 
 
+def get_classifier_by_artifact_version(config, artifact_version):
+    initialize(config)
+    with connect_state_db(config) as conn:
+        return row_to_dict(
+            conn.execute(
+                """
+                SELECT * FROM spam_classifier
+                WHERE artifact_version = ? OR base_artifact_version = ?
+                """,
+                (artifact_version, artifact_version),
+            ).fetchone()
+        )
+
+
+def create_imported_classifier(config, payload, artifact, artifact_path, artifact_sha256, operator=None):
+    initialize(config)
+    now = utcnow()
+    feature_config = _validate_feature_config(artifact.get("feature_config"))
+    scan_threshold = _validate_probability(
+        payload.get("scan_threshold", artifact.get("ingress_threshold", 0.9)),
+        "scan_threshold",
+    )
+    ingress_threshold = _validate_probability(
+        artifact.get("ingress_threshold", 0.9),
+        "ingress_threshold",
+    )
+    with connect_state_db(config) as conn:
+        if payload.get("enabled"):
+            conn.execute("UPDATE spam_classifier SET enabled = 0")
+        cur = conn.execute(
+            """
+            INSERT INTO spam_classifier (
+                uuid, name, enabled, training_corpus_version, artifact_version,
+                artifact_sha256, artifact_path, model_snapshot_json,
+                base_model_snapshot_json, base_artifact_version,
+                base_artifact_sha256, feature_config_json, scan_threshold,
+                ingress_threshold, created_at, updated_at, created_by, updated_by
+            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            """,
+            (
+                new_uuid(),
+                payload["name"],
+                1 if payload.get("enabled") else 0,
+                artifact.get("training_corpus_version"),
+                artifact.get("version"),
+                artifact_sha256,
+                artifact_path,
+                json_dumps(artifact),
+                json_dumps(artifact),
+                artifact.get("version"),
+                artifact_sha256,
+                json_dumps(feature_config),
+                scan_threshold,
+                ingress_threshold,
+                now,
+                now,
+                operator,
+                operator,
+            ),
+        )
+        classifier_id = cur.lastrowid
+        if payload.get("enabled"):
+            policy = ensure_policy(conn, config)
+            conn.execute(
+                """
+                UPDATE spam_policy
+                SET active_classifier_id = ?, scan_threshold = ?,
+                    ingress_threshold = ?, updated_at = ?, updated_by = ?
+                WHERE id = ?
+                """,
+                (
+                    classifier_id,
+                    scan_threshold,
+                    ingress_threshold,
+                    now,
+                    operator,
+                    policy["id"],
+                ),
+            )
+        return get_classifier_by_db_id(conn, classifier_id)
+
+
+def update_classifier_base_identity(config, classifier_id, artifact_version, artifact_sha256):
+    now = utcnow()
+    with connect_state_db(config) as conn:
+        conn.execute(
+            """
+            UPDATE spam_classifier
+            SET base_artifact_version = ?, base_artifact_sha256 = ?, updated_at = ?
+            WHERE id = ?
+            """,
+            (artifact_version, artifact_sha256, now, classifier_id),
+        )
+        return get_classifier_by_db_id(conn, classifier_id)
+
+
 def update_classifier(config, classifier_uuid, payload, operator=None):
     initialize(config)
     existing = get_classifier(config, classifier_uuid)
@@ -281,7 +377,11 @@ def artifact_version_exists(config, artifact_version, classifier_id=None):
     initialize(config)
     with connect_state_db(config) as conn:
         params = [artifact_version]
-        sql = "SELECT id FROM spam_classifier WHERE artifact_version = ?"
+        params.append(artifact_version)
+        sql = """
+            SELECT id FROM spam_classifier
+            WHERE (artifact_version = ? OR base_artifact_version = ?)
+        """
         if classifier_id is not None:
             sql += " AND id != ?"
             params.append(classifier_id)

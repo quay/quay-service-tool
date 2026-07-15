@@ -265,4 +265,65 @@ describe('Spam Detection', () => {
     Object.defineProperty(window.URL, 'createObjectURL', { configurable: true, value: originalCreateObjectURL });
     Object.defineProperty(window.URL, 'revokeObjectURL', { configurable: true, value: originalRevokeObjectURL });
   });
+
+  it('uploads and activates an imported classifier artifact', async () => {
+    mocked(HttpService, true)
+      .axiosClient.get.mockResolvedValueOnce({ data: { classifiers: [] } })
+      .mockResolvedValueOnce({ data: { policy: {} } })
+      .mockResolvedValueOnce({ data: { runs: [] } })
+      .mockResolvedValueOnce({ data: { records: [] } })
+      .mockResolvedValueOnce({ data: { records: [] } })
+      .mockResolvedValueOnce({ data: { actions: [] } })
+      .mockResolvedValueOnce({
+        data: {
+          classifiers: [
+            {
+              uuid: 'imported-1',
+              name: 'Production v1',
+              enabled: 1,
+              artifact_version: 'production-v1',
+            },
+          ],
+        },
+      })
+      .mockResolvedValueOnce({ data: { policy: { active_classifier_id: 1 } } });
+    mocked(HttpService, true).axiosClient.post.mockResolvedValueOnce({
+      data: {
+        created: true,
+        imported_artifact_version: 'production-v1',
+        classifier: {
+          uuid: 'imported-1',
+          name: 'Production v1',
+          enabled: 1,
+          artifact_version: 'production-v1',
+        },
+      },
+    });
+
+    const { container } = render(<SpamDetection />);
+    const file = new File(['{"version":"production-v1"}'], 'production-v1.json', {
+      type: 'application/json',
+    });
+    const fileInput = container.querySelector('input[type="file"]') as HTMLInputElement;
+    fireEvent.change(fileInput, { target: { files: [file] } });
+    await waitFor(() => {
+      expect((screen.getByRole('button', { name: 'Import' }) as HTMLButtonElement).disabled).toBeFalsy();
+    });
+    fireEvent.change(screen.getByLabelText('Name', { selector: '#artifact-name' }), {
+      target: { value: 'Production v1' },
+    });
+    fireEvent.click(screen.getByRole('button', { name: 'Import' }));
+
+    await waitFor(() => {
+      expect(mocked(HttpService, true).axiosClient.post).toHaveBeenCalledWith(
+        '/spam-detection/classifiers/import-artifact',
+        expect.any(FormData)
+      );
+    });
+    const formData = mocked(HttpService, true).axiosClient.post.mock.calls[0][1] as FormData;
+    expect(formData.get('name')).toBe('Production v1');
+    expect(formData.get('enabled')).toBe('true');
+    expect(formData.get('artifact')).toBe(file);
+    expect(await screen.findByText('Artifact production-v1 imported')).toBeTruthy();
+  });
 });

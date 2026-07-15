@@ -1,13 +1,17 @@
 const path = require('path');
+const fs = require('fs');
 const {execFileSync} = require('child_process');
+const yaml = require(path.join(__dirname, '../frontend/node_modules/js-yaml'));
 
-const {chromium, expect, request} = require(
-  path.join(__dirname, '../frontend/node_modules/@playwright/test'),
-);
+const {chromium, expect, request} = require(path.join(
+  __dirname,
+  '../frontend/node_modules/@playwright/test',
+));
 
 const quayUrl = process.env.QUAY_URL || 'http://localhost:8080';
 const serviceToolUrl = process.env.SERVICE_TOOL_URL || 'http://localhost:9000';
 const serviceToolApiUrl = process.env.SERVICE_TOOL_API_URL || 'http://localhost:5001';
+const quayDir = process.env.QUAY_DIR || path.join(__dirname, '../../quay');
 const containerRuntime = process.env.CONTAINER_RUNTIME || 'podman';
 const slowMo = Number(process.env.PLAYWRIGHT_SLOW_MO || 530);
 const stepDelay = Number(process.env.DEMO_STEP_DELAY || 3500);
@@ -15,10 +19,26 @@ const clickDelay = Number(process.env.DEMO_CLICK_DELAY || 670);
 const holdSeconds = Number(process.env.HOLD_SECONDS || 600);
 const namespace = 'admin';
 const legacyRepository = `legacy-spam-review-${Date.now()}`;
-const spamDescription =
-  'free casino bonus crypto gift cards click now https://spam.example';
+const spamDescription = 'free casino bonus crypto gift cards click now https://spam.example';
 const quarantineNotice = 'This repository description was removed by Quay spam detection.';
 const reopenReason = 'Restore was approved in error';
+
+function classifierArtifactPath() {
+  if (process.env.SPAM_CLASSIFIER_ARTIFACT) {
+    return path.resolve(process.env.SPAM_CLASSIFIER_ARTIFACT);
+  }
+  const configPath = path.join(quayDir, 'local-dev/stack/config.yaml');
+  const config = yaml.load(fs.readFileSync(configPath, 'utf8'));
+  const configuredPath = config.SPAM_DETECTION_CLASSIFIER_PATH;
+  if (!configuredPath) {
+    throw new Error(`SPAM_DETECTION_CLASSIFIER_PATH is not set in ${configPath}`);
+  }
+  const stackPrefix = '/quay-registry/conf/stack/';
+  if (configuredPath.startsWith(stackPrefix)) {
+    return path.join(quayDir, 'local-dev/stack', path.basename(configuredPath));
+  }
+  return path.resolve(configuredPath);
+}
 
 async function checkedJson(response, label) {
   if (!response.ok()) {
@@ -126,71 +146,29 @@ async function prepareLegacyRepository() {
   );
 }
 
-async function prepareServiceToolClassifier() {
+async function importServiceToolClassifier() {
+  const artifactPath = classifierArtifactPath();
+  const artifactBuffer = fs.readFileSync(artifactPath);
+  const artifact = JSON.parse(artifactBuffer.toString('utf8'));
+  const classifierName = `Imported ${artifact.version}`;
   const api = await request.newContext({baseURL: serviceToolApiUrl});
   try {
     const classifier = (
       await checkedJson(
-        await api.post('/spam-detection/classifiers', {
-          data: {
-            name: `Reviewer demo ${Date.now()}`,
-            enabled: true,
-            scan_threshold: 0.5,
-            ingress_threshold: 0.9,
+        await api.post('/spam-detection/classifiers/import-artifact', {
+          multipart: {
+            name: classifierName,
+            enabled: 'true',
+            artifact: {
+              name: path.basename(artifactPath),
+              mimeType: 'application/json',
+              buffer: artifactBuffer,
+            },
           },
         }),
-        'create service-tool demo classifier',
+        'import configured classifier into service-tool',
       )
     ).classifier;
-
-    const spamExamples = [
-      spamDescription,
-      'casino jackpot bonus claim crypto prize',
-      'free gift cards click now limited offer',
-      'crypto casino promotion instant jackpot',
-      'claim bonus reward click promotional link',
-      'online casino free spins jackpot winner',
-      'limited time crypto giveaway claim now',
-      'bonus gift card promotion click here',
-      'casino betting jackpot reward offer',
-      'free crypto prize urgent claim link',
-    ];
-    const hamExamples = [
-      'trusted base image for python applications',
-      'container image documentation and examples',
-      'production operator image for kubernetes',
-      'linux distribution package repository',
-      'application runtime container build',
-      'database backup utility image',
-      'continuous integration build tools',
-      'web server container image',
-      'observability collector release image',
-      'open source command line utility',
-    ];
-
-    for (const text of spamExamples) {
-      await checkedJson(
-        await api.post(`/spam-detection/classifiers/${classifier.uuid}/training-examples`, {
-          data: {text, label: 'spam', source: 'reviewer_demo'},
-        }),
-        'add spam training example',
-      );
-    }
-    for (const text of hamExamples) {
-      await checkedJson(
-        await api.post(`/spam-detection/classifiers/${classifier.uuid}/training-examples`, {
-          data: {text, label: 'ham', source: 'reviewer_demo'},
-        }),
-        'add ham training example',
-      );
-    }
-
-    await checkedJson(
-      await api.post(`/spam-detection/classifiers/${classifier.uuid}/train`, {
-        data: {artifact_version: `reviewer-demo-${Date.now()}`},
-      }),
-      'train service-tool demo classifier',
-    );
     await checkedJson(
       await api.put('/spam-detection/policy', {
         data: {
@@ -201,7 +179,7 @@ async function prepareServiceToolClassifier() {
           max_repos: 1000,
         },
       }),
-      'activate service-tool demo policy',
+      'activate imported service-tool classifier',
     );
     return classifier.name;
   } finally {
@@ -276,7 +254,11 @@ async function closeFeedback(page) {
 }
 
 async function runVisibleDemo(classifierName) {
-  const browser = await chromium.launch({channel: 'chrome', headless: false, slowMo});
+  const browser = await chromium.launch({
+    channel: 'chrome',
+    headless: false,
+    slowMo,
+  });
   const context = await browser.newContext();
   const quayPage = await context.newPage();
   const serviceToolPage = await context.newPage();
@@ -284,35 +266,46 @@ async function runVisibleDemo(classifierName) {
   try {
     await quayPage.goto(`${quayUrl}/react`, {waitUntil: 'domcontentloaded'});
     await quayPage.goto(`${quayUrl}/signin`, {waitUntil: 'domcontentloaded'});
-    await expect(quayPage.getByText('Log in to your account')).toBeVisible({timeout: 20_000});
+    await expect(quayPage.getByText('Log in to your account')).toBeVisible({
+      timeout: 20_000,
+    });
     await fillForDemo(quayPage, quayPage.getByRole('textbox', {name: /username/i}), namespace);
     await fillForDemo(quayPage, quayPage.getByLabel(/password/i), 'password');
     await clickForDemo(quayPage, quayPage.locator('button[type="submit"]'));
     await expect(quayPage).not.toHaveURL(/\/signin/, {timeout: 20_000});
 
     await quayPage.goto(`${quayUrl}/repository`);
-    await expect(quayPage.getByRole('heading', {name: 'Repositories'})).toBeVisible({timeout: 20_000});
+    await expect(quayPage.getByRole('heading', {name: 'Repositories'})).toBeVisible({
+      timeout: 20_000,
+    });
     await clickForDemo(quayPage, quayPage.getByRole('button', {name: 'Create Repository'}));
     await fillForDemo(
       quayPage,
       quayPage.getByTestId('repository-name-input'),
       `blocked-spam-${Date.now()}`,
     );
-    await fillForDemo(quayPage, quayPage.getByTestId('repository-description-input'), spamDescription);
+    await fillForDemo(
+      quayPage,
+      quayPage.getByTestId('repository-description-input'),
+      spamDescription,
+    );
     const rejectedResponse = quayPage.waitForResponse(
       (response) =>
-        response.url().endsWith('/api/v1/repository') &&
-        response.request().method() === 'POST',
+        response.url().endsWith('/api/v1/repository') && response.request().method() === 'POST',
     );
     await clickForDemo(quayPage, quayPage.getByTestId('create-repository-submit-btn'));
     expect((await rejectedResponse).status()).toBe(400);
-    await expect(quayPage.getByText(/Repository description was rejected by spam detection/)).toBeVisible();
+    await expect(
+      quayPage.getByText(/Repository description was rejected by spam detection/),
+    ).toBeVisible();
     await pause('Quay visibly rejected the spam repository description');
     await quayPage.keyboard.press('Escape');
 
     await quayPage.goto(`${quayUrl}/repository/${namespace}/${legacyRepository}`);
-    await expect(quayPage.getByText(spamDescription)).toBeVisible({timeout: 20_000});
-    await pause('Quay shows a synthetic legacy spam repository that predates ingress enforcement');
+    await expect(quayPage.getByText(spamDescription)).toBeVisible({
+      timeout: 20_000,
+    });
+    await pause('Quay shows a test repository that predates ingress enforcement');
 
     await clickForDemo(quayPage, quayPage.getByRole('button', {name: 'Edit description'}));
     await fillForDemo(
@@ -332,14 +325,20 @@ async function runVisibleDemo(classifierName) {
     await clickForDemo(quayPage, quayPage.getByRole('button', {name: 'Cancel'}));
     await expect(quayPage.getByText(spamDescription)).toBeVisible();
 
-    await serviceToolPage.goto(serviceToolUrl, {waitUntil: 'domcontentloaded'});
-    await expect(serviceToolPage.getByText(/add site banner/i)).toBeVisible({timeout: 20_000});
+    await serviceToolPage.goto(serviceToolUrl, {
+      waitUntil: 'domcontentloaded',
+    });
+    await expect(serviceToolPage.getByText(/add site banner/i)).toBeVisible({
+      timeout: 20_000,
+    });
     await serviceToolPage.evaluate(() => {
       window.history.pushState({}, '', '/spam-detection');
       window.dispatchEvent(new PopStateEvent('popstate'));
     });
     await expect(serviceToolPage).toHaveURL(/\/spam-detection/);
-    await expect(serviceToolPage.getByText(classifierName)).toBeVisible({timeout: 20_000});
+    await expect(serviceToolPage.getByRole('cell', {name: classifierName})).toBeVisible({
+      timeout: 20_000,
+    });
     await clickForDemo(serviceToolPage, serviceToolPage.getByRole('tab', {name: 'Preview'}));
     await clickForDemo(serviceToolPage, serviceToolPage.getByRole('button', {name: 'Preview'}));
     const previewPanel = serviceToolPage.getByLabel('Preview', {exact: true});
@@ -350,12 +349,20 @@ async function runVisibleDemo(classifierName) {
     await pause('Service-tool preview identifies the legacy empty repository');
 
     await clickForDemo(serviceToolPage, serviceToolPage.getByRole('tab', {name: 'Runs'}));
-    await clickForDemo(serviceToolPage, serviceToolPage.getByRole('button', {name: 'Run review scan'}));
-    await expect(serviceToolPage.getByText('Scan completed')).toBeVisible({timeout: 30_000});
+    await clickForDemo(
+      serviceToolPage,
+      serviceToolPage.getByRole('button', {name: 'Run review scan'}),
+    );
+    await expect(serviceToolPage.getByText('Scan completed')).toBeVisible({
+      timeout: 30_000,
+    });
     await pause('Service-tool scan creates a flagged review record');
     await closeFeedback(serviceToolPage);
 
-    await clickForDemo(serviceToolPage, serviceToolPage.getByRole('tab', {name: 'Review', exact: true}));
+    await clickForDemo(
+      serviceToolPage,
+      serviceToolPage.getByRole('tab', {name: 'Review', exact: true}),
+    );
     const reviewPanel = serviceToolPage.getByLabel('Review', {exact: true});
     const reviewRow = reviewPanel.locator('tr', {
       hasText: `${namespace}/${legacyRepository}`,
@@ -369,11 +376,16 @@ async function runVisibleDemo(classifierName) {
 
     await quayPage.bringToFront();
     await quayPage.reload();
-    await expect(quayPage.getByText(new RegExp(quarantineNotice))).toBeVisible({timeout: 20_000});
+    await expect(quayPage.getByText(new RegExp(quarantineNotice))).toBeVisible({
+      timeout: 20_000,
+    });
     await pause('Quay now shows the repository-owner quarantine notice');
 
     await serviceToolPage.bringToFront();
-    await clickForDemo(serviceToolPage, serviceToolPage.getByRole('tab', {name: 'Review', exact: true}));
+    await clickForDemo(
+      serviceToolPage,
+      serviceToolPage.getByRole('tab', {name: 'Review', exact: true}),
+    );
     await expect(reviewRow).toContainText('quarantined');
     await clickForDemo(serviceToolPage, reviewRow.getByRole('button', {name: 'Restore'}));
     await clickForDemo(serviceToolPage, serviceToolPage.getByRole('button', {name: 'Confirm'}));
@@ -421,8 +433,12 @@ async function runVisibleDemo(classifierName) {
     const auditRows = auditPanel.locator('tr', {
       hasText: `${namespace}/${legacyRepository}`,
     });
-    await expect(auditRows.filter({hasText: 'restored -> flagged'}).first()).toContainText(reopenReason);
-    await expect(auditRows.filter({hasText: 'quarantined -> restored'}).first()).toContainText('restore');
+    await expect(auditRows.filter({hasText: 'restored -> flagged'}).first()).toContainText(
+      reopenReason,
+    );
+    await expect(auditRows.filter({hasText: 'quarantined -> restored'}).first()).toContainText(
+      'restore',
+    );
     await expect(auditRows.filter({hasText: 'flagged -> quarantined'})).toHaveCount(2);
     await pause('Audit history records restore, reopen, and both quarantine decisions');
 
@@ -434,11 +450,17 @@ async function runVisibleDemo(classifierName) {
   }
 }
 
-(async () => {
+const run = async () => {
+  if (process.argv.includes('--print-artifact-path')) {
+    console.log(classifierArtifactPath());
+    return;
+  }
   await prepareLegacyRepository();
-  const classifierName = await prepareServiceToolClassifier();
+  const classifierName = await importServiceToolClassifier();
   await runVisibleDemo(classifierName);
-})().catch((error) => {
+};
+
+run().catch((error) => {
   console.error(error);
   process.exit(1);
 });

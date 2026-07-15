@@ -110,6 +110,69 @@ class SpamClassifierListTask(Resource):
             return _json_response({"message": str(exc)}, 500)
 
 
+class SpamClassifierImportArtifactTask(Resource):
+    @log_response
+    @verify_spam_detection_write_permissions
+    @login_required
+    def post(self):
+        upload = request.files.get("artifact")
+        name = (request.form.get("name") or "").strip()
+        enabled = (request.form.get("enabled") or "").strip().lower() in (
+            "1",
+            "true",
+            "yes",
+            "on",
+        )
+        if not upload or not name:
+            return _json_response({"message": "name and artifact file are required"}, 400)
+        try:
+            max_bytes = int(
+                current_app.config.get(
+                    "SPAM_DETECTION_MAX_ARTIFACT_BYTES",
+                    classifier.DEFAULT_MAX_ARTIFACT_BYTES,
+                )
+            )
+            content = upload.stream.read(max_bytes + 1)
+            imported, created = classifier.import_classifier_artifact(
+                current_app.config,
+                name,
+                content,
+                enabled=enabled,
+                operator=_operator(),
+            )
+            store.add_action(
+                current_app.config,
+                None,
+                "artifact_import",
+                None,
+                None,
+                operator=_operator(),
+                details={
+                    "classifier_uuid": imported["uuid"],
+                    "artifact_version": imported["artifact_version"],
+                    "artifact_sha256": imported["artifact_sha256"],
+                    "created": created,
+                    "activated": enabled,
+                },
+            )
+            return _json_response(
+                {
+                    "classifier": imported,
+                    "created": created,
+                    "imported_artifact_version": (
+                        imported.get("base_artifact_version")
+                        or imported["artifact_version"]
+                    ),
+                },
+                201 if created else 200,
+            )
+        except classifier.ClassifierError as exc:
+            return _json_response({"message": str(exc)}, 400)
+        except Exception as exc:
+            logger.exception("Unable to import spam classifier artifact")
+            return _json_response({"message": str(exc)}, 500)
+
+
 class SpamClassifierTask(Resource):
     @log_response
     @verify_spam_detection_write_permissions

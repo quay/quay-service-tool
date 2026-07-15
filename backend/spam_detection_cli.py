@@ -19,7 +19,22 @@ def load_config():
     config_path = os.environ.get("CONFIG_PATH", "config")
     with open(os.path.join(config_path, "config.yaml"), encoding="utf-8") as config_file:
         config = yaml.load(config_file, Loader=yaml.FullLoader)
-    config.setdefault("SPAM_DETECTION_STATE_DB_URI", "sqlite:///spam_detection_state.db")
+    data_dir = os.environ.get("SPAM_DETECTION_DATA_DIR")
+    default_state_db_uri = (
+        f"sqlite:////{data_dir.strip('/')}/state.db"
+        if data_dir
+        else "sqlite:///spam_detection_state.db"
+    )
+    default_artifact_dir = (
+        os.path.join(data_dir, "artifacts") if data_dir else "spam_detection_artifacts"
+    )
+    if data_dir:
+        config["SPAM_DETECTION_STATE_DB_URI"] = default_state_db_uri
+        config["SPAM_DETECTION_ARTIFACT_DIR"] = default_artifact_dir
+    else:
+        config.setdefault("SPAM_DETECTION_STATE_DB_URI", default_state_db_uri)
+        config.setdefault("SPAM_DETECTION_ARTIFACT_DIR", default_artifact_dir)
+    config.setdefault("SPAM_DETECTION_MAX_ARTIFACT_BYTES", classifier.DEFAULT_MAX_ARTIFACT_BYTES)
     config.setdefault("SPAM_DETECTION_BATCH_SIZE", 200)
     config.setdefault("SPAM_DETECTION_SLEEP_BETWEEN_BATCHES", 0.5)
     config.setdefault("SPAM_DETECTION_SCAN_DRY_RUN", True)
@@ -50,6 +65,11 @@ def main():
     create_classifier = subparsers.add_parser("create-classifier")
     create_classifier.add_argument("--name", required=True)
     create_classifier.add_argument("--enabled", action="store_true")
+
+    import_artifact = subparsers.add_parser("import-artifact")
+    import_artifact.add_argument("--name", required=True)
+    import_artifact.add_argument("--path", required=True)
+    import_artifact.add_argument("--enabled", action="store_true")
 
     import_csv = subparsers.add_parser("import-csv")
     import_csv.add_argument("--classifier", required=True)
@@ -107,6 +127,18 @@ def main():
             operator="cli",
         )
         print_json(result)
+        return
+
+    if args.command == "import-artifact":
+        with open(args.path, "rb") as artifact_file:
+            imported, created = classifier.import_classifier_artifact(
+                config,
+                args.name,
+                artifact_file.read(),
+                enabled=args.enabled,
+                operator="cli",
+            )
+        print_json({"classifier": imported, "created": created})
         return
 
     if args.command == "train":

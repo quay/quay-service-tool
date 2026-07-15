@@ -49,12 +49,12 @@ workflow:
 
 1. Signs in to Quay and attempts to create a repository with a spam
    description, showing the ingress rejection in the Quay UI.
-2. Creates a synthetic empty legacy repository that represents spam content
+2. Creates an empty test repository that represents spam content
    predating ingress enforcement.
 3. Attempts to update that repository with a spam description, showing the
    update rejection and unchanged description in Quay.
-4. Seeds a temporary service-tool classifier from synthetic examples, previews
-   the legacy repository, and runs a review scan.
+4. Imports and activates the exact classifier artifact configured by the local
+   Quay checkout, previews the legacy repository, and runs a review scan.
 5. Quarantines the flagged repository and verifies the owner-facing notice in
    Quay.
 6. Restores the repository and verifies the original description returns in
@@ -87,8 +87,10 @@ corepack pnpm --dir /absolute/path/to/quay/web install --frozen-lockfile
 corepack pnpm@10.28.2 --dir /absolute/path/to/quay-service-tool/frontend install --frozen-lockfile
 ```
 
-The Quay PR checkout contains the required local classifier artifact and spam
-detection configuration. Validate all prerequisites without starting anything:
+The Quay PR checkout must contain the classifier artifact referenced by its
+local spam detection configuration. The artifact is read at runtime and is
+never copied into this repository. Validate all prerequisites without starting
+anything:
 
 ```sh
 QUAY_DIR=/absolute/path/to/quay \
@@ -109,6 +111,14 @@ QUAY_DIR=/absolute/path/to/quay \
 make -C /absolute/path/to/quay-service-tool spam-demo
 ```
 
+To use a different local artifact without changing Quay configuration:
+
+```sh
+SPAM_CLASSIFIER_ARTIFACT=/absolute/path/to/classifier.json \
+QUAY_DIR=/absolute/path/to/quay \
+make -C /absolute/path/to/quay-service-tool spam-demo
+```
+
 Use `PLAYWRIGHT_SLOW_MO` to change individual browser action timing,
 `DEMO_STEP_DELAY` to change the pause between visible stages, and
 `DEMO_CLICK_DELAY` to change how long click highlighting remains visible.
@@ -117,6 +127,27 @@ located Quay checkout or a slower presentation:
 
 ```sh
 QUAY_DIR=/path/to/quay PLAYWRIGHT_SLOW_MO=1500 DEMO_STEP_DELAY=10000 DEMO_CLICK_DELAY=2000 HOLD_SECONDS=900 make spam-demo
+```
+
+### Production classifier storage
+
+The service-tool OpenShift templates provision a 1 GiB persistent volume for
+the classifier state database and managed artifact files. Keep the deployment
+at one replica, include the volume in normal backups, and do not place
+classifier artifacts in the source repository.
+
+Import the initial JSON artifact from the **Classifier** tab and leave
+**Activate after import** selected. Manual scans then use that artifact from
+the persistent service-tool state. Spam and ham labels are retained as training
+feedback; **Train new version** combines that feedback with the imported base
+model and immediately updates subsequent manual scans. Export is only required
+when promoting a version to Quay ingress.
+
+For installations that provide their own persistent volume, set:
+
+```yaml
+SPAM_DETECTION_STATE_DB_URI: sqlite:////var/lib/quay-service-tool/spam-detection/state.db
+SPAM_DETECTION_ARTIFACT_DIR: /var/lib/quay-service-tool/spam-detection/artifacts
 ```
 
 Stop the demo while preserving volumes, or remove its volumes completely:

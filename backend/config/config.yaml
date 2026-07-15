@@ -52,6 +52,7 @@ SPAM_DETECTION_READONLY_DB_URI: postgresql://quay:quay@quay-db/quay
 # Only approved quarantine, restore, and redaction actions use this write-capable path.
 SPAM_DETECTION_WRITE_DB_URI: postgresql://quay:quay@quay-db/quay
 SPAM_DETECTION_ARTIFACT_DIR: spam_detection_artifacts
+SPAM_DETECTION_MAX_ARTIFACT_BYTES: 26214400
 SPAM_DETECTION_BATCH_SIZE: 200
 SPAM_DETECTION_SLEEP_BETWEEN_BATCHES: 0.5
 SPAM_DETECTION_SCAN_DRY_RUN: true

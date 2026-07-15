@@ -92,6 +92,7 @@ test('Spam Detection operator workflow covers export, labels, recovery, and clea
   let reopenPayload: any;
   let classifyPayload: any;
   let artifactRequested = false;
+  let artifactImported = false;
 
   await page.route('**/banner', async (route) => {
     await fulfillJson(route, { messages: [] });
@@ -102,6 +103,31 @@ test('Spam Detection operator workflow covers export, labels, recovery, and clea
       return;
     }
     await fulfillJson(route, { classifier: classifiers[0] }, 201);
+  });
+  await page.route('**/spam-detection/classifiers/import-artifact', async (route) => {
+    artifactImported = true;
+    classifiers.push({
+      uuid: 'classifier-imported',
+      name: 'Production classifier',
+      enabled: 0,
+      artifact_version: 'production-v1',
+      artifact_sha256: 'sha-production-v1',
+    });
+    await fulfillJson(
+      route,
+      {
+        classifier: classifiers[1],
+        created: true,
+        imported_artifact_version: 'production-v1',
+      },
+      201
+    );
+  });
+  await page.route('**/spam-detection/classifiers/classifier-imported', async (route) => {
+    classifiers.forEach((item) => {
+      item.enabled = item.uuid === 'classifier-imported' ? 1 : 0;
+    });
+    await fulfillJson(route, { classifier: classifiers[1] });
   });
   await page.route('**/spam-detection/classifiers/classifier-1/training-examples', async (route) => {
     await fulfillJson(route, { training_example: { uuid: 'example-1', ...route.request().postDataJSON() } }, 201);
@@ -254,13 +280,13 @@ test('Spam Detection operator workflow covers export, labels, recovery, and clea
 
   await openSpamDetection(page);
 
-  await expect(page.getByText('Default classifier')).toBeVisible();
+  await expect(page.getByRole('cell', { name: 'Default classifier' })).toBeVisible();
   await page.getByLabel('Text').fill('free casino bonus crypto gift cards click now');
   await page.getByRole('button', { name: 'Add example' }).click();
   await expect(page.getByText('Training example added')).toBeVisible();
   await closeFeedback(page);
 
-  await page.getByRole('button', { name: 'Train artifact' }).click();
+  await page.getByRole('button', { name: 'Train new version' }).click();
   await expect(page.getByText('Artifact e2e-trained generated')).toBeVisible();
   await closeFeedback(page);
   await page.getByRole('button', { name: 'Export artifact' }).click();
@@ -268,6 +294,25 @@ test('Spam Detection operator workflow covers export, labels, recovery, and clea
   expect(artifactRequested).toBe(true);
   expect(exportPayload).toEqual({});
   await closeFeedback(page);
+
+  await page.locator('#artifact-name').fill('Production classifier');
+  await page.locator('input[type="file"]').setInputFiles({
+    name: 'production-v1.json',
+    mimeType: 'application/json',
+    buffer: Buffer.from('{"version":"production-v1"}'),
+  });
+  await page.getByLabel('Activate after import').uncheck();
+  await page.getByRole('button', { name: 'Import', exact: true }).click();
+  await expect(page.getByText('Artifact production-v1 imported')).toBeVisible();
+  await closeFeedback(page);
+  expect(artifactImported).toBe(true);
+  const importedRow = page.getByRole('table', { name: 'Classifiers' }).locator('tr', {
+    hasText: 'Production classifier',
+  });
+  await importedRow.getByRole('button', { name: 'Activate' }).click();
+  await expect(page.getByText('Artifact production-v1 activated')).toBeVisible();
+  await closeFeedback(page);
+  await expect(importedRow).toContainText('Active');
 
   await page.getByRole('tab', { name: 'Policy' }).click();
   await expect(page.getByLabel('Quarantine description')).toHaveValue(/published support timeline/);

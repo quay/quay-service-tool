@@ -18,6 +18,23 @@ DEFAULT_FEATURE_CONFIG = {
 MAX_ARTIFACT_VERSION_LENGTH = 128
 DEFAULT_MIN_SPAM_EXAMPLES = 10
 DEFAULT_MIN_HAM_EXAMPLES = 10
+DEFAULT_MAX_ARTIFACT_BYTES = 25 * 1024 * 1024
+REQUIRED_ARTIFACT_FIELDS = {
+    "version": str,
+    "training_corpus_version": str,
+    "spam_prior": (int, float),
+    "ham_prior": (int, float),
+    "token_spam_counts": dict,
+    "token_ham_counts": dict,
+    "spam_token_total": int,
+    "ham_token_total": int,
+    "vocabulary_size": int,
+    "smoothing": (int, float),
+    "ingress_threshold": (int, float),
+    "ingress_thresholds": dict,
+    "feature_config": dict,
+    "training_metrics": dict,
+}
 
 
 class ClassifierError(Exception):
@@ -126,6 +143,89 @@ def validate_artifact_training_metrics(config, artifact):
     validate_training_corpus(config, int(spam_examples), int(ham_examples))
 
 
+def validate_artifact(config, artifact):
+    if not isinstance(artifact, dict):
+        raise ClassifierError("artifact must be a JSON object")
+    for field, expected_type in REQUIRED_ARTIFACT_FIELDS.items():
+        if field not in artifact:
+            raise ClassifierError(f"artifact is missing required field: {field}")
+        if not isinstance(artifact[field], expected_type):
+            raise ClassifierError(f"artifact field has invalid type: {field}")
+
+    validate_artifact_version(artifact["version"])
+    validate_feature_config(artifact["feature_config"])
+    validate_artifact_training_metrics(config, artifact)
+    if artifact["spam_prior"] <= 0 or artifact["ham_prior"] <= 0:
+        raise ClassifierError("artifact priors must be greater than zero")
+    if artifact["spam_token_total"] < 0 or artifact["ham_token_total"] < 0:
+        raise ClassifierError("artifact token totals must be non-negative")
+    if artifact["vocabulary_size"] <= 0:
+        raise ClassifierError("artifact vocabulary size must be greater than zero")
+    if artifact["smoothing"] <= 0:
+        raise ClassifierError("artifact smoothing must be greater than zero")
+    if not 0 <= float(artifact["ingress_threshold"]) <= 1:
+        raise ClassifierError("artifact ingress threshold must be between 0 and 1")
+    for counts_field in ("token_spam_counts", "token_ham_counts"):
+        for token, count in artifact[counts_field].items():
+            if not isinstance(token, str) or not isinstance(count, int) or count < 0:
+                raise ClassifierError(f"artifact field has invalid token counts: {counts_field}")
+    return artifact
+
+
+def import_classifier_artifact(config, name, artifact_content, enabled=False, operator=None):
+    if not name or not name.strip():
+        raise ClassifierError("name is required")
+    max_bytes = int(config.get("SPAM_DETECTION_MAX_ARTIFACT_BYTES", DEFAULT_MAX_ARTIFACT_BYTES))
+    if not artifact_content:
+        raise ClassifierError("artifact file is required")
+    if len(artifact_content) > max_bytes:
+        raise ClassifierError(f"artifact must be {max_bytes} bytes or fewer")
+    try:
+        artifact = json.loads(artifact_content.decode("utf-8"))
+    except (UnicodeDecodeError, json.JSONDecodeError) as exc:
+        raise ClassifierError("artifact must contain valid UTF-8 JSON") from exc
+    validate_artifact(config, artifact)
+
+    artifact_sha256 = hashlib.sha256(artifact_content).hexdigest()
+    existing = store.get_classifier_by_artifact_version(config, artifact["version"])
+    if existing:
+        if (
+            not existing.get("base_artifact_sha256")
+            and existing.get("base_model_snapshot_json") == artifact
+        ):
+            existing = store.update_classifier_base_identity(
+                config,
+                existing["id"],
+                artifact["version"],
+                artifact_sha256,
+            )
+        existing_sha256 = existing.get("base_artifact_sha256") or existing.get(
+            "artifact_sha256"
+        )
+        if existing_sha256 != artifact_sha256:
+            raise ClassifierError("artifact version already exists with different content")
+        if enabled and not existing.get("enabled"):
+            existing = store.update_classifier(
+                config,
+                existing["uuid"],
+                {"enabled": True},
+                operator=operator,
+            )
+        return existing, False
+
+    path = os.path.join(artifact_dir(config), f"spam-classifier-{artifact['version']}.json")
+    write_artifact_bytes_to_path(artifact_content, path)
+    created = store.create_imported_classifier(
+        config,
+        {"name": name.strip(), "enabled": enabled},
+        artifact,
+        path,
+        artifact_sha256,
+        operator=operator,
+    )
+    return created, True
+
+
 def apply_ingress_policy(config, classifier, artifact, artifact_version=None):
     artifact = dict(artifact)
     threshold = effective_ingress_threshold(config, classifier)
@@ -148,13 +248,17 @@ def train_classifier(config, classifier_uuid, artifact_version=None):
 
     feature_config = validate_feature_config(classifier.get("feature_config_json") or DEFAULT_FEATURE_CONFIG)
     examples = store.list_training_examples(config, classifier["id"])
-    if not examples:
+    base_artifact = classifier.get("base_model_snapshot_json") or {}
+    if not examples and not base_artifact:
         raise ClassifierError("at least one training example is required")
 
-    spam_counts = Counter()
-    ham_counts = Counter()
-    spam_examples = 0
-    ham_examples = 0
+    if base_artifact:
+        validate_artifact(config, base_artifact)
+    base_metrics = base_artifact.get("training_metrics") or {}
+    spam_counts = Counter(base_artifact.get("token_spam_counts") or {})
+    ham_counts = Counter(base_artifact.get("token_ham_counts") or {})
+    spam_examples = int(base_metrics.get("spam_examples") or 0)
+    ham_examples = int(base_metrics.get("ham_examples") or 0)
 
     for example in examples:
         text = repository_text(
@@ -177,7 +281,11 @@ def train_classifier(config, classifier_uuid, artifact_version=None):
     version = validate_artifact_version(artifact_version or generated_artifact_version())
     if store.artifact_version_exists(config, version, classifier["id"]):
         raise ClassifierError("artifact version is already used by another classifier")
-    training_corpus_version = f"{len(examples)}-{hash_examples(examples)}"
+    example_version = f"{len(examples)}-{hash_examples(examples)}"
+    base_version = base_artifact.get("training_corpus_version")
+    training_corpus_version = (
+        f"{base_version}+{example_version}" if base_version else example_version
+    )
     threshold = effective_ingress_threshold(config, classifier)
 
     artifact = {
@@ -249,6 +357,31 @@ def write_artifact_to_path(artifact, path):
             existing_content = existing_file.read()
         if existing_content != content:
             raise ClassifierError("artifact path already exists with different content")
+    else:
+        tmp_path = f"{path}.tmp.{os.getpid()}"
+        with open(tmp_path, "wb") as artifact_file:
+            artifact_file.write(content)
+            artifact_file.flush()
+            os.fsync(artifact_file.fileno())
+        os.replace(tmp_path, path)
+    sha256 = hashlib.sha256(content).hexdigest()
+    sha_path = f"{path}.sha256"
+    tmp_sha_path = f"{sha_path}.tmp.{os.getpid()}"
+    with open(tmp_sha_path, "w", encoding="utf-8") as sha_file:
+        sha_file.write(f"{sha256}  {os.path.basename(path)}\n")
+        sha_file.flush()
+        os.fsync(sha_file.fileno())
+    os.replace(tmp_sha_path, sha_path)
+    return path, sha256
+
+
+def write_artifact_bytes_to_path(content, path):
+    output_dir = os.path.dirname(os.path.abspath(path))
+    os.makedirs(output_dir, exist_ok=True)
+    if os.path.exists(path):
+        with open(path, "rb") as existing_file:
+            if existing_file.read() != content:
+                raise ClassifierError("artifact path already exists with different content")
     else:
         tmp_path = f"{path}.tmp.{os.getpid()}"
         with open(tmp_path, "wb") as artifact_file:
