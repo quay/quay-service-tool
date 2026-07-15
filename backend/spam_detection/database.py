@@ -308,6 +308,13 @@ def migrate_state_db(config):
             WHERE base_artifact_version IS NOT NULL
             """
         )
+        conn.execute(
+            """
+            CREATE UNIQUE INDEX IF NOT EXISTS spam_training_one_review_decision_idx
+            ON spam_training_example(source_ref)
+            WHERE source = 'review_decision' AND invalidated_at IS NULL
+            """
+        )
         conn.execute("UPDATE spam_policy SET scan_empty_repositories_only = 1")
 
 

@@ -190,6 +190,7 @@ describe('Spam Detection', () => {
               status: 'flagged',
               classifier_score: 0.99,
               original_description: 'free casino bonus https://spam.example',
+              review_label: null,
             },
           ],
         },

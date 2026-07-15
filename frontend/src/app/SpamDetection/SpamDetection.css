@@ -138,18 +138,21 @@
   min-width: 1080px;
 }
 .spam-detection-table--review th:nth-child(1) {
-  width: 18%;
+  width: 16%;
 }
 .spam-detection-table--review th:nth-child(2) {
-  width: 30%;
+  width: 26%;
 }
 .spam-detection-table--review th:nth-child(3) {
-  width: 12%;
+  width: 10%;
 }
 .spam-detection-table--review th:nth-child(4) {
   width: 10%;
 }
 .spam-detection-table--review th:nth-child(5) {
+  width: 8%;
+}
+.spam-detection-table--review th:nth-child(6) {
   width: 30%;
 }
 

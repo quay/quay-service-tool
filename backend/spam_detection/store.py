@@ -672,6 +672,58 @@ def get_quarantine_record(config, record_uuid):
         )
 
 
+def _replace_review_feedback(conn, current, text, label, operator, now, reason):
+    snapshot = row_to_dict(current).get("classifier_snapshot_json") or {}
+    classifier_id = snapshot.get("id")
+    classifier = conn.execute(
+        "SELECT id FROM spam_classifier WHERE id = ?",
+        (classifier_id,),
+    ).fetchone()
+    if not classifier:
+        raise ValueError("review record classifier was not found")
+
+    cursor = conn.execute(
+        """
+        UPDATE spam_training_example
+        SET invalidated_at = ?, invalidated_by = ?, invalidation_reason = ?
+        WHERE invalidated_at IS NULL
+          AND (
+            (source IN ('review_decision', 'match_review') AND source_ref = ?)
+            OR (
+              source = 'review_action'
+              AND source_ref IN (
+                SELECT uuid FROM spam_action_history
+                WHERE quarantine_record_id = ?
+              )
+            )
+          )
+        """,
+        (now, operator, reason, current["uuid"], current["id"]),
+    )
+    conn.execute(
+        """
+        INSERT INTO spam_training_example (
+            uuid, classifier_id, repository_id, namespace_name,
+            repository_name, text, label, source, source_ref,
+            created_by, created_at
+        ) VALUES (?, ?, ?, ?, ?, ?, ?, 'review_decision', ?, ?, ?)
+        """,
+        (
+            new_uuid(),
+            classifier["id"],
+            current["repository_id"],
+            current["namespace_name"],
+            current["repository_name"],
+            text,
+            label,
+            current["uuid"],
+            operator,
+            now,
+        ),
+    )
+    return cursor.rowcount
+
+
 def update_quarantine_record(
     config,
     record_id,
@@ -703,7 +755,7 @@ def update_quarantine_record(
         params.extend([now, operator, now, record_id])
         conn.execute(f"UPDATE spam_quarantine_record SET {', '.join(assignments)} WHERE id = ?", tuple(params))
         updated = conn.execute("SELECT * FROM spam_quarantine_record WHERE id = ?", (record_id,)).fetchone()
-        action_uuid = add_action_with_conn(
+        add_action_with_conn(
             conn,
             record_id,
             action,
@@ -713,34 +765,15 @@ def update_quarantine_record(
             details or {},
         )
         if training_feedback:
-            snapshot = row_to_dict(current).get("classifier_snapshot_json") or {}
-            classifier_id = snapshot.get("id")
-            classifier = conn.execute(
-                "SELECT id FROM spam_classifier WHERE id = ?",
-                (classifier_id,),
-            ).fetchone()
-            if classifier:
-                conn.execute(
-                    """
-                    INSERT INTO spam_training_example (
-                        uuid, classifier_id, repository_id, namespace_name,
-                        repository_name, text, label, source, source_ref,
-                        created_by, created_at
-                    ) VALUES (?, ?, ?, ?, ?, ?, ?, 'review_action', ?, ?, ?)
-                    """,
-                    (
-                        new_uuid(),
-                        classifier["id"],
-                        current["repository_id"],
-                        current["namespace_name"],
-                        current["repository_name"],
-                        training_feedback["text"],
-                        training_feedback["label"],
-                        action_uuid,
-                        operator,
-                        now,
-                    ),
-                )
+            _replace_review_feedback(
+                conn,
+                current,
+                training_feedback["text"],
+                training_feedback["label"],
+                operator,
+                now,
+                f"review decision replaced by {action}",
+            )
         return row_to_dict(updated)
 
 
@@ -778,28 +811,25 @@ def reopen_terminal_record(config, record_id, fields, operator, reason):
             tuple(params),
         )
 
-        terminal_action_name = "restore" if current["status"] == "restored" else "dismiss"
-        terminal_action = conn.execute(
+        cursor = conn.execute(
             """
-            SELECT uuid FROM spam_action_history
-            WHERE quarantine_record_id = ? AND action = ?
-            ORDER BY created_at DESC, id DESC
-            LIMIT 1
+            UPDATE spam_training_example
+            SET invalidated_at = ?, invalidated_by = ?, invalidation_reason = ?
+            WHERE invalidated_at IS NULL
+              AND (
+                (source IN ('review_decision', 'match_review') AND source_ref = ?)
+                OR (
+                  source = 'review_action'
+                  AND source_ref IN (
+                    SELECT uuid FROM spam_action_history
+                    WHERE quarantine_record_id = ?
+                  )
+                )
+              )
             """,
-            (record_id, terminal_action_name),
-        ).fetchone()
-        invalidated_feedback = 0
-        if terminal_action:
-            cursor = conn.execute(
-                """
-                UPDATE spam_training_example
-                SET invalidated_at = ?, invalidated_by = ?, invalidation_reason = ?
-                WHERE source = 'review_action' AND source_ref = ?
-                  AND label = 'ham' AND invalidated_at IS NULL
-                """,
-                (now, operator, reason, terminal_action["uuid"]),
-            )
-            invalidated_feedback = cursor.rowcount
+            (now, operator, reason, current["uuid"], current["id"]),
+        )
+        invalidated_feedback = cursor.rowcount
 
         add_action_with_conn(
             conn,
@@ -831,43 +861,17 @@ def classify_quarantine_record(config, record_id, label, operator=None):
         ).fetchone()
         if not current:
             return None
-        snapshot = row_to_dict(current).get("classifier_snapshot_json") or {}
-        classifier_id = snapshot.get("id")
-        classifier = conn.execute(
-            "SELECT id FROM spam_classifier WHERE id = ?", (classifier_id,)
-        ).fetchone()
-        if not classifier:
-            raise ValueError("review record classifier was not found")
+        if current["status"] != "flagged":
+            raise ValueError("explicit labels are only allowed for flagged records")
         text = _validate_training_text(config, current["original_description"])
-        cursor = conn.execute(
-            """
-            UPDATE spam_training_example
-            SET invalidated_at = ?, invalidated_by = ?, invalidation_reason = ?
-            WHERE source = 'match_review' AND source_ref = ?
-              AND invalidated_at IS NULL
-            """,
-            (now, operator, "match label replaced", current["uuid"]),
-        )
-        conn.execute(
-            """
-            INSERT INTO spam_training_example (
-                uuid, classifier_id, repository_id, namespace_name,
-                repository_name, text, label, source, source_ref,
-                created_by, created_at
-            ) VALUES (?, ?, ?, ?, ?, ?, ?, 'match_review', ?, ?, ?)
-            """,
-            (
-                new_uuid(),
-                classifier["id"],
-                current["repository_id"],
-                current["namespace_name"],
-                current["repository_name"],
-                text,
-                label,
-                current["uuid"],
-                operator,
-                now,
-            ),
+        invalidated_feedback = _replace_review_feedback(
+            conn,
+            current,
+            text,
+            label,
+            operator,
+            now,
+            "explicit review label replaced",
         )
         conn.execute(
             """
@@ -884,7 +888,7 @@ def classify_quarantine_record(config, record_id, label, operator=None):
             current["status"],
             current["status"],
             operator,
-            {"label": label, "invalidated_training_examples": cursor.rowcount},
+            {"label": label, "invalidated_training_examples": invalidated_feedback},
         )
         return row_to_dict(
             conn.execute(
@@ -954,9 +958,19 @@ def list_review(config, statuses=None, limit=100):
             row_to_dict(row)
             for row in conn.execute(
                 f"""
-                SELECT * FROM spam_quarantine_record
-                WHERE status IN ({placeholders})
-                ORDER BY classifier_score DESC, id
+                SELECT record.*,
+                       (
+                         SELECT example.label
+                         FROM spam_training_example AS example
+                         WHERE example.source = 'review_decision'
+                           AND example.source_ref = record.uuid
+                           AND example.invalidated_at IS NULL
+                         ORDER BY example.created_at DESC, example.id DESC
+                         LIMIT 1
+                       ) AS review_label
+                FROM spam_quarantine_record AS record
+                WHERE record.status IN ({placeholders})
+                ORDER BY record.classifier_score DESC, record.id
                 LIMIT ?
                 """,
                 tuple(statuses) + (int(limit),),

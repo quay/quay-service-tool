@@ -753,13 +753,14 @@ export const SpamDetection: React.FunctionComponent = () => {
             <SimpleTable
               ariaLabel="Active review"
               variant="review"
-              columns={['Repository', 'Description', 'Status', 'Score', 'Actions']}
+              columns={['Repository', 'Description', 'Status', 'Training label', 'Score', 'Actions']}
               rows={records.map((item) => [
                 repositoryLink(item),
                 <span key="description" className="spam-detection-description">
                   {item.original_description || 'No description'}
                 </span>,
                 item.status,
+                item.review_label || 'Not labeled',
                 <span key="score" className="spam-detection-score">
                   {item.classifier_score.toFixed(4)}
                 </span>,
@@ -785,12 +786,16 @@ export const SpamDetection: React.FunctionComponent = () => {
                         Dismiss
                       </Button>
                     )}{' '}
-                    <Button variant="link" onClick={() => openReviewAction(item, 'classify-spam')}>
-                      Label spam
-                    </Button>{' '}
-                    <Button variant="link" onClick={() => openReviewAction(item, 'classify-ham')}>
-                      Label ham
-                    </Button>
+                    {item.status === 'flagged' && (
+                      <>
+                        <Button variant="link" onClick={() => openReviewAction(item, 'classify-spam')}>
+                          Label spam
+                        </Button>{' '}
+                        <Button variant="link" onClick={() => openReviewAction(item, 'classify-ham')}>
+                          Label ham
+                        </Button>
+                      </>
+                    )}
                   </span>
                 ) : (
                   ''
@@ -803,13 +808,14 @@ export const SpamDetection: React.FunctionComponent = () => {
             <SimpleTable
               ariaLabel="Closed reviews"
               variant="review"
-              columns={['Repository', 'Description', 'Status', 'Score', 'Actions']}
+              columns={['Repository', 'Description', 'Status', 'Training label', 'Score', 'Actions']}
               rows={terminalRecords.map((item) => [
                 repositoryLink(item),
                 <span key="description" className="spam-detection-description">
                   {item.original_description || 'No description'}
                 </span>,
                 item.status,
+                item.review_label || 'Not labeled',
                 <span key="score" className="spam-detection-score">
                   {item.classifier_score.toFixed(4)}
                 </span>,

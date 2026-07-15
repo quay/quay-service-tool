@@ -15,6 +15,7 @@ type ReviewRecord = {
   status: string;
   classifier_score: number;
   original_description: string;
+  review_label?: 'spam' | 'ham';
 };
 
 const quarantineNotice =
@@ -266,18 +267,24 @@ test('Spam Detection operator workflow covers export, labels, recovery, and clea
     });
     if (action === 'quarantine') {
       record.status = 'quarantined';
+      record.review_label = 'spam';
     } else if (action === 'restore') {
       record.status = 'restored';
+      record.review_label = 'ham';
     } else if (action === 'reopen') {
       reopenPayload = route.request().postDataJSON();
       record.status = 'flagged';
+      delete record.review_label;
     } else if (action === 'redact') {
       redactionPayload = route.request().postDataJSON();
       record.status = 'redacted';
+      record.review_label = 'spam';
     } else if (action === 'dismiss') {
       record.status = 'dismissed';
+      record.review_label = 'ham';
     } else if (action === 'classify') {
       classifyPayload = route.request().postDataJSON();
+      record.review_label = classifyPayload.label;
     }
     await fulfillJson(route, { record });
   });
@@ -355,6 +362,9 @@ test('Spam Detection operator workflow covers export, labels, recovery, and clea
   await expect(page.getByText('quarantine completed')).toBeVisible();
   await closeFeedback(page);
   await expect(restoreRow).toContainText('quarantined');
+  await expect(restoreRow).toContainText('spam');
+  await expect(restoreRow.getByRole('button', { name: 'Label spam' })).toHaveCount(0);
+  await expect(restoreRow.getByRole('button', { name: 'Label ham' })).toHaveCount(0);
 
   const dismissRow = reviewPanel.locator('tr', { hasText: 'publicns/spam-dismiss' });
   await expect(dismissRow.getByRole('link', { name: 'publicns/spam-dismiss' })).toHaveAttribute(
@@ -369,6 +379,7 @@ test('Spam Detection operator workflow covers export, labels, recovery, and clea
   await expect(page.getByText('Match labeled spam')).toBeVisible();
   await closeFeedback(page);
   expect(classifyPayload).toEqual({ label: 'spam' });
+  await expect(dismissRow).toContainText('spam');
   await dismissRow.getByRole('button', { name: 'Dismiss' }).click();
   await page.getByRole('button', { name: 'Confirm' }).click();
   await expect(page.getByText('dismiss completed')).toBeVisible();

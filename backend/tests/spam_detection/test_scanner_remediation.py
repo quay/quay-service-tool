@@ -325,18 +325,12 @@ def test_dismiss_records_ham_feedback_for_next_training(tmp_path):
     dismissed = remediation.dismiss(config, record["uuid"], operator="reviewer")
 
     examples = store.list_training_examples(config, created["id"])
-    feedback = [example for example in examples if example["source"] == "review_action"]
+    feedback = [example for example in examples if example["source"] == "review_decision"]
     assert len(feedback) == 1
     assert feedback[0]["label"] == "ham"
     assert feedback[0]["text"] == "casino bonus jackpot https://spam.example"
     assert feedback[0]["repository_id"] == 1
-    state_conn = sqlite3.connect(tmp_path / "state.db")
-    linked_record_id = state_conn.execute(
-        "SELECT quarantine_record_id FROM spam_action_history WHERE uuid = ?",
-        (feedback[0]["source_ref"],),
-    ).fetchone()[0]
-    state_conn.close()
-    assert linked_record_id == record["id"]
+    assert feedback[0]["source_ref"] == record["uuid"]
     audit = store.list_audit_actions(config)
     dismiss_action = next(action for action in audit if action["action"] == "dismiss")
     assert dismiss_action["record_uuid"] == record["uuid"]
@@ -370,13 +364,13 @@ def test_restore_records_ham_feedback_after_quarantine_spam_feedback(tmp_path):
     feedback = [
         (example["label"], example["text"], example["source_ref"])
         for example in store.list_training_examples(config, created["id"])
-        if example["source"] == "review_action"
+        if example["source"] == "review_decision"
     ]
     assert [(label, text) for label, text, _ in feedback] == [
-        ("spam", "casino bonus jackpot https://spam.example"),
         ("ham", "casino bonus jackpot https://spam.example"),
     ]
     assert all(source_ref for _, _, source_ref in feedback)
+    assert store.list_review(config, statuses=["restored"])[0]["review_label"] == "ham"
     assert restored["terminal_description_fingerprint"] == store.description_fingerprint(
         "casino bonus jackpot https://spam.example"
     )
@@ -411,16 +405,16 @@ def test_reopen_restored_record_invalidates_ham_feedback_and_allows_requarantine
     feedback = [
         example
         for example in store.list_training_examples(config, created["id"])
-        if example["source"] == "review_action"
+        if example["source"] == "review_decision"
     ]
-    assert [example["label"] for example in feedback] == ["spam"]
+    assert feedback == []
 
     state_conn = sqlite3.connect(tmp_path / "state.db")
     invalidated = state_conn.execute(
         """
         SELECT invalidated_by, invalidation_reason
         FROM spam_training_example
-        WHERE source = 'review_action' AND label = 'ham'
+        WHERE source = 'review_decision' AND label = 'ham'
         """
     ).fetchone()
     state_conn.close()
@@ -451,8 +445,8 @@ def test_reopen_restored_record_invalidates_ham_feedback_and_allows_requarantine
         config, created["uuid"], artifact_version="test-v2"
     )
     metrics = trained["model_snapshot_json"]["training_metrics"]
-    assert metrics["example_count"] == 4
-    assert metrics["spam_examples"] == 3
+    assert metrics["example_count"] == 3
+    assert metrics["spam_examples"] == 2
     assert metrics["ham_examples"] == 1
 
 
@@ -477,7 +471,7 @@ def test_reopen_dismissed_record_invalidates_ham_feedback(tmp_path):
     feedback = [
         example
         for example in store.list_training_examples(config, created["id"])
-        if example["source"] == "review_action"
+        if example["source"] == "review_decision"
     ]
     assert feedback == []
     reopen_action = next(
@@ -500,6 +494,7 @@ def test_review_match_can_be_reclassified_for_training(tmp_path):
     scanner.run_scan(config, dry_run=False)
     record = store.list_review(config)[0]
     first = remediation.classify(config, record["uuid"], "ham", operator="reviewer")
+    assert store.list_review(config)[0]["review_label"] == "ham"
     second = remediation.classify(config, record["uuid"], "spam", operator="reviewer")
 
     assert first["status"] == "flagged"
@@ -507,7 +502,7 @@ def test_review_match_can_be_reclassified_for_training(tmp_path):
     feedback = [
         example
         for example in store.list_training_examples(config, created["id"])
-        if example["source"] == "match_review"
+        if example["source"] == "review_decision"
     ]
     assert [(example["label"], example["source_ref"]) for example in feedback] == [
         ("spam", record["uuid"])
@@ -519,6 +514,31 @@ def test_review_match_can_be_reclassified_for_training(tmp_path):
         "invalidated_training_examples": 1,
         "label": "spam",
     }
+
+
+def test_explicit_label_is_rejected_after_remediation_decision(tmp_path):
+    quay_db_path = tmp_path / "quay.db"
+    _create_quay_db(quay_db_path)
+    config = _config(tmp_path, quay_db_path)
+    _trained_classifier(config)
+    store.update_policy(
+        config,
+        {"scan_dry_run": False, "quarantine_description": "quarantined"},
+    )
+
+    scanner.run_scan(config, dry_run=False)
+    record = store.list_review(config)[0]
+    remediation.quarantine(config, record["uuid"], operator="reviewer")
+
+    with pytest.raises(
+        remediation.RemediationError,
+        match="explicit labels are only allowed for flagged records",
+    ):
+        remediation.classify(config, record["uuid"], "ham", operator="reviewer")
+
+    reviewed = store.list_review(config)[0]
+    assert reviewed["status"] == "quarantined"
+    assert reviewed["review_label"] == "spam"
 
 
 def test_reopen_requires_reason_and_empty_repository(tmp_path):
