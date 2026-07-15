@@ -220,9 +220,15 @@ async function runExploreBrowser() {
     await expect(quayPage).not.toHaveURL(/\/signin/, {timeout: 20_000});
     await quayPage.goto(`${quayUrl}/repository`);
 
-    await serviceToolPage.goto(`${serviceToolUrl}/spam-detection`, {
+    await serviceToolPage.goto(serviceToolUrl, {
       waitUntil: 'domcontentloaded',
     });
+    await expect(serviceToolPage.getByText(/add site banner/i)).toBeVisible({timeout: 20_000});
+    await serviceToolPage.evaluate(() => {
+      window.history.pushState({}, '', '/spam-detection');
+      window.dispatchEvent(new PopStateEvent('popstate'));
+    });
+    await expect(serviceToolPage).toHaveURL(/\/spam-detection/);
     await expect(serviceToolPage.getByRole('heading', {name: 'Spam detection'})).toBeVisible({
       timeout: 20_000,
     });
