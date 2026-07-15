@@ -176,10 +176,12 @@ def main():
     EXPORT_COMPLIANCE_ROLE = app.config.get('authentication', {}).get('roles', {}).get('EXPORT_COMPLIANCE_ROLE')
     SPAM_DETECTION_ROLE = app.config.get('authentication', {}).get('roles', {}).get('SPAM_DETECTION_ROLE')
     SPAM_DETECTION_REMEDIATION_ROLE = app.config.get('authentication', {}).get('roles', {}).get('SPAM_DETECTION_REMEDIATION_ROLE')
+    QUAY_UI_URL = app.config.get('QUAY_UI_URL', 'https://quay.io')
     return render_template('index.html', AUTH_URL=AUTH_URL,  AUTH_REALM=AUTH_REALM, AUTH_CLIENTID=AUTH_CLIENTID,
                            ADMIN_ROLE=ADMIN_ROLE, EXPORT_COMPLIANCE_ROLE=EXPORT_COMPLIANCE_ROLE,
                            SPAM_DETECTION_ROLE=SPAM_DETECTION_ROLE,
-                           SPAM_DETECTION_REMEDIATION_ROLE=SPAM_DETECTION_REMEDIATION_ROLE,)
+                           SPAM_DETECTION_REMEDIATION_ROLE=SPAM_DETECTION_REMEDIATION_ROLE,
+                           QUAY_UI_URL=QUAY_UI_URL,)
 
 
 api.add_resource(BannerTask, '/banner', '/banner/<int:id>', endpoint='banner')

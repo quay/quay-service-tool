@@ -111,6 +111,18 @@ QUAY_DIR=/absolute/path/to/quay \
 make -C /absolute/path/to/quay-service-tool spam-demo
 ```
 
+To start both applications with the configured classifier and a flagged review
+record, without running the visible Playwright walkthrough:
+
+```sh
+QUAY_DIR=/absolute/path/to/quay \
+make -C /absolute/path/to/quay-service-tool spam-demo-explore
+```
+
+The command returns after seeding data and leaves Quay at
+`http://localhost:8080` and Spam Detection at
+`http://localhost:9000/spam-detection` running for manual exploration.
+
 To use a different local artifact without changing Quay configuration:
 
 ```sh

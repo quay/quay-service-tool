@@ -3,6 +3,7 @@ DB_URI: postgresql://quay:quay@quay-db/quay
 # If service tool backend is run outside a container:
 #DB_URI: postgresql://quay:quay@0.0.0.0:5432/quay
 is_local: true
+QUAY_UI_URL: https://quay.io
 
 # Used to test authentication in local env
 test_auth: false

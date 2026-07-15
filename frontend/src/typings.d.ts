@@ -16,6 +16,7 @@ interface Window {
   EXPORT_COMPLIANCE_ROLE?: string;
   SPAM_DETECTION_ROLE?: string;
   SPAM_DETECTION_REMEDIATION_ROLE?: string;
+  QUAY_UI_URL?: string;
   AUTH_REALM?: string;
   AUTH_URL?: string;
   AUTH_CLIENTID?: string;

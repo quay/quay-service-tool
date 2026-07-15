@@ -32,6 +32,21 @@ import './SpamDetection.css';
 const SPAM_DETECTION_ROLE = window.SPAM_DETECTION_ROLE || process.env.SPAM_DETECTION_ROLE;
 const SPAM_DETECTION_REMEDIATION_ROLE =
   window.SPAM_DETECTION_REMEDIATION_ROLE || process.env.SPAM_DETECTION_REMEDIATION_ROLE;
+const QUAY_UI_URL = window.QUAY_UI_URL || process.env.QUAY_UI_URL || 'https://quay.io';
+
+function repositoryLink(item: any) {
+  const namespace = encodeURIComponent(item.namespace_name);
+  const repository = encodeURIComponent(item.repository_name);
+  return (
+    <a
+      href={`${QUAY_UI_URL.replace(/\/$/, '')}/repository/${namespace}/${repository}`}
+      target="_blank"
+      rel="noreferrer"
+    >
+      {item.namespace_name}/{item.repository_name}
+    </a>
+  );
+}
 
 type Classifier = {
   uuid: string;
@@ -63,7 +78,12 @@ export const SpamDetection: React.FunctionComponent = () => {
   const [trainingLabel, setTrainingLabel] = useState('spam');
   const [csvPath, setCsvPath] = useState('');
   const [selectedClassifier, setSelectedClassifier] = useState('');
-  const [pendingReviewAction, setPendingReviewAction] = useState<{ recordUuid: string; action: string } | null>(null);
+  const [pendingReviewAction, setPendingReviewAction] = useState<{
+    recordUuid: string;
+    action: string;
+    repository: string;
+    description: string;
+  } | null>(null);
   const [redactedDescription, setRedactedDescription] = useState('');
   const [reviewReason, setReviewReason] = useState('');
 
@@ -309,8 +329,13 @@ export const SpamDetection: React.FunctionComponent = () => {
       .catch((error) => showMessage(error.response?.data?.message || 'Unable to run scan'));
   }
 
-  function openReviewAction(recordUuid: string, action: string) {
-    setPendingReviewAction({ recordUuid, action });
+  function openReviewAction(record: any, action: string) {
+    setPendingReviewAction({
+      recordUuid: record.uuid,
+      action,
+      repository: `${record.namespace_name}/${record.repository_name}`,
+      description: record.original_description || '',
+    });
     setRedactedDescription('');
     setReviewReason('');
   }
@@ -395,6 +420,13 @@ export const SpamDetection: React.FunctionComponent = () => {
               <TextArea id="reopen-reason" value={reviewReason} onChange={(value) => setReviewReason(value)} />
             </FormGroup>
           </Form>
+        )}
+        {pendingReviewAction?.action.startsWith('classify-') && (
+          <div className="spam-detection-label-summary">
+            <strong>{pendingReviewAction.repository}</strong>
+            <span>Description to label</span>
+            <p>{pendingReviewAction.description || 'No description'}</p>
+          </div>
         )}
       </Modal>
       {loading && <Spinner role="spam-detection-loading" isSVG />}
@@ -721,9 +753,12 @@ export const SpamDetection: React.FunctionComponent = () => {
             <SimpleTable
               ariaLabel="Active review"
               variant="review"
-              columns={['Repository', 'Status', 'Score', 'Actions']}
+              columns={['Repository', 'Description', 'Status', 'Score', 'Actions']}
               rows={records.map((item) => [
-                `${item.namespace_name}/${item.repository_name}`,
+                repositoryLink(item),
+                <span key="description" className="spam-detection-description">
+                  {item.original_description || 'No description'}
+                </span>,
                 item.status,
                 <span key="score" className="spam-detection-score">
                   {item.classifier_score.toFixed(4)}
@@ -731,29 +766,29 @@ export const SpamDetection: React.FunctionComponent = () => {
                 canRemediate ? (
                   <span className="spam-detection-row-actions">
                     {item.status === 'flagged' && (
-                      <Button variant="secondary" onClick={() => openReviewAction(item.uuid, 'quarantine')}>
+                      <Button variant="secondary" onClick={() => openReviewAction(item, 'quarantine')}>
                         Quarantine
                       </Button>
                     )}{' '}
                     {item.status === 'quarantined' && (
-                      <Button variant="secondary" onClick={() => openReviewAction(item.uuid, 'restore')}>
+                      <Button variant="secondary" onClick={() => openReviewAction(item, 'restore')}>
                         Restore
                       </Button>
                     )}{' '}
                     {item.status === 'quarantined' && (
-                      <Button variant="danger" onClick={() => openReviewAction(item.uuid, 'redact')}>
+                      <Button variant="danger" onClick={() => openReviewAction(item, 'redact')}>
                         Redact
                       </Button>
                     )}{' '}
                     {['flagged', 'quarantined'].includes(item.status) && (
-                      <Button variant="link" onClick={() => openReviewAction(item.uuid, 'dismiss')}>
+                      <Button variant="link" onClick={() => openReviewAction(item, 'dismiss')}>
                         Dismiss
                       </Button>
                     )}{' '}
-                    <Button variant="link" onClick={() => openReviewAction(item.uuid, 'classify-spam')}>
+                    <Button variant="link" onClick={() => openReviewAction(item, 'classify-spam')}>
                       Label spam
                     </Button>{' '}
-                    <Button variant="link" onClick={() => openReviewAction(item.uuid, 'classify-ham')}>
+                    <Button variant="link" onClick={() => openReviewAction(item, 'classify-ham')}>
                       Label ham
                     </Button>
                   </span>
@@ -768,15 +803,18 @@ export const SpamDetection: React.FunctionComponent = () => {
             <SimpleTable
               ariaLabel="Closed reviews"
               variant="review"
-              columns={['Repository', 'Status', 'Score', 'Actions']}
+              columns={['Repository', 'Description', 'Status', 'Score', 'Actions']}
               rows={terminalRecords.map((item) => [
-                `${item.namespace_name}/${item.repository_name}`,
+                repositoryLink(item),
+                <span key="description" className="spam-detection-description">
+                  {item.original_description || 'No description'}
+                </span>,
                 item.status,
                 <span key="score" className="spam-detection-score">
                   {item.classifier_score.toFixed(4)}
                 </span>,
                 canRemediate ? (
-                  <Button variant="secondary" onClick={() => openReviewAction(item.uuid, 'reopen')}>
+                  <Button variant="secondary" onClick={() => openReviewAction(item, 'reopen')}>
                     Reopen review
                   </Button>
                 ) : (

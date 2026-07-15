@@ -13,12 +13,15 @@ local-dev-up:
 local-dev-down:
 	$(COMPOSE) down
 
-.PHONY: spam-demo-check spam-demo spam-demo-status spam-demo-down spam-demo-clean
+.PHONY: spam-demo-check spam-demo spam-demo-explore spam-demo-status spam-demo-down spam-demo-clean
 spam-demo-check:
 	$(SPAM_DEMO_SCRIPT) check
 
 spam-demo:
 	$(SPAM_DEMO_SCRIPT) demo
+
+spam-demo-explore:
+	$(SPAM_DEMO_SCRIPT) explore
 
 spam-demo-status:
 	$(SPAM_DEMO_SCRIPT) status

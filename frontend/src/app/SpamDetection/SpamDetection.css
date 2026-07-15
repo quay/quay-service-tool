@@ -134,17 +134,47 @@
   width: 10.8%;
 }
 
+.spam-detection-table--review {
+  min-width: 1080px;
+}
 .spam-detection-table--review th:nth-child(1) {
-  width: 34%;
+  width: 18%;
 }
 .spam-detection-table--review th:nth-child(2) {
-  width: 18%;
+  width: 30%;
 }
 .spam-detection-table--review th:nth-child(3) {
   width: 12%;
 }
 .spam-detection-table--review th:nth-child(4) {
-  width: 36%;
+  width: 10%;
+}
+.spam-detection-table--review th:nth-child(5) {
+  width: 30%;
+}
+
+.spam-detection-description {
+  white-space: pre-wrap;
+}
+
+.spam-detection-label-summary {
+  display: grid;
+  gap: var(--pf-global--spacer--sm);
+}
+
+.spam-detection-label-summary span {
+  color: var(--pf-global--Color--200);
+  font-size: var(--pf-global--FontSize--sm);
+  font-weight: var(--pf-global--FontWeight--semi-bold);
+}
+
+.spam-detection-label-summary p {
+  padding: var(--pf-global--spacer--md);
+  margin: 0;
+  overflow-wrap: anywhere;
+  white-space: pre-wrap;
+  background: var(--pf-global--BackgroundColor--200);
+  border-left: 3px solid var(--pf-global--BorderColor--100);
 }
 
 .spam-detection-table--audit {

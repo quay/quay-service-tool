@@ -189,6 +189,7 @@ describe('Spam Detection', () => {
               repository_name: 'spam',
               status: 'flagged',
               classifier_score: 0.99,
+              original_description: 'free casino bonus https://spam.example',
             },
           ],
         },
@@ -205,7 +206,13 @@ describe('Spam Detection', () => {
     render(<SpamDetection />);
 
     fireEvent.click(await screen.findByText('Review'));
+    expect((await screen.findByRole('link', { name: 'publicns/spam' })).getAttribute('href')).toBe(
+      'https://quay.io/repository/publicns/spam'
+    );
+    expect(await screen.findByText('free casino bonus https://spam.example')).toBeTruthy();
     fireEvent.click(await screen.findByRole('button', { name: 'Label spam' }));
+    expect(await screen.findByText('Description to label')).toBeTruthy();
+    expect(screen.getAllByText('free casino bonus https://spam.example')).toHaveLength(2);
     fireEvent.click(await screen.findByRole('button', { name: 'Confirm' }));
 
     await waitFor(() => {

@@ -24,6 +24,7 @@ usage() {
 Usage:
   make spam-demo-check
   make spam-demo
+  make spam-demo-explore
   make spam-demo-status
   make spam-demo-down
   make spam-demo-clean
@@ -33,6 +34,7 @@ Advanced usage:
   ./scripts/spam-ingress-local-demo.sh test
   ./scripts/spam-ingress-local-demo.sh service-tool
   ./scripts/spam-ingress-local-demo.sh browse
+  ./scripts/spam-ingress-local-demo.sh explore
 
 Commands:
   check         Verify required local paths and commands.
@@ -40,6 +42,7 @@ Commands:
   test          Run a real Quay spam ingress API smoke test.
   service-tool  Start quay-service-tool against the same live Quay DB.
   browse        Open Quay and service-tool in system Chrome via Playwright.
+  explore       Start both applications and seed a review record without browser automation.
   demo          Run up, test, service-tool, then browse.
   status        Show compose status for both stacks.
   down          Stop both stacks, preserving volumes.
@@ -420,6 +423,27 @@ browse_service_tool() {
   )
 }
 
+seed_service_tool() {
+  check_all
+  wait_for_http "$QUAY_URL" "Quay UI" 30
+  wait_for_http "$SERVICE_TOOL_URL" "service-tool frontend" 30
+  log "Importing the configured classifier and seeding review data"
+  local classifier_artifact
+  classifier_artifact="$(resolve_classifier_artifact)"
+  (
+    cd "$SERVICE_TOOL_DIR"
+    QUAY_URL="$QUAY_URL" \
+      SERVICE_TOOL_API_URL="$SERVICE_TOOL_API_URL" \
+      QUAY_DIR="$QUAY_DIR" \
+      SPAM_CLASSIFIER_ARTIFACT="$classifier_artifact" \
+      CONTAINER_RUNTIME="$CONTAINER_RUNTIME" \
+      node scripts/spam-demo-browser.js --seed-only
+  )
+  log "Quay UI: ${QUAY_URL}"
+  log "service-tool UI: ${SERVICE_TOOL_URL}/spam-detection"
+  log "Both applications will remain running until make spam-demo-down is run"
+}
+
 status_all() {
   if ! runtime_available; then
     log "Container runtime is not reachable: ${CONTAINER_RUNTIME}"
@@ -492,6 +516,11 @@ case "${1:-}" in
     ;;
   browse)
     browse_service_tool
+    ;;
+  explore)
+    up_quay
+    up_service_tool
+    seed_service_tool
     ;;
   demo)
     up_quay

@@ -14,6 +14,7 @@ type ReviewRecord = {
   repository_name: string;
   status: string;
   classifier_score: number;
+  original_description: string;
 };
 
 const quarantineNotice =
@@ -68,6 +69,7 @@ test('Spam Detection operator workflow covers export, labels, recovery, and clea
       repository_name: 'spam-restore',
       status: 'flagged',
       classifier_score: 0.9912,
+      original_description: 'free casino bonus https://restore.example',
     },
     {
       uuid: 'record-cleanup',
@@ -75,6 +77,7 @@ test('Spam Detection operator workflow covers export, labels, recovery, and clea
       repository_name: 'spam-cleanup',
       status: 'flagged',
       classifier_score: 0.9844,
+      original_description: 'crypto jackpot offer https://cleanup.example',
     },
     {
       uuid: 'record-dismiss',
@@ -82,6 +85,7 @@ test('Spam Detection operator workflow covers export, labels, recovery, and clea
       repository_name: 'spam-dismiss',
       status: 'flagged',
       classifier_score: 0.9733,
+      original_description: 'gift card promotion https://dismiss.example',
     },
   ];
   const reviewActions: string[] = [];
@@ -353,7 +357,14 @@ test('Spam Detection operator workflow covers export, labels, recovery, and clea
   await expect(restoreRow).toContainText('quarantined');
 
   const dismissRow = reviewPanel.locator('tr', { hasText: 'publicns/spam-dismiss' });
+  await expect(dismissRow.getByRole('link', { name: 'publicns/spam-dismiss' })).toHaveAttribute(
+    'href',
+    'http://localhost:8080/repository/publicns/spam-dismiss'
+  );
+  await expect(dismissRow).toContainText('gift card promotion https://dismiss.example');
   await dismissRow.getByRole('button', { name: 'Label spam' }).click();
+  await expect(page.getByText('Description to label')).toBeVisible();
+  await expect(page.getByText('gift card promotion https://dismiss.example').last()).toBeVisible();
   await page.getByRole('button', { name: 'Confirm' }).click();
   await expect(page.getByText('Match labeled spam')).toBeVisible();
   await closeFeedback(page);

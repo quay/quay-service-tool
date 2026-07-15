@@ -187,6 +187,23 @@ async function importServiceToolClassifier() {
   }
 }
 
+async function seedReviewData() {
+  const api = await request.newContext({baseURL: serviceToolApiUrl});
+  try {
+    const result = await checkedJson(
+      await api.post('/spam-detection/runs', {
+        data: {source: 'local_explore', dry_run: false, max_repos: 1000},
+      }),
+      'run seeded service-tool review scan',
+    );
+    console.log(
+      `Seeded ${namespace}/${legacyRepository}; scan flagged ${result.run.repos_flagged} repository.`,
+    );
+  } finally {
+    await api.dispose();
+  }
+}
+
 async function pause(label) {
   console.log(`Demo: ${label}`);
   await new Promise((resolve) => setTimeout(resolve, stepDelay));
@@ -457,6 +474,10 @@ const run = async () => {
   }
   await prepareLegacyRepository();
   const classifierName = await importServiceToolClassifier();
+  if (process.argv.includes('--seed-only')) {
+    await seedReviewData();
+    return;
+  }
   await runVisibleDemo(classifierName);
 };
 
