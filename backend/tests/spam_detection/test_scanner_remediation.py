@@ -361,6 +361,147 @@ def test_restore_records_ham_feedback_after_quarantine_spam_feedback(tmp_path):
     )
 
 
+def test_reopen_restored_record_invalidates_ham_feedback_and_allows_requarantine(tmp_path):
+    quay_db_path = tmp_path / "quay.db"
+    _create_quay_db(quay_db_path)
+    config = _config(tmp_path, quay_db_path)
+    created = _trained_classifier(config)
+    store.update_policy(
+        config,
+        {"scan_dry_run": False, "quarantine_description": "quarantined"},
+    )
+
+    scanner.run_scan(config, dry_run=False)
+    record = store.list_review(config)[0]
+    remediation.quarantine(config, record["uuid"], operator="reviewer")
+    remediation.restore(config, record["uuid"], operator="reviewer")
+
+    reopened = remediation.reopen(
+        config,
+        record["uuid"],
+        reason="Restore was approved in error",
+        operator="lead-reviewer",
+    )
+
+    assert reopened["status"] == "flagged"
+    assert reopened["terminal_classifier_snapshot_json"] is None
+    assert reopened["terminal_description_fingerprint"] is None
+    assert store.list_review(config)[0]["uuid"] == record["uuid"]
+    feedback = [
+        example
+        for example in store.list_training_examples(config, created["id"])
+        if example["source"] == "review_action"
+    ]
+    assert [example["label"] for example in feedback] == ["spam"]
+
+    state_conn = sqlite3.connect(tmp_path / "state.db")
+    invalidated = state_conn.execute(
+        """
+        SELECT invalidated_by, invalidation_reason
+        FROM spam_training_example
+        WHERE source = 'review_action' AND label = 'ham'
+        """
+    ).fetchone()
+    state_conn.close()
+    assert invalidated == ("lead-reviewer", "Restore was approved in error")
+
+    reopen_action = next(
+        action for action in store.list_audit_actions(config) if action["action"] == "reopen"
+    )
+    assert reopen_action["from_status"] == "restored"
+    assert reopen_action["to_status"] == "flagged"
+    assert reopen_action["operator"] == "lead-reviewer"
+    assert reopen_action["details_json"] == {
+        "invalidated_training_examples": 1,
+        "reason": "Restore was approved in error",
+    }
+
+    requarantined = remediation.quarantine(
+        config, record["uuid"], operator="lead-reviewer"
+    )
+    assert requarantined["status"] == "quarantined"
+    conn = sqlite3.connect(quay_db_path)
+    description = conn.execute(
+        'SELECT description FROM "repository" WHERE id = 1'
+    ).fetchone()[0]
+    conn.close()
+    assert description == "quarantined"
+    trained = classifier.train_classifier(
+        config, created["uuid"], artifact_version="test-v2"
+    )
+    metrics = trained["model_snapshot_json"]["training_metrics"]
+    assert metrics["example_count"] == 4
+    assert metrics["spam_examples"] == 3
+    assert metrics["ham_examples"] == 1
+
+
+def test_reopen_requires_reason_and_empty_repository(tmp_path):
+    quay_db_path = tmp_path / "quay.db"
+    _create_quay_db(quay_db_path)
+    config = _config(tmp_path, quay_db_path)
+    _trained_classifier(config)
+    store.update_policy(
+        config,
+        {"scan_dry_run": False, "quarantine_description": "quarantined"},
+    )
+
+    scanner.run_scan(config, dry_run=False)
+    record = store.list_review(config)[0]
+    remediation.quarantine(config, record["uuid"], operator="reviewer")
+    remediation.restore(config, record["uuid"], operator="reviewer")
+
+    with pytest.raises(remediation.RemediationError, match="reason is required"):
+        remediation.reopen(config, record["uuid"], reason=" ", operator="reviewer")
+
+    conn = sqlite3.connect(quay_db_path)
+    conn.execute(
+        'INSERT INTO "tag" (id, repository_id, lifetime_end_ms, hidden) VALUES (?, ?, ?, ?)',
+        (2, 1, None, 0),
+    )
+    conn.commit()
+    conn.close()
+
+    with pytest.raises(remediation.RemediationError, match="only empty repositories"):
+        remediation.reopen(
+            config,
+            record["uuid"],
+            reason="Restore was approved in error",
+            operator="reviewer",
+        )
+
+
+def test_quarantine_rechecks_empty_repository_after_reopen(tmp_path):
+    quay_db_path = tmp_path / "quay.db"
+    _create_quay_db(quay_db_path)
+    config = _config(tmp_path, quay_db_path)
+    _trained_classifier(config)
+    store.update_policy(
+        config,
+        {"scan_dry_run": False, "quarantine_description": "quarantined"},
+    )
+
+    scanner.run_scan(config, dry_run=False)
+    record = store.list_review(config)[0]
+    remediation.quarantine(config, record["uuid"], operator="reviewer")
+    remediation.restore(config, record["uuid"], operator="reviewer")
+    remediation.reopen(
+        config,
+        record["uuid"],
+        reason="Restore was approved in error",
+        operator="reviewer",
+    )
+    conn = sqlite3.connect(quay_db_path)
+    conn.execute(
+        'INSERT INTO "tag" (id, repository_id, lifetime_end_ms, hidden) VALUES (?, ?, ?, ?)',
+        (2, 1, None, 0),
+    )
+    conn.commit()
+    conn.close()
+
+    with pytest.raises(remediation.RemediationError, match="only empty repositories"):
+        remediation.quarantine(config, record["uuid"], operator="reviewer")
+
+
 def test_unchanged_terminal_record_is_not_reopened(tmp_path):
     quay_db_path = tmp_path / "quay.db"
     _create_quay_db(quay_db_path)

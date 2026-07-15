@@ -245,7 +245,7 @@ def list_training_examples(config, classifier_id):
             for row in conn.execute(
                 """
                 SELECT * FROM spam_training_example
-                WHERE classifier_id = ?
+                WHERE classifier_id = ? AND invalidated_at IS NULL
                 ORDER BY created_at, id
                 """,
                 (classifier_id,),
@@ -596,7 +596,7 @@ def update_quarantine_record(
         params = []
         for key, value in fields.items():
             assignments.append(f"{key} = ?")
-            if key.endswith("_json") and not isinstance(value, str):
+            if value is not None and key.endswith("_json") and not isinstance(value, str):
                 value = json_dumps(value)
             params.append(value)
         assignments.extend(["updated_at = ?", "actioned_by = ?", "actioned_at = ?"])
@@ -642,6 +642,81 @@ def update_quarantine_record(
                     ),
                 )
         return row_to_dict(updated)
+
+
+def reopen_restored_record(config, record_id, fields, operator, reason):
+    now = utcnow()
+    with connect_state_db(config) as conn:
+        current = conn.execute(
+            "SELECT * FROM spam_quarantine_record WHERE id = ?", (record_id,)
+        ).fetchone()
+        if not current or current["status"] != "restored":
+            raise ValueError("only restored records can be reopened")
+        active = conn.execute(
+            """
+            SELECT id FROM spam_quarantine_record
+            WHERE repository_id = ? AND id != ?
+              AND status IN ('flagged', 'quarantined')
+            LIMIT 1
+            """,
+            (current["repository_id"], record_id),
+        ).fetchone()
+        if active:
+            raise ValueError("repository already has an active review record")
+
+        assignments = []
+        params = []
+        for key, value in fields.items():
+            assignments.append(f"{key} = ?")
+            if value is not None and key.endswith("_json") and not isinstance(value, str):
+                value = json_dumps(value)
+            params.append(value)
+        assignments.extend(["updated_at = ?", "actioned_by = ?", "actioned_at = ?"])
+        params.extend([now, operator, now, record_id])
+        conn.execute(
+            f"UPDATE spam_quarantine_record SET {', '.join(assignments)} WHERE id = ?",
+            tuple(params),
+        )
+
+        restore_action = conn.execute(
+            """
+            SELECT uuid FROM spam_action_history
+            WHERE quarantine_record_id = ? AND action = 'restore'
+            ORDER BY created_at DESC, id DESC
+            LIMIT 1
+            """,
+            (record_id,),
+        ).fetchone()
+        invalidated_feedback = 0
+        if restore_action:
+            cursor = conn.execute(
+                """
+                UPDATE spam_training_example
+                SET invalidated_at = ?, invalidated_by = ?, invalidation_reason = ?
+                WHERE source = 'review_action' AND source_ref = ?
+                  AND label = 'ham' AND invalidated_at IS NULL
+                """,
+                (now, operator, reason, restore_action["uuid"]),
+            )
+            invalidated_feedback = cursor.rowcount
+
+        add_action_with_conn(
+            conn,
+            record_id,
+            "reopen",
+            "restored",
+            "flagged",
+            operator,
+            {
+                "reason": reason,
+                "invalidated_training_examples": invalidated_feedback,
+            },
+        )
+        return row_to_dict(
+            conn.execute(
+                "SELECT * FROM spam_quarantine_record WHERE id = ?", (record_id,)
+            ).fetchone()
+        )
 
 
 def update_quarantine_fields(config, record_id, fields):

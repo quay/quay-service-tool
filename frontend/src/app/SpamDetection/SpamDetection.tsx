@@ -19,6 +19,7 @@ import {
   TabTitleText,
   TextArea,
   TextInput,
+  Title,
 } from '@patternfly/react-core';
 import { useEffect, useState } from 'react';
 import HttpService from 'src/services/HttpService';
@@ -44,6 +45,7 @@ export const SpamDetection: React.FunctionComponent = () => {
   const [policy, setPolicy] = useState<any>({});
   const [runs, setRuns] = useState<any[]>([]);
   const [records, setRecords] = useState<any[]>([]);
+  const [restoredRecords, setRestoredRecords] = useState<any[]>([]);
   const [actions, setActions] = useState<any[]>([]);
   const [preview, setPreview] = useState<any>(null);
   const [loading, setLoading] = useState(false);
@@ -56,6 +58,7 @@ export const SpamDetection: React.FunctionComponent = () => {
   const [selectedClassifier, setSelectedClassifier] = useState('');
   const [pendingReviewAction, setPendingReviewAction] = useState<{ recordUuid: string; action: string } | null>(null);
   const [redactedDescription, setRedactedDescription] = useState('');
+  const [reviewReason, setReviewReason] = useState('');
 
   const canRemediate = UserService.hasRealmRole(SPAM_DETECTION_REMEDIATION_ROLE);
 
@@ -98,9 +101,14 @@ export const SpamDetection: React.FunctionComponent = () => {
   }
 
   async function loadReview() {
-    return HttpService.axiosClient.get('/spam-detection/review').then((response) => {
-      setRecords(response.data.records || []);
-    });
+    return Promise.all([
+      HttpService.axiosClient.get('/spam-detection/review').then((response) => {
+        setRecords(response.data.records || []);
+      }),
+      HttpService.axiosClient.get('/spam-detection/review?status=restored').then((response) => {
+        setRestoredRecords(response.data.records || []);
+      }),
+    ]);
   }
 
   async function loadAudit() {
@@ -237,6 +245,7 @@ export const SpamDetection: React.FunctionComponent = () => {
   function openReviewAction(recordUuid: string, action: string) {
     setPendingReviewAction({ recordUuid, action });
     setRedactedDescription('');
+    setReviewReason('');
   }
 
   async function reviewAction() {
@@ -244,7 +253,12 @@ export const SpamDetection: React.FunctionComponent = () => {
       return;
     }
     const { recordUuid, action } = pendingReviewAction;
-    const body = action === 'redact' ? { redacted_description: redactedDescription } : {};
+    const body =
+      action === 'redact'
+        ? { redacted_description: redactedDescription }
+        : action === 'reopen'
+        ? { reason: reviewReason.trim() }
+        : {};
     HttpService.axiosClient
       .post(`/spam-detection/review/${recordUuid}/${action}`, body)
       .then(() => {
@@ -281,7 +295,10 @@ export const SpamDetection: React.FunctionComponent = () => {
             key="confirm"
             variant={pendingReviewAction?.action === 'redact' ? 'danger' : 'primary'}
             onClick={reviewAction}
-            isDisabled={pendingReviewAction?.action === 'redact' && redactedDescription.length === 0}
+            isDisabled={
+              (pendingReviewAction?.action === 'redact' && redactedDescription.length === 0) ||
+              (pendingReviewAction?.action === 'reopen' && reviewReason.trim().length === 0)
+            }
           >
             Confirm
           </Button>,
@@ -298,6 +315,13 @@ export const SpamDetection: React.FunctionComponent = () => {
                 value={redactedDescription}
                 onChange={(value) => setRedactedDescription(value)}
               />
+            </FormGroup>
+          </Form>
+        )}
+        {pendingReviewAction?.action === 'reopen' && (
+          <Form>
+            <FormGroup label="Reason" fieldId="reopen-reason">
+              <TextArea id="reopen-reason" value={reviewReason} onChange={(value) => setReviewReason(value)} />
             </FormGroup>
           </Form>
         )}
@@ -494,6 +518,9 @@ export const SpamDetection: React.FunctionComponent = () => {
           />
         </Tab>
         <Tab eventKey={4} title={<TabTitleText>Review</TabTitleText>}>
+          <Title headingLevel="h2" size="md">
+            Active review
+          </Title>
           <SimpleTable
             columns={['Repository', 'Status', 'Score', 'Actions']}
             rows={records.map((item) => [
@@ -517,10 +544,30 @@ export const SpamDetection: React.FunctionComponent = () => {
                       Redact
                     </Button>
                   )}{' '}
-                  <Button variant="link" onClick={() => openReviewAction(item.uuid, 'dismiss')}>
-                    Dismiss
-                  </Button>
+                  {['flagged', 'quarantined'].includes(item.status) && (
+                    <Button variant="link" onClick={() => openReviewAction(item.uuid, 'dismiss')}>
+                      Dismiss
+                    </Button>
+                  )}{' '}
                 </span>
+              ) : (
+                ''
+              ),
+            ])}
+          />
+          <Title headingLevel="h2" size="md">
+            Restored
+          </Title>
+          <SimpleTable
+            columns={['Repository', 'Status', 'Score', 'Actions']}
+            rows={restoredRecords.map((item) => [
+              `${item.namespace_name}/${item.repository_name}`,
+              item.status,
+              item.classifier_score.toFixed(4),
+              canRemediate ? (
+                <Button variant="secondary" onClick={() => openReviewAction(item.uuid, 'reopen')}>
+                  Reopen review
+                </Button>
               ) : (
                 ''
               ),
@@ -529,15 +576,14 @@ export const SpamDetection: React.FunctionComponent = () => {
         </Tab>
         <Tab eventKey={5} title={<TabTitleText>Audit</TabTitleText>}>
           <SimpleTable
-            columns={['Time', 'Repository', 'Action', 'Transition', 'Operator']}
+            columns={['Time', 'Repository', 'Action', 'Transition', 'Operator', 'Reason']}
             rows={actions.map((item) => [
               item.created_at,
-              item.namespace_name && item.repository_name
-                ? `${item.namespace_name}/${item.repository_name}`
-                : '',
+              item.namespace_name && item.repository_name ? `${item.namespace_name}/${item.repository_name}` : '',
               item.action,
               [item.from_status, item.to_status].filter(Boolean).join(' -> '),
               item.operator || '',
+              item.details_json?.reason || '',
             ])}
           />
         </Tab>

@@ -40,7 +40,7 @@ async function openSpamDetection(page: Page) {
   await expect(page).toHaveURL(/\/spam-detection/);
 }
 
-test('Spam Detection operator workflow covers export, scans, restore, and cleanup', async ({ page }) => {
+test('Spam Detection operator workflow covers export, scans, restore, reopen, and cleanup', async ({ page }) => {
   const classifiers: Classifier[] = [
     {
       uuid: 'classifier-1',
@@ -82,6 +82,7 @@ test('Spam Detection operator workflow covers export, scans, restore, and cleanu
   let exportPayload: any;
   let policyPayload: any;
   let redactionPayload: any;
+  let reopenPayload: any;
 
   await page.route('**/banner', async (route) => {
     await fulfillJson(route, { messages: [] });
@@ -166,8 +167,12 @@ test('Spam Detection operator workflow covers export, scans, restore, and cleanu
     });
     await fulfillJson(route, { run: runs[0] }, 201);
   });
-  await page.route('**/spam-detection/review', async (route) => {
-    await fulfillJson(route, { records });
+  await page.route(/.*\/spam-detection\/review(?:\?.*)?$/, async (route) => {
+    const statuses = new URL(route.request().url()).searchParams.getAll('status');
+    const visibleRecords = statuses.length
+      ? records.filter((record) => statuses.includes(record.status))
+      : records.filter((record) => ['flagged', 'quarantined'].includes(record.status));
+    await fulfillJson(route, { records: visibleRecords });
   });
   await page.route('**/spam-detection/audit', async (route) => {
     await fulfillJson(route, { actions: auditActions });
@@ -195,15 +200,21 @@ test('Spam Detection operator workflow covers export, scans, restore, and cleanu
           ? 'quarantined'
           : action === 'restore'
           ? 'restored'
+          : action === 'reopen'
+          ? 'flagged'
           : action === 'redact'
           ? 'redacted'
           : 'dismissed',
       operator: 'reviewer',
+      details_json: action === 'reopen' ? route.request().postDataJSON() : {},
     });
     if (action === 'quarantine') {
       record.status = 'quarantined';
     } else if (action === 'restore') {
       record.status = 'restored';
+    } else if (action === 'reopen') {
+      reopenPayload = route.request().postDataJSON();
+      record.status = 'flagged';
     } else if (action === 'redact') {
       redactionPayload = route.request().postDataJSON();
       record.status = 'redacted';
@@ -277,6 +288,19 @@ test('Spam Detection operator workflow covers export, scans, restore, and cleanu
   await expect(page.getByText('restore completed')).toBeVisible();
   await closeFeedback(page);
   await expect(restoreRow).toContainText('restored');
+  await restoreRow.getByRole('button', { name: 'Reopen review' }).click();
+  await expect(page.getByRole('button', { name: 'Confirm' })).toBeDisabled();
+  await page.getByLabel('Reason').fill('Restore was approved in error');
+  await page.getByRole('button', { name: 'Confirm' }).click();
+  await expect(page.getByText('reopen completed')).toBeVisible();
+  await closeFeedback(page);
+  await expect(restoreRow).toContainText('flagged');
+  expect(reopenPayload).toEqual({ reason: 'Restore was approved in error' });
+  await restoreRow.getByRole('button', { name: 'Quarantine' }).click();
+  await page.getByRole('button', { name: 'Confirm' }).click();
+  await expect(page.getByText('quarantine completed')).toBeVisible();
+  await closeFeedback(page);
+  await expect(restoreRow).toContainText('quarantined');
 
   const cleanupRow = reviewPanel.locator('tr', { hasText: 'publicns/spam-cleanup' });
   await cleanupRow.getByRole('button', { name: 'Quarantine' }).click();
@@ -289,11 +313,13 @@ test('Spam Detection operator workflow covers export, scans, restore, and cleanu
   await page.getByRole('button', { name: 'Confirm' }).click();
   await expect(page.getByText('redact completed')).toBeVisible();
   await closeFeedback(page);
-  await expect(cleanupRow).toContainText('redacted');
+  await expect(cleanupRow).toHaveCount(0);
   expect(redactionPayload).toEqual({ redacted_description: '[redacted by spam cleanup]' });
   expect(reviewActions).toEqual([
     'record-restore:quarantine',
     'record-restore:restore',
+    'record-restore:reopen',
+    'record-restore:quarantine',
     'record-cleanup:quarantine',
     'record-cleanup:redact',
   ]);
@@ -301,4 +327,6 @@ test('Spam Detection operator workflow covers export, scans, restore, and cleanu
   const auditPanel = page.getByLabel('Audit', { exact: true });
   await expect(auditPanel).toContainText('publicns/spam-cleanup');
   await expect(auditPanel).toContainText('quarantined -> redacted');
+  await expect(auditPanel).toContainText('restored -> flagged');
+  await expect(auditPanel).toContainText('Restore was approved in error');
 });

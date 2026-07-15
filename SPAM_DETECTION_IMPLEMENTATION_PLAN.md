@@ -140,6 +140,7 @@ Register resources in `backend/app.py`:
 * `GET /spam-detection/audit`
 * `POST /spam-detection/review/<uuid>/quarantine`
 * `POST /spam-detection/review/<uuid>/restore`
+* `POST /spam-detection/review/<uuid>/reopen`
 * `POST /spam-detection/review/<uuid>/dismiss`
 * `POST /spam-detection/review/<uuid>/redact`
 
@@ -216,6 +217,9 @@ Indexes:
 * `source_ref`: action-history UUID for review-derived examples
 * `created_by`
 * `created_at`
+* `invalidated_at`
+* `invalidated_by`
+* `invalidation_reason`
 
 Indexes:
 
@@ -331,7 +335,7 @@ Application validation must prevent more than one active `flagged` or
 * `id`
 * `uuid`
 * `quarantine_record_id`
-* `action`: `flag`, `quarantine`, `restore`, `dismiss`, `redact`,
+* `action`: `flag`, `quarantine`, `restore`, `reopen`, `dismiss`, `redact`,
   `train`, `import`, `policy_update`, `artifact_export`
 * `from_status`
 * `to_status`
@@ -424,6 +428,7 @@ Allowed lifecycle:
 * `flagged` -> `quarantined`
 * `flagged` -> `dismissed`
 * `quarantined` -> `restored`
+* `restored` -> `flagged`
 * `quarantined` -> `dismissed`
 * `quarantined` -> `redacted`
 
@@ -450,6 +455,17 @@ Restore:
 * Mark service-tool state `restored`.
 * Add action history and log entry.
 * Persist the restored description as a `ham` training example.
+
+Reopen:
+
+* Require status `restored`, remediation permission, and an operator reason.
+* Recheck that the Quay repository exists, is active, and has no pushed image
+  content.
+* Mark the existing record `flagged` so normal quarantine confirmation remains
+  required.
+* Add `restored` -> `flagged` action history with the operator reason.
+* Invalidate the `ham` training example created by the mistaken restore so the
+  next training run does not consume contradictory feedback.
 
 Dismiss:
 
@@ -524,8 +540,8 @@ Initial UI sections:
   dry-run, max repos, batch size, and quarantine notice.
 * Preview: run a read-only preview with filters and paginated matches.
 * Runs: list scan runs and drill into matches.
-* Review Queue: filter flagged/quarantined records and run quarantine, restore,
-  dismiss, or redact actions with confirmation.
+* Review Queue: show flagged, quarantined, and restored records and run
+  quarantine, restore, reopen, dismiss, or redact actions with confirmation.
 * Audit: list review transitions with repository, operator, and timestamp.
 
 ## Tests
@@ -545,8 +561,10 @@ Backend tests:
 * unchanged terminal records are suppressed unless policy, description, or
   active artifact identity changes;
 * invalid review lifecycle transitions fail;
-* quarantine/restore/redact use write DB helper and update state history;
+* quarantine/restore/reopen/redact use Quay DB helpers and update state history;
 * review actions persist linked training feedback used by the next train run;
+* reopening requires a reason, rechecks empty-repository eligibility, and
+  invalidates mistaken restore feedback;
 * remediation role gating differs from read/preview role gating;
 * healthcheck reports state DB, read-only Quay DB, and write DB status.
 
@@ -557,7 +575,7 @@ Frontend tests:
 * policy editing and validation;
 * preview loading, error, empty, and result states;
 * run history and match drilldown;
-* review action confirmation and API errors.
+* review action confirmation, restored-record reopen, and API errors.
 
 ## Implementation Order
 

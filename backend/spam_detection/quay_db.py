@@ -135,6 +135,35 @@ def fetch_repository_description(db, repository_id):
     return row[0], True
 
 
+def fetch_repository_for_remediation(db, repository_id):
+    param = db.param
+    repository_table = _quote(db, "repository")
+    user_table = _quote(db, "user")
+    visibility_table = _quote(db, "visibility")
+    tag_table = _quote(db, "tag")
+    active_tag_exists = (
+        f"EXISTS (SELECT 1 FROM {tag_table} t "
+        f"WHERE t.repository_id = r.id AND t.lifetime_end_ms IS NULL "
+        f"AND t.hidden = {param} LIMIT 1)"
+    )
+    sql = f"""
+        SELECT r.id, r.description, r.state,
+               u.username AS namespace_name, r.name AS repository_name,
+               v.name AS visibility,
+               CASE WHEN {active_tag_exists} THEN 0 ELSE 1 END AS is_empty
+        FROM {repository_table} r
+        JOIN {user_table} u ON r.namespace_user_id = u.id
+        JOIN {visibility_table} v ON r.visibility_id = v.id
+        WHERE r.id = {param}
+    """
+    cursor = db.execute_sql(sql, (False, repository_id))
+    row = cursor.fetchone()
+    if row is None:
+        return None
+    columns = [column[0] for column in cursor.description]
+    return dict(zip(columns, row))
+
+
 def update_repository_description_if_current(db, repository_id, description, expected_description):
     param = db.param
     repository_table = _quote(db, "repository")

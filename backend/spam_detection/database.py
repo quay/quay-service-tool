@@ -114,6 +114,9 @@ def migrate_state_db(config):
                 source_ref TEXT,
                 created_by TEXT,
                 created_at TEXT NOT NULL,
+                invalidated_at TEXT,
+                invalidated_by TEXT,
+                invalidation_reason TEXT,
                 FOREIGN KEY(classifier_id) REFERENCES spam_classifier(id)
             );
 
@@ -281,6 +284,9 @@ def migrate_state_db(config):
             "terminal_description_fingerprint",
             "TEXT",
         )
+        _ensure_column(conn, "spam_training_example", "invalidated_at", "TEXT")
+        _ensure_column(conn, "spam_training_example", "invalidated_by", "TEXT")
+        _ensure_column(conn, "spam_training_example", "invalidation_reason", "TEXT")
         conn.execute("UPDATE spam_policy SET scan_empty_repositories_only = 1")
 
 

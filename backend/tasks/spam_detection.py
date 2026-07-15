@@ -383,6 +383,26 @@ class SpamReviewRestoreTask(Resource):
             return _json_response({"message": str(exc)}, 400)
 
 
+class SpamReviewReopenTask(Resource):
+    @log_response
+    @verify_spam_detection_write_permissions
+    @login_required
+    def post(self, record_uuid):
+        try:
+            return _json_response(
+                {
+                    "record": remediation.reopen(
+                        current_app.config,
+                        record_uuid,
+                        reason=_body().get("reason"),
+                        operator=_operator(),
+                    )
+                }
+            )
+        except remediation.RemediationError as exc:
+            return _json_response({"message": str(exc)}, 400)
+
+
 class SpamReviewDismissTask(Resource):
     @log_response
     @verify_spam_detection_write_permissions

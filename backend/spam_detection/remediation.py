@@ -32,9 +32,12 @@ def quarantine(config, record_uuid, operator=None):
 
     with quay_db.write_db(config) as db:
         with db.atomic():
-            current_description, found = quay_db.fetch_repository_description(db, record["repository_id"])
-            if not found:
+            repository = quay_db.fetch_repository_for_remediation(db, record["repository_id"])
+            if not repository:
                 raise RemediationError("repository row was not found")
+            if not repository["is_empty"]:
+                raise RemediationError("only empty repositories can be quarantined")
+            current_description = repository["description"]
             original_description = record.get("original_description")
             if current_description != quarantine_description:
                 original_description = current_description
@@ -109,6 +112,51 @@ def restore(config, record_uuid, operator=None):
         details={"repository_id": record["repository_id"]},
         training_feedback={"label": "ham", "text": original_description},
     )
+
+
+def reopen(config, record_uuid, reason=None, operator=None):
+    record = store.get_quarantine_record(config, record_uuid)
+    if not record:
+        raise RemediationError("quarantine record not found")
+    if record["status"] != "restored":
+        raise RemediationError("only restored records can be reopened")
+    reason = (reason or "").strip()
+    if not reason:
+        raise RemediationError("reason is required")
+    if len(reason) > 1000:
+        raise RemediationError("reason must be 1000 characters or fewer")
+
+    with quay_db.readonly_db(config) as db:
+        repository = quay_db.fetch_repository_for_remediation(db, record["repository_id"])
+    if not repository:
+        raise RemediationError("repository row was not found")
+    if repository["state"] != 0:
+        raise RemediationError("repository is not active")
+    if not repository["is_empty"]:
+        raise RemediationError("only empty repositories can be reopened")
+
+    fields = {
+        "status": "flagged",
+        "original_description": repository["description"],
+        "description_fingerprint": store.description_fingerprint(repository["description"]),
+        "classifier_snapshot_json": (
+            store.active_classifier_snapshot(config)
+            or record.get("classifier_snapshot_json")
+            or {}
+        ),
+        "terminal_classifier_snapshot_json": None,
+        "terminal_description_fingerprint": None,
+    }
+    try:
+        return store.reopen_restored_record(
+            config,
+            record["id"],
+            fields,
+            operator,
+            reason,
+        )
+    except ValueError as exc:
+        raise RemediationError(str(exc)) from exc
 
 
 def dismiss(config, record_uuid, operator=None):

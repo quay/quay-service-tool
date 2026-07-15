@@ -14,8 +14,8 @@ jest.mock('src/services/HttpService', () => ({
 
 describe('Spam Detection', () => {
   it('renders classifier data from the API', async () => {
-    mocked(HttpService, true).axiosClient.get
-      .mockResolvedValueOnce({
+    mocked(HttpService, true)
+      .axiosClient.get.mockResolvedValueOnce({
         data: {
           classifiers: [
             {
@@ -40,6 +40,7 @@ describe('Spam Detection', () => {
         },
       })
       .mockResolvedValueOnce({ data: { runs: [] } })
+      .mockResolvedValueOnce({ data: { records: [] } })
       .mockResolvedValueOnce({ data: { records: [] } })
       .mockResolvedValueOnce({
         data: {
@@ -68,8 +69,8 @@ describe('Spam Detection', () => {
   });
 
   it('requires confirmation and redaction text before redacting', async () => {
-    mocked(HttpService, true).axiosClient.get
-      .mockResolvedValueOnce({ data: { classifiers: [] } })
+    mocked(HttpService, true)
+      .axiosClient.get.mockResolvedValueOnce({ data: { classifiers: [] } })
       .mockResolvedValueOnce({
         data: {
           policy: {
@@ -95,7 +96,9 @@ describe('Spam Detection', () => {
           ],
         },
       })
+      .mockResolvedValueOnce({ data: { records: [] } })
       .mockResolvedValueOnce({ data: { actions: [] } })
+      .mockResolvedValueOnce({ data: { records: [] } })
       .mockResolvedValueOnce({ data: { records: [] } })
       .mockResolvedValueOnce({ data: { actions: [] } });
     mocked(HttpService, true).axiosClient.post.mockResolvedValue({ data: { record: { uuid: 'record-1' } } });
@@ -116,7 +119,54 @@ describe('Spam Detection', () => {
     await waitFor(() => {
       expect(mocked(HttpService, true).axiosClient.post).toHaveBeenCalledWith(
         '/spam-detection/review/record-1/redact',
-        { redacted_description: '[redacted]' },
+        { redacted_description: '[redacted]' }
+      );
+    });
+  });
+
+  it('requires a reason before reopening a restored record', async () => {
+    mocked(HttpService, true)
+      .axiosClient.get.mockResolvedValueOnce({ data: { classifiers: [] } })
+      .mockResolvedValueOnce({ data: { policy: {} } })
+      .mockResolvedValueOnce({ data: { runs: [] } })
+      .mockResolvedValueOnce({ data: { records: [] } })
+      .mockResolvedValueOnce({
+        data: {
+          records: [
+            {
+              uuid: 'record-restored',
+              namespace_name: 'publicns',
+              repository_name: 'spam',
+              status: 'restored',
+              classifier_score: 0.99,
+            },
+          ],
+        },
+      })
+      .mockResolvedValueOnce({ data: { actions: [] } })
+      .mockResolvedValueOnce({ data: { records: [] } })
+      .mockResolvedValueOnce({ data: { records: [] } })
+      .mockResolvedValueOnce({ data: { actions: [] } });
+    mocked(HttpService, true).axiosClient.post.mockResolvedValue({
+      data: { record: { uuid: 'record-restored', status: 'flagged' } },
+    });
+
+    render(<SpamDetection />);
+
+    fireEvent.click(await screen.findByText('Review'));
+    fireEvent.click(await screen.findByRole('button', { name: 'Reopen review' }));
+
+    const confirm = await screen.findByRole('button', { name: 'Confirm' });
+    expect(confirm.hasAttribute('disabled')).toBeTruthy();
+    fireEvent.change(screen.getByLabelText('Reason'), {
+      target: { value: 'Restore was approved in error' },
+    });
+    fireEvent.click(confirm);
+
+    await waitFor(() => {
+      expect(mocked(HttpService, true).axiosClient.post).toHaveBeenCalledWith(
+        '/spam-detection/review/record-restored/reopen',
+        { reason: 'Restore was approved in error' }
       );
     });
   });
