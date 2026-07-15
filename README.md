@@ -44,9 +44,21 @@ Frontend tests are configured with the following pnpm script:
 ### Spam detection end-to-end demo
 
 The spam detection demo starts the Quay ingress implementation and service
-tool together, verifies enforced ingress behavior against the live Quay API,
-then opens both UIs in separate system Chrome tabs. The service-tool tab opens
-directly to Spam Detection and remains open for ten minutes by default.
+tool together, then opens both UIs in separate system Chrome tabs. The visible
+workflow:
+
+1. Signs in to Quay and attempts to create a repository with a spam
+   description, showing the ingress rejection in the Quay UI.
+2. Creates a synthetic empty legacy repository that represents spam content
+   predating ingress enforcement.
+3. Seeds a temporary service-tool classifier from synthetic examples, previews
+   the legacy repository, and runs a review scan.
+4. Quarantines the flagged repository and verifies the owner-facing notice in
+   Quay.
+5. Opens the service-tool Audit tab and verifies the flag and quarantine
+   transitions.
+
+The browser remains open for ten minutes by default.
 
 Prerequisites:
 
@@ -62,12 +74,13 @@ From the service-tool repository, run:
 make spam-demo
 ```
 
-Use `PLAYWRIGHT_SLOW_MO` to change the browser action delay and `HOLD_SECONDS`
-to change how long the browser remains open. For a differently located Quay
-checkout:
+Use `PLAYWRIGHT_SLOW_MO` to change individual browser action timing,
+`DEMO_STEP_DELAY` to change the pause between visible stages, and
+`HOLD_SECONDS` to change how long the browser remains open. For a differently
+located Quay checkout:
 
 ```sh
-QUAY_DIR=/path/to/quay PLAYWRIGHT_SLOW_MO=750 HOLD_SECONDS=900 make spam-demo
+QUAY_DIR=/path/to/quay PLAYWRIGHT_SLOW_MO=750 DEMO_STEP_DELAY=4000 HOLD_SECONDS=900 make spam-demo
 ```
 
 Stop the demo while preserving volumes, or remove its volumes completely:

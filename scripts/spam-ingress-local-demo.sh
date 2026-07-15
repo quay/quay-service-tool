@@ -14,6 +14,7 @@ SERVICE_TOOL_CLIENT_PORT="${SERVICE_TOOL_CLIENT_PORT:-9000}"
 SERVICE_TOOL_API_URL="${SERVICE_TOOL_API_URL:-http://localhost:${SERVICE_TOOL_API_PORT}}"
 QUAY_NETWORK_NAME="${QUAY_NETWORK_NAME:-}"
 PLAYWRIGHT_SLOW_MO="${PLAYWRIGHT_SLOW_MO:-500}"
+DEMO_STEP_DELAY="${DEMO_STEP_DELAY:-2500}"
 HOLD_SECONDS="${HOLD_SECONDS:-600}"
 
 usage() {
@@ -53,6 +54,7 @@ Environment overrides:
   SERVICE_TOOL_CLIENT_PORT=9000
   QUAY_NETWORK_NAME=quay_default
   PLAYWRIGHT_SLOW_MO=500
+  DEMO_STEP_DELAY=2500
   HOLD_SECONDS=600
 USAGE
 }
@@ -91,6 +93,10 @@ check_paths() {
   }
   test -f "$SERVICE_TOOL_DIR/frontend/playwright.config.ts" || {
     printf 'Missing service-tool Playwright config: %s/frontend/playwright.config.ts\n' "$SERVICE_TOOL_DIR" >&2
+    exit 1
+  }
+  test -f "$SERVICE_TOOL_DIR/scripts/spam-demo-browser.js" || {
+    printf 'Missing browser demo driver: %s/scripts/spam-demo-browser.js\n' "$SERVICE_TOOL_DIR" >&2
     exit 1
   }
 }
@@ -352,11 +358,6 @@ NODE
 up_service_tool() {
   check_all
   wait_for_http "${QUAY_URL}/health/instance" "Quay" 30
-  if curl -fsS "$SERVICE_TOOL_URL" >/dev/null 2>&1 &&
-    curl -fsS "${SERVICE_TOOL_API_URL}/healthcheck" >/dev/null 2>&1; then
-    log "service-tool is already running at ${SERVICE_TOOL_URL}; reusing it"
-    return 0
-  fi
 
   local network_name
   network_name="$(quay_network_name)"
@@ -387,54 +388,15 @@ browse_service_tool() {
   wait_for_http "$SERVICE_TOOL_URL" "service-tool frontend" 30
   log "Opening Quay and service-tool UIs with system Chrome via Playwright"
   (
-    cd "$SERVICE_TOOL_DIR/frontend"
+    cd "$SERVICE_TOOL_DIR"
     QUAY_URL="$QUAY_URL" \
     SERVICE_TOOL_URL="$SERVICE_TOOL_URL" \
+      SERVICE_TOOL_API_URL="$SERVICE_TOOL_API_URL" \
+      CONTAINER_RUNTIME="$CONTAINER_RUNTIME" \
       PLAYWRIGHT_SLOW_MO="$PLAYWRIGHT_SLOW_MO" \
+      DEMO_STEP_DELAY="$DEMO_STEP_DELAY" \
       HOLD_SECONDS="$HOLD_SECONDS" \
-      node <<'NODE'
-const { chromium } = require('@playwright/test');
-
-(async () => {
-  const quayUrl = process.env.QUAY_URL || 'http://localhost:8080';
-  const serviceToolUrl = process.env.SERVICE_TOOL_URL || 'http://localhost:9000';
-  const slowMo = Number(process.env.PLAYWRIGHT_SLOW_MO || 0);
-  const holdSeconds = Number(process.env.HOLD_SECONDS || 600);
-  const browser = await chromium.launch({
-    channel: 'chrome',
-    headless: false,
-    slowMo,
-  });
-  const quayPage = await browser.newPage();
-  await quayPage.goto(quayUrl, {
-    waitUntil: 'domcontentloaded',
-  });
-  const serviceToolPage = await browser.newPage();
-  await serviceToolPage.goto(serviceToolUrl, {
-    waitUntil: 'domcontentloaded',
-  });
-  const spamDetectionLink = serviceToolPage.getByRole('link', { name: 'Spam Detection' });
-  try {
-    await spamDetectionLink.click({ timeout: 10_000 });
-  } catch {
-    await serviceToolPage.evaluate(() => {
-      window.history.pushState({}, '', '/spam-detection');
-      window.dispatchEvent(new PopStateEvent('popstate'));
-    });
-  }
-  await serviceToolPage.waitForURL('**/spam-detection', { timeout: 10_000 });
-  await serviceToolPage.getByText('Create classifier').waitFor({ timeout: 10_000 });
-  await serviceToolPage.bringToFront();
-  console.log(`Opened ${quayUrl}`);
-  console.log(`Opened ${serviceToolUrl} and navigated to Spam Detection`);
-  console.log(`Keeping browser open for ${holdSeconds} seconds. Press Ctrl-C to stop earlier.`);
-  await new Promise((resolve) => setTimeout(resolve, holdSeconds * 1000));
-  await browser.close();
-})().catch((error) => {
-  console.error(error);
-  process.exit(1);
-});
-NODE
+      node scripts/spam-demo-browser.js
   )
 }
 
@@ -513,7 +475,6 @@ case "${1:-}" in
     ;;
   demo)
     up_quay
-    test_ingress
     up_service_tool
     browse_service_tool
     ;;

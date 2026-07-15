@@ -347,6 +347,20 @@ class SpamReviewTask(Resource):
             return _json_response({"message": str(exc)}, 400)
 
 
+class SpamAuditTask(Resource):
+    @log_response
+    @verify_spam_detection_read_permissions
+    @login_required
+    def get(self):
+        try:
+            limit = _bounded_limit(request.args.get("limit"), 100, 500)
+            return _json_response(
+                {"actions": store.list_audit_actions(current_app.config, limit=limit)}
+            )
+        except ValueError as exc:
+            return _json_response({"message": str(exc)}, 400)
+
+
 class SpamReviewQuarantineTask(Resource):
     @log_response
     @verify_spam_detection_write_permissions

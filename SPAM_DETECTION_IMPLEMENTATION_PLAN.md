@@ -137,6 +137,7 @@ Register resources in `backend/app.py`:
 * `GET /spam-detection/runs`
 * `GET /spam-detection/runs/<uuid>/matches`
 * `GET /spam-detection/review`
+* `GET /spam-detection/audit`
 * `POST /spam-detection/review/<uuid>/quarantine`
 * `POST /spam-detection/review/<uuid>/restore`
 * `POST /spam-detection/review/<uuid>/dismiss`
@@ -525,6 +526,7 @@ Initial UI sections:
 * Runs: list scan runs and drill into matches.
 * Review Queue: filter flagged/quarantined records and run quarantine, restore,
   dismiss, or redact actions with confirmation.
+* Audit: list review transitions with repository, operator, and timestamp.
 
 ## Tests
 

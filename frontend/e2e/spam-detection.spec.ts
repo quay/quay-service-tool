@@ -78,6 +78,7 @@ test('Spam Detection operator workflow covers export, scans, restore, and cleanu
     },
   ];
   const reviewActions: string[] = [];
+  const auditActions: any[] = [];
   let exportPayload: any;
   let policyPayload: any;
   let redactionPayload: any;
@@ -168,6 +169,9 @@ test('Spam Detection operator workflow covers export, scans, restore, and cleanu
   await page.route('**/spam-detection/review', async (route) => {
     await fulfillJson(route, { records });
   });
+  await page.route('**/spam-detection/audit', async (route) => {
+    await fulfillJson(route, { actions: auditActions });
+  });
   await page.route(/.*\/spam-detection\/review\/([^/]+)\/([^/]+)$/, async (route) => {
     const [, recordUuid, action] =
       route
@@ -180,6 +184,22 @@ test('Spam Detection operator workflow covers export, scans, restore, and cleanu
       return;
     }
     reviewActions.push(`${recordUuid}:${action}`);
+    auditActions.unshift({
+      created_at: '2026-07-15T01:00:00',
+      namespace_name: record.namespace_name,
+      repository_name: record.repository_name,
+      action,
+      from_status: record.status,
+      to_status:
+        action === 'quarantine'
+          ? 'quarantined'
+          : action === 'restore'
+          ? 'restored'
+          : action === 'redact'
+          ? 'redacted'
+          : 'dismissed',
+      operator: 'reviewer',
+    });
     if (action === 'quarantine') {
       record.status = 'quarantined';
     } else if (action === 'restore') {
@@ -277,4 +297,8 @@ test('Spam Detection operator workflow covers export, scans, restore, and cleanu
     'record-cleanup:quarantine',
     'record-cleanup:redact',
   ]);
+  await page.getByRole('tab', { name: 'Audit' }).click();
+  const auditPanel = page.getByLabel('Audit', { exact: true });
+  await expect(auditPanel).toContainText('publicns/spam-cleanup');
+  await expect(auditPanel).toContainText('quarantined -> redacted');
 });

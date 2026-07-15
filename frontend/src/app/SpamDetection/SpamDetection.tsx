@@ -44,6 +44,7 @@ export const SpamDetection: React.FunctionComponent = () => {
   const [policy, setPolicy] = useState<any>({});
   const [runs, setRuns] = useState<any[]>([]);
   const [records, setRecords] = useState<any[]>([]);
+  const [actions, setActions] = useState<any[]>([]);
   const [preview, setPreview] = useState<any>(null);
   const [loading, setLoading] = useState(false);
   const [message, setMessage] = useState('');
@@ -70,7 +71,7 @@ export const SpamDetection: React.FunctionComponent = () => {
 
   async function loadAll() {
     setLoading(true);
-    await Promise.all([loadClassifiers(), loadPolicy(), loadRuns(), loadReview()]);
+    await Promise.all([loadClassifiers(), loadPolicy(), loadRuns(), loadReview(), loadAudit()]);
     setLoading(false);
   }
 
@@ -99,6 +100,12 @@ export const SpamDetection: React.FunctionComponent = () => {
   async function loadReview() {
     return HttpService.axiosClient.get('/spam-detection/review').then((response) => {
       setRecords(response.data.records || []);
+    });
+  }
+
+  async function loadAudit() {
+    return HttpService.axiosClient.get('/spam-detection/audit').then((response) => {
+      setActions(response.data.actions || []);
     });
   }
 
@@ -244,6 +251,7 @@ export const SpamDetection: React.FunctionComponent = () => {
         showMessage(`${action} completed`);
         setPendingReviewAction(null);
         loadReview();
+        loadAudit();
       })
       .catch((error) => showMessage(error.response?.data?.message || `Unable to ${action}`));
   }
@@ -516,6 +524,20 @@ export const SpamDetection: React.FunctionComponent = () => {
               ) : (
                 ''
               ),
+            ])}
+          />
+        </Tab>
+        <Tab eventKey={5} title={<TabTitleText>Audit</TabTitleText>}>
+          <SimpleTable
+            columns={['Time', 'Repository', 'Action', 'Transition', 'Operator']}
+            rows={actions.map((item) => [
+              item.created_at,
+              item.namespace_name && item.repository_name
+                ? `${item.namespace_name}/${item.repository_name}`
+                : '',
+              item.action,
+              [item.from_status, item.to_status].filter(Boolean).join(' -> '),
+              item.operator || '',
             ])}
           />
         </Tab>

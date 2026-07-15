@@ -713,3 +713,23 @@ def list_review(config, statuses=None, limit=100):
                 tuple(statuses) + (int(limit),),
             )
         ]
+
+
+def list_audit_actions(config, limit=100):
+    initialize(config)
+    with connect_state_db(config) as conn:
+        return [
+            row_to_dict(row)
+            for row in conn.execute(
+                """
+                SELECT history.*, record.uuid AS record_uuid,
+                       record.namespace_name, record.repository_name
+                FROM spam_action_history AS history
+                LEFT JOIN spam_quarantine_record AS record
+                    ON record.id = history.quarantine_record_id
+                ORDER BY history.created_at DESC, history.id DESC
+                LIMIT ?
+                """,
+                (int(limit),),
+            )
+        ]

@@ -316,6 +316,11 @@ def test_dismiss_records_ham_feedback_for_next_training(tmp_path):
     ).fetchone()[0]
     state_conn.close()
     assert linked_record_id == record["id"]
+    audit = store.list_audit_actions(config)
+    dismiss_action = next(action for action in audit if action["action"] == "dismiss")
+    assert dismiss_action["record_uuid"] == record["uuid"]
+    assert dismiss_action["namespace_name"] == "publicns"
+    assert dismiss_action["repository_name"] == "spam"
     assert dismissed["description_fingerprint"] == store.description_fingerprint(
         "casino bonus jackpot"
     )

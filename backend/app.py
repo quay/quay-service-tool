@@ -14,6 +14,7 @@ from tasks.username import UsernameTask
 from tasks.federateduser import FederatedUserTask
 from tasks.user import UserTask, FetchUserFromEmailTask, FetchUserFromNameTask, UpdateEmailTask, FetchUserFromStripeID
 from tasks.spam_detection import (
+    SpamAuditTask,
     SpamClassifierImportCsvTask,
     SpamClassifierListTask,
     SpamClassifierTask,
@@ -182,6 +183,7 @@ api.add_resource(SpamPreviewTask, '/spam-detection/preview')
 api.add_resource(SpamRunsTask, '/spam-detection/runs')
 api.add_resource(SpamRunMatchesTask, '/spam-detection/runs/<run_uuid>/matches')
 api.add_resource(SpamReviewTask, '/spam-detection/review')
+api.add_resource(SpamAuditTask, '/spam-detection/audit')
 api.add_resource(SpamReviewQuarantineTask, '/spam-detection/review/<record_uuid>/quarantine')
 api.add_resource(SpamReviewRestoreTask, '/spam-detection/review/<record_uuid>/restore')
 api.add_resource(SpamReviewDismissTask, '/spam-detection/review/<record_uuid>/dismiss')

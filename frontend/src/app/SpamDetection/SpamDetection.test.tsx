@@ -40,7 +40,22 @@ describe('Spam Detection', () => {
         },
       })
       .mockResolvedValueOnce({ data: { runs: [] } })
-      .mockResolvedValueOnce({ data: { records: [] } });
+      .mockResolvedValueOnce({ data: { records: [] } })
+      .mockResolvedValueOnce({
+        data: {
+          actions: [
+            {
+              created_at: '2026-07-15T01:00:00',
+              namespace_name: 'publicns',
+              repository_name: 'spam',
+              action: 'quarantine',
+              from_status: 'flagged',
+              to_status: 'quarantined',
+              operator: 'reviewer',
+            },
+          ],
+        },
+      });
 
     render(<SpamDetection />);
 
@@ -48,6 +63,8 @@ describe('Spam Detection', () => {
     expect(await screen.findByText('20260620.1')).toBeTruthy();
     fireEvent.click(screen.getByRole('tab', { name: 'Policy' }));
     expect(await screen.findByLabelText('Rescan unchanged terminal review records')).toBeTruthy();
+    fireEvent.click(screen.getByRole('tab', { name: 'Audit' }));
+    expect(await screen.findByText('flagged -> quarantined')).toBeTruthy();
   });
 
   it('requires confirmation and redaction text before redacting', async () => {
@@ -78,7 +95,9 @@ describe('Spam Detection', () => {
           ],
         },
       })
-      .mockResolvedValueOnce({ data: { records: [] } });
+      .mockResolvedValueOnce({ data: { actions: [] } })
+      .mockResolvedValueOnce({ data: { records: [] } })
+      .mockResolvedValueOnce({ data: { actions: [] } });
     mocked(HttpService, true).axiosClient.post.mockResolvedValue({ data: { record: { uuid: 'record-1' } } });
 
     render(<SpamDetection />);
