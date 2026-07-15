@@ -41,6 +41,45 @@ To run the tests:
 Frontend tests are configured with the following pnpm script:
 `cd frontend && pnpm test`
 
+### Spam detection end-to-end demo
+
+The spam detection demo starts the Quay ingress implementation and service
+tool together, verifies enforced ingress behavior against the live Quay API,
+then opens both UIs in separate system Chrome tabs. The service-tool tab opens
+directly to Spam Detection and remains open for ten minutes by default.
+
+Prerequisites:
+
+- Check out quay/quay#6154 as a sibling directory named `quay`, or set
+  `QUAY_DIR` to that checkout.
+- Install the Quay `web` and service-tool `frontend` dependencies.
+- Install system Chrome.
+- Start Podman or Docker. The demo does not start or modify a Podman machine.
+
+From the service-tool repository, run:
+
+```sh
+make spam-demo
+```
+
+Use `PLAYWRIGHT_SLOW_MO` to change the browser action delay and `HOLD_SECONDS`
+to change how long the browser remains open. For a differently located Quay
+checkout:
+
+```sh
+QUAY_DIR=/path/to/quay PLAYWRIGHT_SLOW_MO=750 HOLD_SECONDS=900 make spam-demo
+```
+
+Stop the demo while preserving volumes, or remove its volumes completely:
+
+```sh
+make spam-demo-down
+make spam-demo-clean
+```
+
+`make spam-demo-check` validates paths, configuration, required commands, and
+container-runtime availability without starting either application.
+
 ## Quick Start
 
 ### Starting application
