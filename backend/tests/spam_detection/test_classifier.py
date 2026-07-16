@@ -79,6 +79,23 @@ def test_import_preserves_artifact_and_activates_classifier(tmp_path):
     assert imported["artifact_sha256"] == hashlib.sha256(artifact_bytes).hexdigest()
 
 
+def test_export_preserves_semantically_identical_imported_artifact_bytes(tmp_path):
+    config = _config(tmp_path)
+    artifact_bytes = (json.dumps(_artifact(), indent=2) + "\n").encode("utf-8")
+    imported, _ = classifier.import_classifier_artifact(
+        config,
+        "Imported classifier",
+        artifact_bytes,
+        enabled=True,
+    )
+
+    exported = classifier.export_artifact(config, imported["uuid"])
+
+    with open(exported["artifact_path"], "rb") as artifact_file:
+        assert artifact_file.read() == artifact_bytes
+    assert exported["artifact_sha256"] == hashlib.sha256(artifact_bytes).hexdigest()
+
+
 def test_import_is_idempotent_for_same_version_and_content(tmp_path):
     config = _config(tmp_path)
     artifact_bytes = json.dumps(_artifact()).encode("utf-8")

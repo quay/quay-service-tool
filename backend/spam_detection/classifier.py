@@ -356,7 +356,13 @@ def write_artifact_to_path(artifact, path):
         with open(path, "rb") as existing_file:
             existing_content = existing_file.read()
         if existing_content != content:
-            raise ClassifierError("artifact path already exists with different content")
+            try:
+                existing_artifact = json.loads(existing_content.decode("utf-8"))
+            except (UnicodeDecodeError, json.JSONDecodeError) as exc:
+                raise ClassifierError("artifact path already exists with different content") from exc
+            if existing_artifact != artifact:
+                raise ClassifierError("artifact path already exists with different content")
+            content = existing_content
     else:
         tmp_path = f"{path}.tmp.{os.getpid()}"
         with open(tmp_path, "wb") as artifact_file:
