@@ -169,6 +169,7 @@ test('Spam Detection operator workflow covers export, labels, recovery, and clea
     await route.fulfill({
       status: 200,
       contentType: 'application/json',
+      headers: { 'content-disposition': 'attachment; filename="quay-spam-classifier-e2e-v1.json"' },
       body: JSON.stringify({ version: classifiers[0].artifact_version }),
     });
   });
@@ -348,8 +349,12 @@ test('Spam Detection operator workflow covers export, labels, recovery, and clea
   await page.getByRole('button', { name: 'Train new version' }).click();
   await expect(page.getByText('Artifact e2e-trained generated')).toBeVisible();
   await closeFeedback(page);
+  const artifactDownloadPromise = page.waitForEvent('download');
   await page.getByRole('button', { name: 'Export artifact' }).click();
-  await expect(page.getByText('Artifact e2e-v1 downloaded')).toBeVisible();
+  const artifactDownload = await artifactDownloadPromise;
+  expect(artifactDownload.suggestedFilename()).toBe('quay-spam-classifier-e2e-v1.json');
+  await artifactDownload.path();
+  await expect(page.getByText('Artifact e2e-v1 download started')).toBeVisible();
   expect(artifactRequested).toBe(true);
   expect(exportPayload).toEqual({});
   await closeFeedback(page);

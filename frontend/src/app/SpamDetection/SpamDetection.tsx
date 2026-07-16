@@ -257,6 +257,15 @@ export const SpamDetection: React.FunctionComponent = () => {
       .catch((error) => showMessage(error.response?.data?.message || 'Unable to train classifier'));
   }
 
+  function triggerArtifactDownload(classifierUuid: string) {
+    const link = document.createElement('a');
+    link.href = `/spam-detection/classifiers/${classifierUuid}/artifact`;
+    link.hidden = true;
+    document.body.appendChild(link);
+    link.click();
+    window.setTimeout(() => link.remove(), 1000);
+  }
+
   async function exportArtifact() {
     if (!selectedClassifier) {
       showMessage('Select a classifier');
@@ -264,40 +273,17 @@ export const SpamDetection: React.FunctionComponent = () => {
     }
     HttpService.axiosClient
       .post(`/spam-detection/classifiers/${selectedClassifier}/export-artifact`, {})
-      .then(async (response) => {
-        const artifact = await HttpService.axiosClient.get(
-          `/spam-detection/classifiers/${selectedClassifier}/artifact`,
-          { responseType: 'blob' }
-        );
-        const url = window.URL.createObjectURL(artifact.data);
-        const link = document.createElement('a');
-        link.href = url;
-        link.download = `quay-spam-classifier-${response.data.classifier.artifact_version}.json`;
-        document.body.appendChild(link);
-        link.click();
-        link.remove();
-        window.URL.revokeObjectURL(url);
-        showMessage(`Artifact ${response.data.classifier.artifact_version} downloaded`);
+      .then((response) => {
+        triggerArtifactDownload(selectedClassifier);
+        showMessage(`Artifact ${response.data.classifier.artifact_version} download started`);
         loadClassifiers();
       })
       .catch((error) => showMessage(error.response?.data?.message || 'Unable to export artifact'));
   }
 
   async function downloadArtifact(classifier: Classifier) {
-    HttpService.axiosClient
-      .get(`/spam-detection/classifiers/${classifier.uuid}/artifact`, { responseType: 'blob' })
-      .then((response) => {
-        const url = window.URL.createObjectURL(response.data);
-        const link = document.createElement('a');
-        link.href = url;
-        link.download = `quay-spam-classifier-${classifier.artifact_version}.json`;
-        document.body.appendChild(link);
-        link.click();
-        link.remove();
-        window.URL.revokeObjectURL(url);
-        showMessage(`Artifact ${classifier.artifact_version} downloaded`);
-      })
-      .catch((error) => showMessage(error.response?.data?.message || 'Unable to download artifact'));
+    triggerArtifactDownload(classifier.uuid);
+    showMessage(`Artifact ${classifier.artifact_version || 'unversioned'} download started`);
   }
 
   async function importCsv() {

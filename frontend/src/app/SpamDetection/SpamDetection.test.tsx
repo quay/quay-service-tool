@@ -293,13 +293,6 @@ describe('Spam Detection', () => {
   });
 
   it('exports and downloads the generated classifier artifact', async () => {
-    const artifact = new Blob(['{}'], { type: 'application/json' });
-    const originalCreateObjectURL = window.URL.createObjectURL;
-    const originalRevokeObjectURL = window.URL.revokeObjectURL;
-    const createObjectURL = jest.fn().mockReturnValue('blob:artifact');
-    const revokeObjectURL = jest.fn();
-    Object.defineProperty(window.URL, 'createObjectURL', { configurable: true, value: createObjectURL });
-    Object.defineProperty(window.URL, 'revokeObjectURL', { configurable: true, value: revokeObjectURL });
     const click = jest.spyOn(HTMLAnchorElement.prototype, 'click').mockImplementation(() => undefined);
     mocked(HttpService, true)
       .axiosClient.get.mockResolvedValueOnce({
@@ -319,7 +312,6 @@ describe('Spam Detection', () => {
       .mockResolvedValueOnce({ data: { records: [] } })
       .mockResolvedValueOnce({ data: { records: [] } })
       .mockResolvedValueOnce({ data: { actions: [] } })
-      .mockResolvedValueOnce({ data: artifact })
       .mockResolvedValueOnce({ data: { classifiers: [] } });
     mocked(HttpService, true).axiosClient.post.mockResolvedValue({
       data: { classifier: { artifact_version: 'v2' } },
@@ -329,17 +321,12 @@ describe('Spam Detection', () => {
     fireEvent.click(await screen.findByRole('button', { name: 'Export artifact' }));
 
     await waitFor(() => {
-      expect(mocked(HttpService, true).axiosClient.get).toHaveBeenCalledWith(
-        '/spam-detection/classifiers/classifier-1/artifact',
-        { responseType: 'blob' }
-      );
       expect(click).toHaveBeenCalled();
     });
-    expect(createObjectURL).toHaveBeenCalledWith(artifact);
-    expect(revokeObjectURL).toHaveBeenCalledWith('blob:artifact');
+    const clickedLinks = click.mock.instances as unknown as HTMLAnchorElement[];
+    const link = clickedLinks[clickedLinks.length - 1];
+    expect(link.getAttribute('href')).toBe('/spam-detection/classifiers/classifier-1/artifact');
     click.mockRestore();
-    Object.defineProperty(window.URL, 'createObjectURL', { configurable: true, value: originalCreateObjectURL });
-    Object.defineProperty(window.URL, 'revokeObjectURL', { configurable: true, value: originalRevokeObjectURL });
   });
 
   it('uploads and activates an imported classifier artifact', async () => {
