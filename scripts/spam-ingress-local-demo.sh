@@ -102,6 +102,10 @@ check_paths() {
     printf 'Missing browser demo driver: %s/scripts/spam-demo-browser.js\n' "$SERVICE_TOOL_DIR" >&2
     exit 1
   }
+  test -f "$SERVICE_TOOL_DIR/scripts/install-demo-classifier.js" || {
+    printf 'Missing demo classifier installer: %s/scripts/install-demo-classifier.js\n' "$SERVICE_TOOL_DIR" >&2
+    exit 1
+  }
   local classifier_artifact
   classifier_artifact="$(resolve_classifier_artifact)"
   test -f "$classifier_artifact" || {
@@ -116,6 +120,18 @@ resolve_classifier_artifact() {
     QUAY_DIR="$QUAY_DIR" \
       SPAM_CLASSIFIER_ARTIFACT="$SPAM_CLASSIFIER_ARTIFACT" \
       node scripts/spam-demo-browser.js --print-artifact-path
+  )
+}
+
+install_quay_classifier() {
+  local classifier_artifact
+  classifier_artifact="$(resolve_classifier_artifact)"
+  log "Installing the selected classifier into Quay ingress"
+  (
+    cd "$SERVICE_TOOL_DIR"
+    node scripts/install-demo-classifier.js \
+      --quay-dir "$QUAY_DIR" \
+      --artifact "$classifier_artifact"
   )
 }
 
@@ -203,8 +219,11 @@ quay_network_name() {
 
 up_quay() {
   check_all
+  install_quay_classifier
   if curl -fsS "${QUAY_URL}/health/instance" >/dev/null 2>&1; then
-    log "Quay is already running at ${QUAY_URL}; reusing it"
+    log "Restarting Quay to load the selected ingress classifier"
+    quay_compose restart quay
+    wait_for_http "${QUAY_URL}/health/instance" "Quay" 120
     return 0
   fi
 
@@ -338,7 +357,8 @@ function assertStatus(response, expected, label) {
       namespace: orgName,
       visibility: 'public',
       repository: spamRepo,
-      description: 'free casino bonus crypto gift cards click now https://spam.example',
+      description:
+        'Flixtor free movies offers online free movies and TV shows to watch without paying money. Website: https://flixtors.stream/',
     });
     assertStatus(rejected, 400, 'create spam repository');
 
@@ -353,7 +373,8 @@ function assertStatus(response, expected, label) {
     hamCreated = true;
 
     const rejectedUpdate = await mutate(context, 'put', `/api/v1/repository/${orgName}/${hamRepo}`, {
-      description: 'free casino bonus crypto gift cards click now https://spam.example',
+      description:
+        'Flixtor free movies offers online free movies and TV shows to watch without paying money. Website: https://flixtors.stream/',
     });
     assertStatus(rejectedUpdate, 400, 'update repository to spam description');
 

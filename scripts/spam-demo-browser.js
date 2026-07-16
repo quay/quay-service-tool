@@ -21,7 +21,8 @@ const holdSeconds = Number(process.env.HOLD_SECONDS || 600);
 const downloadDir = process.env.DEMO_DOWNLOAD_DIR || path.join(os.homedir(), 'Downloads');
 const namespace = 'admin';
 const legacyRepository = `legacy-spam-review-${Date.now()}`;
-const spamDescription = 'free casino bonus crypto gift cards click now https://spam.example';
+const spamDescription =
+  'Flixtor free movies offers online free movies and TV shows to watch without paying money. Website: https://flixtors.stream/';
 const quarantineNotice = 'This repository description was removed by Quay spam detection.';
 const reopenReason = 'Restore was approved in error';
 
