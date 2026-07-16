@@ -1,5 +1,6 @@
 const path = require('path');
 const fs = require('fs');
+const os = require('os');
 const {execFileSync} = require('child_process');
 const yaml = require(path.join(__dirname, '../frontend/node_modules/js-yaml'));
 
@@ -17,6 +18,7 @@ const slowMo = Number(process.env.PLAYWRIGHT_SLOW_MO || 530);
 const stepDelay = Number(process.env.DEMO_STEP_DELAY || 3500);
 const clickDelay = Number(process.env.DEMO_CLICK_DELAY || 670);
 const holdSeconds = Number(process.env.HOLD_SECONDS || 600);
+const downloadDir = process.env.DEMO_DOWNLOAD_DIR || path.join(os.homedir(), 'Downloads');
 const namespace = 'admin';
 const legacyRepository = `legacy-spam-review-${Date.now()}`;
 const spamDescription = 'free casino bonus crypto gift cards click now https://spam.example';
@@ -38,6 +40,20 @@ function classifierArtifactPath() {
     return path.join(quayDir, 'local-dev/stack', path.basename(configuredPath));
   }
   return path.resolve(configuredPath);
+}
+
+function persistBrowserDownloads(page) {
+  page.on('download', async (download) => {
+    try {
+      fs.mkdirSync(downloadDir, {recursive: true});
+      const filename = path.basename(download.suggestedFilename());
+      const destination = path.join(downloadDir, filename);
+      await download.saveAs(destination);
+      console.log(`Saved browser download to ${destination}`);
+    } catch (error) {
+      console.error(`Unable to save browser download: ${error.message}`);
+    }
+  });
 }
 
 async function checkedJson(response, label) {
@@ -209,6 +225,7 @@ async function runExploreBrowser() {
   const context = await browser.newContext({viewport: null});
   const quayPage = await context.newPage();
   const serviceToolPage = await context.newPage();
+  persistBrowserDownloads(serviceToolPage);
 
   try {
     await quayPage.goto(`${quayUrl}/react`, {waitUntil: 'domcontentloaded'});
@@ -320,6 +337,7 @@ async function runVisibleDemo(classifierName) {
   const context = await browser.newContext();
   const quayPage = await context.newPage();
   const serviceToolPage = await context.newPage();
+  persistBrowserDownloads(serviceToolPage);
 
   try {
     await quayPage.goto(`${quayUrl}/react`, {waitUntil: 'domcontentloaded'});
