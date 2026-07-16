@@ -192,11 +192,52 @@ def test_training_writes_quay_compatible_artifact_and_sha(tmp_path):
     assert artifact["token_spam_counts"]["casino"] == 1
     assert artifact["token_ham_counts"]["container"] == 1
     assert artifact["feature_config"]["token_pattern"] == classifier.DEFAULT_TOKEN_PATTERN
+    assert artifact["feature_config"]["classification_window_tokens"] == 128
+    assert artifact["feature_config"]["classification_window_stride"] == 64
     assert "ingress_threshold" in artifact
     assert artifact["training_metrics"]["example_count"] == 2
     assert artifact["training_metrics"]["spam_examples"] == 1
     assert artifact["training_metrics"]["ham_examples"] == 1
     assert classifier.classify_text(artifact, "casino bonus")["score"] > 0.5
+
+
+def test_windowed_scoring_prevents_link_padding_from_diluting_spam():
+    artifact = _artifact()
+    artifact.update(
+        {
+            "token_spam_counts": {"casino": 100},
+            "token_ham_counts": {"project": 100},
+            "spam_token_total": 100,
+            "ham_token_total": 100,
+            "vocabulary_size": 2,
+        }
+    )
+    description = "casino " * 128 + "project " * 512 + "https://spam.example"
+
+    decision = classifier.classify_text(artifact, description, visibility="public")
+
+    assert not decision["allowed"]
+    assert decision["score"] > 0.99
+    assert decision["explanation"]["token_count"] > 600
+    assert decision["explanation"]["window_count"] > 1
+    assert decision["explanation"]["window_start"] == 0
+    assert decision["explanation"]["window_token_count"] == 128
+
+
+@pytest.mark.parametrize(
+    "feature_config",
+    [
+        {"classification_window_tokens": 0},
+        {"classification_window_tokens": 64, "classification_window_stride": 65},
+        {"classification_window_tokens": 4097},
+    ],
+)
+def test_invalid_classification_window_config_is_rejected(feature_config):
+    artifact = _artifact()
+    artifact["feature_config"].update(feature_config)
+
+    with pytest.raises(classifier.ClassifierError, match="classification_window"):
+        classifier.validate_artifact({}, artifact)
 
 
 def test_training_rejects_corpus_below_minimum_label_counts(tmp_path):

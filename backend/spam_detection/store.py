@@ -13,6 +13,9 @@ from .database import (
 
 
 DEFAULT_TOKEN_PATTERN = r"[a-z0-9][a-z0-9_-]*"
+DEFAULT_CLASSIFICATION_WINDOW_TOKENS = 128
+DEFAULT_CLASSIFICATION_WINDOW_STRIDE = 64
+MAX_CLASSIFICATION_WINDOW_TOKENS = 4096
 MAX_TRAINING_TEXT_LENGTH = 10000
 
 
@@ -48,13 +51,37 @@ def _validate_feature_config(feature_config):
     feature_config = feature_config or {
         "token_pattern": DEFAULT_TOKEN_PATTERN,
         "include_repository_name": False,
+        "classification_window_tokens": DEFAULT_CLASSIFICATION_WINDOW_TOKENS,
+        "classification_window_stride": DEFAULT_CLASSIFICATION_WINDOW_STRIDE,
     }
     token_pattern = feature_config.get("token_pattern", DEFAULT_TOKEN_PATTERN)
     if token_pattern != DEFAULT_TOKEN_PATTERN:
         raise ValueError("custom token_pattern is not supported in the initial spam detector")
+    window_tokens = _validate_positive_int(
+        feature_config.get(
+            "classification_window_tokens", DEFAULT_CLASSIFICATION_WINDOW_TOKENS
+        ),
+        "classification_window_tokens",
+    )
+    window_stride = _validate_positive_int(
+        feature_config.get(
+            "classification_window_stride", DEFAULT_CLASSIFICATION_WINDOW_STRIDE
+        ),
+        "classification_window_stride",
+    )
+    if window_tokens > MAX_CLASSIFICATION_WINDOW_TOKENS:
+        raise ValueError(
+            f"classification_window_tokens must be {MAX_CLASSIFICATION_WINDOW_TOKENS} or fewer"
+        )
+    if window_stride > window_tokens:
+        raise ValueError(
+            "classification_window_stride must not exceed classification_window_tokens"
+        )
     return {
         "token_pattern": DEFAULT_TOKEN_PATTERN,
         "include_repository_name": bool(feature_config.get("include_repository_name", False)),
+        "classification_window_tokens": window_tokens,
+        "classification_window_stride": window_stride,
     }
 
 

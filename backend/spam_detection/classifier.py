@@ -10,10 +10,15 @@ from . import store
 
 
 DEFAULT_TOKEN_PATTERN = r"[a-z0-9][a-z0-9_-]*"
+DEFAULT_CLASSIFICATION_WINDOW_TOKENS = 128
+DEFAULT_CLASSIFICATION_WINDOW_STRIDE = 64
+MAX_CLASSIFICATION_WINDOW_TOKENS = 4096
 HYPERLINK_PATTERN = re.compile(r"\bhttps?://[^\s<>()]+", re.IGNORECASE)
 DEFAULT_FEATURE_CONFIG = {
     "token_pattern": DEFAULT_TOKEN_PATTERN,
     "include_repository_name": False,
+    "classification_window_tokens": DEFAULT_CLASSIFICATION_WINDOW_TOKENS,
+    "classification_window_stride": DEFAULT_CLASSIFICATION_WINDOW_STRIDE,
 }
 MAX_ARTIFACT_VERSION_LENGTH = 128
 DEFAULT_MIN_SPAM_EXAMPLES = 10
@@ -72,10 +77,37 @@ def validate_feature_config(feature_config):
     token_pattern = feature_config.get("token_pattern", DEFAULT_TOKEN_PATTERN)
     if token_pattern != DEFAULT_TOKEN_PATTERN:
         raise ClassifierError("custom token_pattern is not supported in the initial spam detector")
+    window_tokens = _feature_config_int(
+        feature_config,
+        "classification_window_tokens",
+        DEFAULT_CLASSIFICATION_WINDOW_TOKENS,
+    )
+    window_stride = _feature_config_int(
+        feature_config,
+        "classification_window_stride",
+        DEFAULT_CLASSIFICATION_WINDOW_STRIDE,
+    )
+    if window_tokens > MAX_CLASSIFICATION_WINDOW_TOKENS:
+        raise ClassifierError(
+            f"classification_window_tokens must be {MAX_CLASSIFICATION_WINDOW_TOKENS} or fewer"
+        )
+    if window_stride > window_tokens:
+        raise ClassifierError(
+            "classification_window_stride must not exceed classification_window_tokens"
+        )
     return {
         "token_pattern": DEFAULT_TOKEN_PATTERN,
         "include_repository_name": bool(feature_config.get("include_repository_name", False)),
+        "classification_window_tokens": window_tokens,
+        "classification_window_stride": window_stride,
     }
+
+
+def _feature_config_int(feature_config, field, default):
+    value = feature_config.get(field, default)
+    if isinstance(value, bool) or not isinstance(value, int) or value <= 0:
+        raise ClassifierError(f"{field} must be a positive integer")
+    return value
 
 
 def tokenize(text, feature_config=None):
@@ -418,17 +450,45 @@ def load_artifact_from_classifier(classifier):
 
 
 def classify_text(artifact, description, repository_name=None, visibility=None):
-    feature_config = artifact.get("feature_config") or DEFAULT_FEATURE_CONFIG
+    feature_config = validate_feature_config(artifact.get("feature_config"))
     text = repository_text(description, repository_name, feature_config)
     tokens = tokenize(text, feature_config)
-    score = posterior_spam_probability(artifact, tokens)
+    windows = classification_windows(tokens, feature_config)
+    scored_windows = [
+        (start, window, posterior_spam_probability(artifact, window))
+        for start, window in windows
+    ]
+    window_start, winning_window, score = max(scored_windows, key=lambda item: item[2])
     threshold = threshold_for_visibility(artifact, visibility)
+    explanation = explain_tokens(artifact, winning_window)
+    explanation.update(
+        {
+            "token_count": len(tokens),
+            "window_count": len(windows),
+            "window_start": window_start,
+            "window_end": window_start + len(winning_window),
+            "window_token_count": len(winning_window),
+        }
+    )
     return {
         "allowed": score < threshold,
         "score": score,
         "threshold": threshold,
-        "explanation": explain_tokens(artifact, tokens),
+        "explanation": explanation,
     }
+
+
+def classification_windows(tokens, feature_config):
+    window_tokens = feature_config["classification_window_tokens"]
+    window_stride = feature_config["classification_window_stride"]
+    if len(tokens) <= window_tokens:
+        return [(0, tokens)]
+
+    last_start = len(tokens) - window_tokens
+    starts = list(range(0, last_start + 1, window_stride))
+    if starts[-1] != last_start:
+        starts.append(last_start)
+    return [(start, tokens[start : start + window_tokens]) for start in starts]
 
 
 def posterior_spam_probability(artifact, tokens):
