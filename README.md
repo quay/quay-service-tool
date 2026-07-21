@@ -153,14 +153,17 @@ Import the initial JSON artifact from the **Classifier** tab and leave
 **Activate after import** selected. Manual scans then use that artifact from
 the persistent service-tool state. Spam and ham labels are retained as training
 feedback; **Train new version** combines that feedback with the imported base
-model and immediately updates subsequent manual scans. Export is only required
-when promoting a version to Quay ingress.
+model and immediately updates subsequent manual scans. **Download** retrieves
+the selected artifact without changing it. **Promote** atomically copies it to
+the backend-configured Quay ingress handoff path and records an audit event.
 
 For installations that provide their own persistent volume, set:
 
 ```yaml
 SPAM_DETECTION_STATE_DB_URI: sqlite:////var/lib/quay-service-tool/spam-detection/state.db
 SPAM_DETECTION_ARTIFACT_DIR: /var/lib/quay-service-tool/spam-detection/artifacts
+SPAM_DETECTION_PROMOTED_ARTIFACT_PATH: /var/lib/quay-service-tool/spam-detection/promoted/classifier.json
+SPAM_DETECTION_STALE_SCAN_TIMEOUT_SECONDS: 3600
 ```
 
 Stop the demo while preserving volumes, or remove its volumes completely:

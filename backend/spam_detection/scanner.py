@@ -9,6 +9,13 @@ class ScanError(Exception):
     pass
 
 
+def _scan_threshold(policy, classifier):
+    configured = policy.get("scan_threshold")
+    if configured is None:
+        configured = classifier["scan_threshold"]
+    return float(configured)
+
+
 def _load_active(config, policy_override=None):
     policy = store.get_policy(config)
     if policy_override:
@@ -72,7 +79,7 @@ def inspect_repository(config, namespace_name, repository_name):
     return {
         **repository,
         "classifier_score": decision["score"],
-        "scan_threshold": float(policy.get("scan_threshold") or classifier["scan_threshold"]),
+        "scan_threshold": _scan_threshold(policy, classifier),
         "explanation": decision["explanation"],
         "hard_filter_results": hard_filter_results,
         "eligible": repository.get("state") == 0 and _passes_hard_filters(hard_filter_results),
@@ -85,7 +92,7 @@ def preview(config, policy_override=None, limit=100):
     include_private = bool(policy.get("include_private"))
     empty_only = True
     batch_size = min(int(policy.get("batch_size") or 200), int(limit))
-    threshold = float(policy.get("scan_threshold") or classifier["scan_threshold"])
+    threshold = _scan_threshold(policy, classifier)
     scanned = 0
     matched = []
     last_seen_id = 0
@@ -143,7 +150,7 @@ def run_scan(config, source="manual", dry_run=None, max_repos=None, operator=Non
     classifier, artifact, policy = _load_active(config)
     classifier_snapshot = store.classifier_snapshot(classifier)
     scan_dry_run = bool(policy.get("scan_dry_run")) if dry_run is None else bool(dry_run)
-    threshold = float(policy.get("scan_threshold") or classifier["scan_threshold"])
+    threshold = _scan_threshold(policy, classifier)
     include_private = bool(policy.get("include_private"))
     empty_only = True
     batch_size = int(policy.get("batch_size") or config.get("SPAM_DETECTION_BATCH_SIZE", 200))

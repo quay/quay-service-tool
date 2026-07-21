@@ -42,7 +42,7 @@ async function openSpamDetection(page: Page) {
   await expect(page).toHaveURL(/\/spam-detection/);
 }
 
-test('Spam Detection operator workflow covers export, labels, recovery, and cleanup', async ({ page }) => {
+test('Spam Detection operator workflow covers artifacts, labels, recovery, and cleanup', async ({ page }) => {
   const dismissDescription =
     'gift card promotion https://dismiss.example This deliberately long repository description provides enough detail for an operator to review the complete classifier input without forcing every table row to remain expanded by default.';
   const classifiers: Classifier[] = [
@@ -93,7 +93,6 @@ test('Spam Detection operator workflow covers export, labels, recovery, and clea
   ];
   const reviewActions: string[] = [];
   const auditActions: any[] = [];
-  let exportPayload: any;
   let policyPayload: any;
   let redactionPayload: any;
   let reopenPayload: any;
@@ -101,7 +100,11 @@ test('Spam Detection operator workflow covers export, labels, recovery, and clea
   let manualInspectPayload: any;
   let manualAddPayload: any;
   let artifactRequested = false;
+  let artifactRequestMethod: string | undefined;
+  let artifactRequestResourceType: string | undefined;
   let artifactImported = false;
+  let artifactPromoted = false;
+  let artifactPromoteMethod: string | undefined;
 
   await page.route('**/banner', async (route) => {
     await fulfillJson(route, { messages: [] });
@@ -149,29 +152,36 @@ test('Spam Detection operator workflow covers export, labels, recovery, and clea
     };
     await fulfillJson(route, { classifier: classifiers[0] });
   });
-  await page.route('**/spam-detection/classifiers/classifier-1/export-artifact', async (route) => {
-    exportPayload = route.request().postDataJSON();
-    classifiers[0] = {
-      ...classifiers[0],
-      artifact_version: 'e2e-v1',
-      artifact_sha256: 'sha-exported',
-    };
-    await fulfillJson(route, {
-      classifier: {
-        ...classifiers[0],
-        export_path: exportPayload.output_path,
-        export_sha256: 'sha-exported',
-      },
-    });
-  });
   await page.route('**/spam-detection/classifiers/classifier-1/artifact', async (route) => {
     artifactRequested = true;
+    artifactRequestMethod = route.request().method();
+    artifactRequestResourceType = route.request().resourceType();
     await route.fulfill({
       status: 200,
       contentType: 'application/json',
-      headers: { 'content-disposition': 'attachment; filename="quay-spam-classifier-e2e-v1.json"' },
+      headers: {
+        'content-disposition': `attachment; filename="quay-spam-classifier-${classifiers[0].artifact_version}.json"`,
+      },
       body: JSON.stringify({ version: classifiers[0].artifact_version }),
     });
+  });
+  await page.route('**/spam-detection/classifiers/classifier-1/promote-artifact', async (route) => {
+    artifactPromoted = true;
+    artifactPromoteMethod = route.request().method();
+    auditActions.unshift({
+      created_at: '2026-07-15T01:00:00',
+      namespace_name: null,
+      repository_name: null,
+      action: 'artifact_promote',
+      from_status: null,
+      to_status: null,
+      operator: 'reviewer',
+      details_json: {
+        classifier_uuid: 'classifier-1',
+        artifact_version: classifiers[0].artifact_version,
+      },
+    });
+    await fulfillJson(route, { classifier: classifiers[0] });
   });
   await page.route('**/spam-detection/policy', async (route) => {
     if (route.request().method() === 'GET') {
@@ -350,13 +360,20 @@ test('Spam Detection operator workflow covers export, labels, recovery, and clea
   await expect(page.getByText('Artifact e2e-trained generated')).toBeVisible();
   await closeFeedback(page);
   const artifactDownloadPromise = page.waitForEvent('download');
-  await page.getByRole('button', { name: 'Export artifact' }).click();
+  await page.getByRole('button', { name: 'Download' }).click();
   const artifactDownload = await artifactDownloadPromise;
-  expect(artifactDownload.suggestedFilename()).toBe('quay-spam-classifier-e2e-v1.json');
+  expect(artifactDownload.suggestedFilename()).toBe('quay-spam-classifier-e2e-trained.json');
   await artifactDownload.path();
-  await expect(page.getByText('Artifact e2e-v1 download started')).toBeVisible();
+  await expect(page.getByText('Artifact e2e-trained download started')).toBeVisible();
   expect(artifactRequested).toBe(true);
-  expect(exportPayload).toEqual({});
+  expect(artifactRequestMethod).toBe('GET');
+  expect(artifactRequestResourceType).toBe('xhr');
+  await closeFeedback(page);
+
+  await page.getByRole('button', { name: 'Promote' }).click();
+  await expect(page.getByText('Artifact e2e-trained promoted')).toBeVisible();
+  expect(artifactPromoted).toBe(true);
+  expect(artifactPromoteMethod).toBe('POST');
   await closeFeedback(page);
 
   await page.locator('#artifact-name').fill('Production classifier');
@@ -519,6 +536,7 @@ test('Spam Detection operator workflow covers export, labels, recovery, and clea
   ]);
   await page.getByRole('tab', { name: 'Audit' }).click();
   const auditPanel = page.getByLabel('Audit', { exact: true });
+  await expect(auditPanel).toContainText('artifact_promote');
   await expect(auditPanel).toContainText('publicns/spam-cleanup');
   await expect(auditPanel.getByRole('link', { name: 'publicns/spam-cleanup' }).first()).toHaveAttribute(
     'href',

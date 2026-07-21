@@ -19,6 +19,7 @@ from tasks.spam_detection import (
     SpamClassifierImportArtifactTask,
     SpamClassifierImportCsvTask,
     SpamClassifierListTask,
+    SpamClassifierPromoteArtifactTask,
     SpamClassifierTask,
     SpamClassifierExportArtifactTask,
     SpamClassifierTrainTask,
@@ -75,18 +76,28 @@ default_artifact_dir = (
     if spam_detection_data_dir
     else "spam_detection_artifacts"
 )
+default_promoted_artifact_path = (
+    os.path.join(spam_detection_data_dir, "promoted", "classifier.json")
+    if spam_detection_data_dir
+    else os.path.join(default_artifact_dir, "promoted", "classifier.json")
+)
 if spam_detection_data_dir:
     app.config["SPAM_DETECTION_STATE_DB_URI"] = default_state_db_uri
     app.config["SPAM_DETECTION_ARTIFACT_DIR"] = default_artifact_dir
+    app.config["SPAM_DETECTION_PROMOTED_ARTIFACT_PATH"] = default_promoted_artifact_path
 else:
     app.config.setdefault("SPAM_DETECTION_STATE_DB_URI", default_state_db_uri)
     app.config.setdefault("SPAM_DETECTION_ARTIFACT_DIR", default_artifact_dir)
+    app.config.setdefault(
+        "SPAM_DETECTION_PROMOTED_ARTIFACT_PATH", default_promoted_artifact_path
+    )
 app.config.setdefault("SPAM_DETECTION_MAX_ARTIFACT_BYTES", 25 * 1024 * 1024)
 app.config.setdefault("SPAM_DETECTION_BATCH_SIZE", 200)
 app.config.setdefault("SPAM_DETECTION_SLEEP_BETWEEN_BATCHES", 0.5)
 app.config.setdefault("SPAM_DETECTION_SCAN_DRY_RUN", True)
 app.config.setdefault("SPAM_DETECTION_MAX_REPOS", 0)
 app.config.setdefault("SPAM_DETECTION_API_SCAN_LIMIT", 10000)
+app.config.setdefault("SPAM_DETECTION_STALE_SCAN_TIMEOUT_SECONDS", 3600)
 app.config.setdefault("SPAM_DETECTION_MAX_TRAINING_TEXT_LENGTH", 10000)
 app.config.setdefault("SPAM_DETECTION_INCLUDE_PRIVATE", False)
 app.config.setdefault(
@@ -205,6 +216,7 @@ api.add_resource(SpamClassifierImportCsvTask, '/spam-detection/classifiers/<clas
 api.add_resource(SpamClassifierTrainTask, '/spam-detection/classifiers/<classifier_uuid>/train')
 api.add_resource(SpamClassifierExportArtifactTask, '/spam-detection/classifiers/<classifier_uuid>/export-artifact')
 api.add_resource(SpamClassifierArtifactTask, '/spam-detection/classifiers/<classifier_uuid>/artifact')
+api.add_resource(SpamClassifierPromoteArtifactTask, '/spam-detection/classifiers/<classifier_uuid>/promote-artifact')
 api.add_resource(SpamPolicyTask, '/spam-detection/policy')
 api.add_resource(SpamPreviewTask, '/spam-detection/preview')
 api.add_resource(SpamRunsTask, '/spam-detection/runs')

@@ -359,6 +359,38 @@ def export_artifact(config, classifier_uuid, artifact_version=None, output_path=
     return updated
 
 
+def promote_artifact(config, classifier_uuid):
+    destination = config.get("SPAM_DETECTION_PROMOTED_ARTIFACT_PATH")
+    if not destination:
+        raise ClassifierError("SPAM_DETECTION_PROMOTED_ARTIFACT_PATH is not configured")
+    configured = store.get_classifier(config, classifier_uuid)
+    if not configured:
+        raise ClassifierError("classifier not found")
+    artifact_path = configured.get("artifact_path")
+    if not artifact_path or not os.path.isfile(artifact_path):
+        raise ClassifierError("classifier has no generated artifact")
+    with open(artifact_path, "rb") as artifact_file:
+        content = artifact_file.read()
+    try:
+        artifact = json.loads(content.decode("utf-8"))
+    except (UnicodeDecodeError, json.JSONDecodeError) as exc:
+        raise ClassifierError("classifier artifact is not valid UTF-8 JSON") from exc
+    validate_artifact(config, artifact)
+    actual_sha256 = hashlib.sha256(content).hexdigest()
+    if configured.get("artifact_sha256") != actual_sha256:
+        raise ClassifierError("classifier artifact checksum does not match stored metadata")
+    promoted_path, promoted_sha256 = write_artifact_bytes_to_path(
+        content,
+        destination,
+        overwrite=True,
+    )
+    return {
+        "classifier": configured,
+        "promoted_path": promoted_path,
+        "promoted_sha256": promoted_sha256,
+    }
+
+
 def hash_examples(examples):
     digest = hashlib.sha256()
     for example in examples:
@@ -413,14 +445,17 @@ def write_artifact_to_path(artifact, path):
     return path, sha256
 
 
-def write_artifact_bytes_to_path(content, path):
+def write_artifact_bytes_to_path(content, path, overwrite=False):
     output_dir = os.path.dirname(os.path.abspath(path))
     os.makedirs(output_dir, exist_ok=True)
+    write_content = not os.path.exists(path)
     if os.path.exists(path):
         with open(path, "rb") as existing_file:
-            if existing_file.read() != content:
+            existing_content = existing_file.read()
+            if existing_content != content and not overwrite:
                 raise ClassifierError("artifact path already exists with different content")
-    else:
+            write_content = existing_content != content
+    if write_content:
         tmp_path = f"{path}.tmp.{os.getpid()}"
         with open(tmp_path, "wb") as artifact_file:
             artifact_file.write(content)

@@ -257,33 +257,43 @@ export const SpamDetection: React.FunctionComponent = () => {
       .catch((error) => showMessage(error.response?.data?.message || 'Unable to train classifier'));
   }
 
-  function triggerArtifactDownload(classifierUuid: string) {
-    const link = document.createElement('a');
-    link.href = `/spam-detection/classifiers/${classifierUuid}/artifact`;
-    link.hidden = true;
-    document.body.appendChild(link);
-    link.click();
-    window.setTimeout(() => link.remove(), 1000);
-  }
-
-  async function exportArtifact() {
-    if (!selectedClassifier) {
-      showMessage('Select a classifier');
-      return;
-    }
-    HttpService.axiosClient
-      .post(`/spam-detection/classifiers/${selectedClassifier}/export-artifact`, {})
-      .then((response) => {
-        triggerArtifactDownload(selectedClassifier);
-        showMessage(`Artifact ${response.data.classifier.artifact_version} download started`);
-        loadClassifiers();
-      })
-      .catch((error) => showMessage(error.response?.data?.message || 'Unable to export artifact'));
-  }
-
   async function downloadArtifact(classifier: Classifier) {
-    triggerArtifactDownload(classifier.uuid);
-    showMessage(`Artifact ${classifier.artifact_version || 'unversioned'} download started`);
+    try {
+      const response = await HttpService.axiosClient.get(
+        `/spam-detection/classifiers/${classifier.uuid}/artifact`,
+        { responseType: 'blob' }
+      );
+      const disposition = response.headers?.['content-disposition'] || '';
+      const filenameMatch = disposition.match(/filename=(?:"([^"]+)"|([^;]+))/i);
+      const filename =
+        filenameMatch?.[1] ||
+        filenameMatch?.[2]?.trim() ||
+        `quay-spam-classifier-${classifier.artifact_version || 'unversioned'}.json`;
+      const objectUrl = window.URL.createObjectURL(response.data);
+      const link = document.createElement('a');
+      link.href = objectUrl;
+      link.download = filename;
+      link.hidden = true;
+      document.body.appendChild(link);
+      link.click();
+      window.setTimeout(() => {
+        link.remove();
+        window.URL.revokeObjectURL(objectUrl);
+      }, 1000);
+      showMessage(`Artifact ${classifier.artifact_version || 'unversioned'} download started`);
+    } catch (error: any) {
+      showMessage(error.response?.data?.message || 'Unable to download artifact');
+    }
+  }
+
+  async function promoteArtifact(classifier: Classifier) {
+    HttpService.axiosClient
+      .post(`/spam-detection/classifiers/${classifier.uuid}/promote-artifact`, {})
+      .then((response) => {
+        showMessage(`Artifact ${response.data.classifier.artifact_version} promoted`);
+        loadAudit();
+      })
+      .catch((error) => showMessage(error.response?.data?.message || 'Unable to promote artifact'));
   }
 
   async function importCsv() {
@@ -710,9 +720,6 @@ export const SpamDetection: React.FunctionComponent = () => {
                         <Button variant="primary" onClick={trainClassifier} isDisabled={!selectedClassifier}>
                           Train new version
                         </Button>
-                        <Button variant="secondary" onClick={exportArtifact} isDisabled={!selectedClassifier}>
-                          Export artifact
-                        </Button>
                       </div>
                       <FormGroup label="Seed CSV path" fieldId="seed-csv-path">
                         <TextInput id="seed-csv-path" value={csvPath} onChange={(value) => setCsvPath(value)} />
@@ -754,6 +761,9 @@ export const SpamDetection: React.FunctionComponent = () => {
                   <Button variant="link" onClick={() => downloadArtifact(item)} isDisabled={!item.artifact_version}>
                     Download
                   </Button>
+                  <Button variant="link" onClick={() => promoteArtifact(item)} isDisabled={!item.artifact_version}>
+                    Promote
+                  </Button>
                 </div>,
               ])}
             />
@@ -768,7 +778,7 @@ export const SpamDetection: React.FunctionComponent = () => {
                   <FormGroup label="Scan threshold" fieldId="scan-threshold">
                     <TextInput
                       id="scan-threshold"
-                      value={String(policy.scan_threshold || '')}
+                      value={String(policy.scan_threshold ?? '')}
                       onChange={(value) => setPolicy({ ...policy, scan_threshold: Number(value) })}
                     />
                   </FormGroup>

@@ -1,5 +1,6 @@
 import hashlib
 import sqlite3
+from datetime import datetime, timedelta
 
 from .database import (
     connect_state_db,
@@ -507,7 +508,42 @@ def update_policy(config, payload, operator=None):
 def create_scan_run(config, source, dry_run, classifier_snapshot, policy_snapshot, operator=None):
     initialize(config)
     now = utcnow()
+    stale_timeout = int(config.get("SPAM_DETECTION_STALE_SCAN_TIMEOUT_SECONDS", 3600))
+    if stale_timeout <= 0:
+        raise ValueError("SPAM_DETECTION_STALE_SCAN_TIMEOUT_SECONDS must be greater than 0")
+    stale_before = (datetime.utcnow() - timedelta(seconds=stale_timeout)).isoformat(
+        timespec="seconds"
+    )
     with connect_state_db(config) as conn:
+        stale_runs = conn.execute(
+            """
+            SELECT id, uuid FROM spam_scan_run
+            WHERE status = 'running' AND started_at <= ?
+            """,
+            (stale_before,),
+        ).fetchall()
+        for stale_run in stale_runs:
+            error = f"scan recovered after exceeding {stale_timeout} second stale timeout"
+            conn.execute(
+                """
+                UPDATE spam_scan_run
+                SET status = 'failed', completed_at = ?, error = ?
+                WHERE id = ? AND status = 'running'
+                """,
+                (now, error, stale_run["id"]),
+            )
+            add_action_with_conn(
+                conn,
+                None,
+                "scan_recovered",
+                "running",
+                "failed",
+                operator,
+                {
+                    "run_uuid": stale_run["uuid"],
+                    "stale_timeout_seconds": stale_timeout,
+                },
+            )
         try:
             cur = conn.execute(
                 """

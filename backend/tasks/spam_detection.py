@@ -322,6 +322,36 @@ class SpamClassifierArtifactTask(Resource):
         )
 
 
+class SpamClassifierPromoteArtifactTask(Resource):
+    @log_response
+    @verify_spam_detection_write_permissions
+    @login_required
+    def post(self, classifier_uuid):
+        try:
+            promoted = classifier.promote_artifact(current_app.config, classifier_uuid)
+            configured = promoted["classifier"]
+            store.add_action(
+                current_app.config,
+                None,
+                "artifact_promote",
+                None,
+                None,
+                operator=_operator(),
+                details={
+                    "classifier_uuid": classifier_uuid,
+                    "artifact_version": configured.get("artifact_version"),
+                    "artifact_sha256": promoted["promoted_sha256"],
+                    "destination": promoted["promoted_path"],
+                },
+            )
+            return _json_response(promoted)
+        except classifier.ClassifierError as exc:
+            return _json_response({"message": str(exc)}, 400)
+        except Exception as exc:
+            logger.exception("Unable to promote spam classifier artifact")
+            return _json_response({"message": str(exc)}, 500)
+
+
 class SpamPolicyTask(Resource):
     @log_response
     @verify_spam_detection_read_permissions

@@ -100,6 +100,14 @@ def test_preview_scans_public_repositories_by_default(tmp_path):
     assert spam_match["description"] == "casino bonus jackpot https://spam.example"
 
 
+def test_scan_threshold_preserves_zero_and_falls_back_only_for_none():
+    classifier_config = {"scan_threshold": 0.9}
+
+    assert scanner._scan_threshold({"scan_threshold": 0}, classifier_config) == 0
+    assert scanner._scan_threshold({}, classifier_config) == 0.9
+    assert scanner._scan_threshold({"scan_threshold": None}, classifier_config) == 0.9
+
+
 def test_description_without_hyperlink_is_hard_excluded(tmp_path):
     quay_db_path = tmp_path / "quay.db"
     _create_quay_db(quay_db_path)
@@ -317,6 +325,39 @@ def test_scan_rejects_when_another_scan_is_running(tmp_path):
 
     with pytest.raises(ValueError):
         scanner.run_scan(config, dry_run=True)
+
+
+def test_scan_recovers_abandoned_running_scan(tmp_path):
+    quay_db_path = tmp_path / "quay.db"
+    _create_quay_db(quay_db_path)
+    config = _config(tmp_path, quay_db_path)
+    config["SPAM_DETECTION_STALE_SCAN_TIMEOUT_SECONDS"] = 60
+    _trained_classifier(config)
+    abandoned = store.create_scan_run(config, "test", True, {}, {}, operator="tester")
+    conn = sqlite3.connect(tmp_path / "state.db")
+    conn.execute(
+        "UPDATE spam_scan_run SET started_at = ? WHERE id = ?",
+        ("2000-01-01T00:00:00", abandoned["id"]),
+    )
+    conn.commit()
+    conn.close()
+
+    completed = scanner.run_scan(config, dry_run=True, operator="recovery-tester")
+
+    runs = {run["uuid"]: run for run in store.list_runs(config)}
+    assert completed["status"] == "completed"
+    assert runs[abandoned["uuid"]]["status"] == "failed"
+    assert "stale timeout" in runs[abandoned["uuid"]]["error"]
+    recovery = next(
+        action for action in store.list_audit_actions(config) if action["action"] == "scan_recovered"
+    )
+    assert recovery["from_status"] == "running"
+    assert recovery["to_status"] == "failed"
+    assert recovery["operator"] == "recovery-tester"
+    assert recovery["details_json"] == {
+        "run_uuid": abandoned["uuid"],
+        "stale_timeout_seconds": 60,
+    }
 
 
 def test_quarantine_preserves_latest_description_for_restore(tmp_path):

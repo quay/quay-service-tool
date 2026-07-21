@@ -292,8 +292,19 @@ describe('Spam Detection', () => {
     expect(await screen.findByText('Repository added to review as spam')).toBeTruthy();
   });
 
-  it('exports and downloads the generated classifier artifact', async () => {
+  it('downloads the generated classifier artifact through the authenticated client', async () => {
     const click = jest.spyOn(HTMLAnchorElement.prototype, 'click').mockImplementation(() => undefined);
+    const createObjectURL = jest.fn().mockReturnValue('blob:artifact');
+    const revokeObjectURL = jest.fn();
+    Object.defineProperty(window.URL, 'createObjectURL', {
+      configurable: true,
+      value: createObjectURL,
+    });
+    Object.defineProperty(window.URL, 'revokeObjectURL', {
+      configurable: true,
+      value: revokeObjectURL,
+    });
+    const artifactBlob = new Blob(['{"version":"v1"}'], { type: 'application/json' });
     mocked(HttpService, true)
       .axiosClient.get.mockResolvedValueOnce({
         data: {
@@ -312,21 +323,65 @@ describe('Spam Detection', () => {
       .mockResolvedValueOnce({ data: { records: [] } })
       .mockResolvedValueOnce({ data: { records: [] } })
       .mockResolvedValueOnce({ data: { actions: [] } })
-      .mockResolvedValueOnce({ data: { classifiers: [] } });
-    mocked(HttpService, true).axiosClient.post.mockResolvedValue({
-      data: { classifier: { artifact_version: 'v2' } },
-    });
+      .mockResolvedValueOnce({
+        data: artifactBlob,
+        headers: { 'content-disposition': 'attachment; filename="classifier-v1.json"' },
+      });
 
     render(<SpamDetection />);
-    fireEvent.click(await screen.findByRole('button', { name: 'Export artifact' }));
+    fireEvent.click(await screen.findByRole('button', { name: 'Download' }));
 
     await waitFor(() => {
       expect(click).toHaveBeenCalled();
     });
+    expect(mocked(HttpService, true).axiosClient.get).toHaveBeenCalledWith(
+      '/spam-detection/classifiers/classifier-1/artifact',
+      { responseType: 'blob' }
+    );
+    expect(mocked(HttpService, true).axiosClient.post).not.toHaveBeenCalled();
     const clickedLinks = click.mock.instances as unknown as HTMLAnchorElement[];
     const link = clickedLinks[clickedLinks.length - 1];
-    expect(link.getAttribute('href')).toBe('/spam-detection/classifiers/classifier-1/artifact');
+    expect(link.getAttribute('href')).toBe('blob:artifact');
+    expect(link.getAttribute('download')).toBe('classifier-v1.json');
     click.mockRestore();
+    Reflect.deleteProperty(window.URL, 'createObjectURL');
+    Reflect.deleteProperty(window.URL, 'revokeObjectURL');
+  });
+
+  it('promotes an artifact separately and refreshes audit history', async () => {
+    mocked(HttpService, true)
+      .axiosClient.get.mockResolvedValueOnce({
+        data: {
+          classifiers: [
+            {
+              uuid: 'classifier-1',
+              name: 'Default classifier',
+              enabled: 1,
+              artifact_version: 'v1',
+            },
+          ],
+        },
+      })
+      .mockResolvedValueOnce({ data: { policy: {} } })
+      .mockResolvedValueOnce({ data: { runs: [] } })
+      .mockResolvedValueOnce({ data: { records: [] } })
+      .mockResolvedValueOnce({ data: { records: [] } })
+      .mockResolvedValueOnce({ data: { actions: [] } })
+      .mockResolvedValueOnce({ data: { actions: [] } });
+    mocked(HttpService, true).axiosClient.post.mockResolvedValue({
+      data: { classifier: { artifact_version: 'v1' } },
+    });
+
+    render(<SpamDetection />);
+    fireEvent.click(await screen.findByRole('button', { name: 'Promote' }));
+
+    await waitFor(() => {
+      expect(mocked(HttpService, true).axiosClient.post).toHaveBeenCalledWith(
+        '/spam-detection/classifiers/classifier-1/promote-artifact',
+        {}
+      );
+    });
+    expect(await screen.findByText('Artifact v1 promoted')).toBeTruthy();
   });
 
   it('uploads and activates an imported classifier artifact', async () => {
