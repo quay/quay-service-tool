@@ -47,7 +47,6 @@ RUN set -ex\
 	openldap-devel \
 	libffi-devel \
 	openssl-devel \
-	diffutils \
 	file \
 	make \
 	libjpeg-turbo \

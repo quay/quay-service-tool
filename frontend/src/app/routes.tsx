@@ -5,6 +5,7 @@ import UserService from "src/services/UserService";
 import { SiteUtils } from '@app/SiteUtils/SiteUtils';
 import { UserUtils } from '@app/UserUtils/UserUtils';
 import { ExportCompliance } from '@app/ExportCompliance/ExportCompliance';
+import { SpamDetection } from '@app/SpamDetection/SpamDetection';
 import { NotFound } from '@app/NotFound/NotFound';
 import { useDocumentTitle } from '@app/utils/useDocumentTitle';
 import { LastLocationProvider, useLastLocation } from 'react-router-last-location';
@@ -32,6 +33,7 @@ export type AppRouteConfig = IAppRoute | IAppRouteGroup;
 
 const AdminPerms = window.ADMIN_ROLE || process.env.ADMIN_ROLE;
 const ExportPerms = window.EXPORT_COMPLIANCE_ROLE || process.env.EXPORT_COMPLIANCE_ROLE;
+const SpamDetectionPerms = window.SPAM_DETECTION_ROLE || process.env.SPAM_DETECTION_ROLE;
 
 const routes: AppRouteConfig[] = [
   {
@@ -60,6 +62,15 @@ const routes: AppRouteConfig[] = [
     title: 'Quay Service Tool | Export Compliance',
     permission: ExportPerms
   },
+  {
+    component: SpamDetection,
+    exact: true,
+    isAsync: true,
+    label: 'Spam Detection',
+    path: '/spam-detection',
+    title: 'Quay Service Tool | Spam Detection',
+    permission: SpamDetectionPerms,
+  },
 ];
 
 // a custom hook for sending focus to the primary content container
@@ -85,7 +96,7 @@ const RouteWithTitleUpdates = ({ component: Component, isAsync = false, title, .
     return <Component {...rest} {...routeProps} />;
   }
 
-  return <Route render={routeWithTitle} />;
+  return <Route {...rest} render={routeWithTitle} />;
 };
 
 const PageNotFound = ({ title }: { title: string }) => {

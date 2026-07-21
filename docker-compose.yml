@@ -1,7 +1,7 @@
 networks:
   default:
     external: true
-    name: quay_default
+    name: ${QUAY_NETWORK_NAME:-quay_default}
 
 services:
 #  Not needed for local development
@@ -26,16 +26,19 @@ services:
       - ./backend/_init.py:/backend/_init.py
       - ./backend/utils.py:/backend/utils.py
       - ./backend/tasks:/backend/tasks
+      - ./backend/spam_detection:/backend/spam_detection
       - ./backend/templates:/backend/templates
       - ./backend/config:/backend/config
       - ./backend/tests:/backend/tests
+      - spam-detection-data:/backend/spam_detection_data
     ports:
-      - '5000:5000'
+      - '${SERVICE_TOOL_API_PORT:-5000}:5000'
     environment:
       ENV: development
       DEBUG: "True"
       PYTHONUNBUFFERED: "True"
       CONFIG_PATH: /backend/config
+      SPAM_DETECTION_DATA_DIR: /backend/spam_detection_data
       IS_LOCAL: "True"
 
   quay-service-tool-client:
@@ -48,7 +51,7 @@ services:
       - ./frontend/webpack.common.js:/frontend/webpack.common.js
       - ./frontend/webpack.dev.js:/frontend/webpack.dev.js
     ports:
-      - '9000:9000'
+      - '${SERVICE_TOOL_CLIENT_PORT:-9000}:9000'
     depends_on:
       - quay-service-tool-api
     env_file:
@@ -56,3 +59,6 @@ services:
     environment:
       NODE_ENV: development
       TARGET_URL: http://quay-service-tool-api:5000
+
+volumes:
+  spam-detection-data:
