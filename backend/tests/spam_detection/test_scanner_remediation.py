@@ -2,7 +2,7 @@ import sqlite3
 
 import pytest
 
-from spam_detection import classifier, quay_db, remediation, scanner, store
+from spam_detection import classifier, database, quay_db, remediation, scanner, store
 
 
 def _config(tmp_path, quay_db_path):
@@ -106,6 +106,37 @@ def test_scan_threshold_preserves_zero_and_falls_back_only_for_none():
     assert scanner._scan_threshold({"scan_threshold": 0}, classifier_config) == 0
     assert scanner._scan_threshold({}, classifier_config) == 0.9
     assert scanner._scan_threshold({"scan_threshold": None}, classifier_config) == 0.9
+
+
+def test_state_migration_backfills_scan_heartbeat(tmp_path):
+    state_db_path = tmp_path / "state.db"
+    conn = sqlite3.connect(state_db_path)
+    conn.execute(
+        """
+        CREATE TABLE spam_scan_run (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            uuid TEXT NOT NULL UNIQUE,
+            status TEXT NOT NULL,
+            started_at TEXT NOT NULL
+        )
+        """
+    )
+    conn.execute(
+        "INSERT INTO spam_scan_run (uuid, status, started_at) VALUES (?, ?, ?)",
+        ("existing-run", "running", "2026-01-01T00:00:00"),
+    )
+    conn.commit()
+    conn.close()
+    config = {"SPAM_DETECTION_STATE_DB_URI": f"sqlite:///{state_db_path}"}
+
+    database.migrate_state_db(config)
+
+    conn = sqlite3.connect(state_db_path)
+    heartbeat_at = conn.execute(
+        "SELECT heartbeat_at FROM spam_scan_run WHERE uuid = ?", ("existing-run",)
+    ).fetchone()[0]
+    conn.close()
+    assert heartbeat_at == "2026-01-01T00:00:00"
 
 
 def test_description_without_hyperlink_is_hard_excluded(tmp_path):
@@ -336,8 +367,8 @@ def test_scan_recovers_abandoned_running_scan(tmp_path):
     abandoned = store.create_scan_run(config, "test", True, {}, {}, operator="tester")
     conn = sqlite3.connect(tmp_path / "state.db")
     conn.execute(
-        "UPDATE spam_scan_run SET started_at = ? WHERE id = ?",
-        ("2000-01-01T00:00:00", abandoned["id"]),
+        "UPDATE spam_scan_run SET started_at = ?, heartbeat_at = ? WHERE id = ?",
+        ("2000-01-01T00:00:00", "2000-01-01T00:00:00", abandoned["id"]),
     )
     conn.commit()
     conn.close()
@@ -358,6 +389,39 @@ def test_scan_recovers_abandoned_running_scan(tmp_path):
         "run_uuid": abandoned["uuid"],
         "stale_timeout_seconds": 60,
     }
+    assert not store.update_scan_run(
+        config,
+        abandoned["id"],
+        status="completed",
+        completed_at="2099-01-01T00:00:00",
+    )
+    assert store.get_run(config, abandoned["uuid"])["status"] == "failed"
+
+
+def test_scan_does_not_recover_long_running_scan_with_fresh_heartbeat(tmp_path):
+    quay_db_path = tmp_path / "quay.db"
+    _create_quay_db(quay_db_path)
+    config = _config(tmp_path, quay_db_path)
+    config["SPAM_DETECTION_STALE_SCAN_TIMEOUT_SECONDS"] = 60
+    _trained_classifier(config)
+    active = store.create_scan_run(config, "test", True, {}, {}, operator="tester")
+    conn = sqlite3.connect(tmp_path / "state.db")
+    conn.execute(
+        "UPDATE spam_scan_run SET started_at = ? WHERE id = ?",
+        ("2000-01-01T00:00:00", active["id"]),
+    )
+    conn.commit()
+    conn.close()
+    assert store.heartbeat_scan_run(config, active["id"])
+
+    with pytest.raises(ValueError, match="already running"):
+        scanner.run_scan(config, dry_run=True, operator="second-operator")
+
+    assert store.get_run(config, active["uuid"])["status"] == "running"
+    assert not any(
+        action["action"] == "scan_recovered"
+        for action in store.list_audit_actions(config)
+    )
 
 
 def test_quarantine_preserves_latest_description_for_restore(tmp_path):

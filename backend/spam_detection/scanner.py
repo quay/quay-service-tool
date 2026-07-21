@@ -16,6 +16,26 @@ def _scan_threshold(policy, classifier):
     return float(configured)
 
 
+def _heartbeat_interval(config):
+    stale_timeout = float(config.get("SPAM_DETECTION_STALE_SCAN_TIMEOUT_SECONDS", 3600))
+    return max(0.1, min(stale_timeout / 3, 30.0))
+
+
+def _renew_scan_lease(config, run_id):
+    if not store.heartbeat_scan_run(config, run_id):
+        raise ScanError("spam detection scan lease was lost")
+
+
+def _sleep_with_lease(config, run_id, seconds):
+    remaining = float(seconds)
+    interval = _heartbeat_interval(config)
+    while remaining > 0:
+        duration = min(remaining, interval)
+        time.sleep(duration)
+        remaining -= duration
+        _renew_scan_lease(config, run_id)
+
+
 def _load_active(config, policy_override=None):
     policy = store.get_policy(config)
     if policy_override:
@@ -170,10 +190,14 @@ def run_scan(config, source="manual", dry_run=None, max_repos=None, operator=Non
         "repos_skipped_terminal": 0,
     }
     last_seen_id = 0
+    heartbeat_interval = _heartbeat_interval(config)
+    next_heartbeat = time.monotonic() + heartbeat_interval
 
     try:
         with quay_db.readonly_db(config) as db:
             while True:
+                _renew_scan_lease(config, run["id"])
+                next_heartbeat = time.monotonic() + heartbeat_interval
                 page_size = batch_size
                 if max_repos:
                     remaining = max_repos - counters["repos_scanned"]
@@ -192,6 +216,9 @@ def run_scan(config, source="manual", dry_run=None, max_repos=None, operator=Non
                     break
 
                 for repository in repositories:
+                    if time.monotonic() >= next_heartbeat:
+                        _renew_scan_lease(config, run["id"])
+                        next_heartbeat = time.monotonic() + heartbeat_interval
                     last_seen_id = max(last_seen_id, int(repository["id"]))
                     counters["repos_scanned"] += 1
                     decision = classifier_lib.classify_text(
@@ -230,15 +257,16 @@ def run_scan(config, source="manual", dry_run=None, max_repos=None, operator=Non
                             counters["repos_flagged"] += 1
 
                 if sleep_between_batches:
-                    time.sleep(sleep_between_batches)
+                    _sleep_with_lease(config, run["id"], sleep_between_batches)
 
-        store.update_scan_run(
+        if not store.update_scan_run(
             config,
             run["id"],
             status="completed",
             completed_at=utcnow(),
             **counters,
-        )
+        ):
+            raise ScanError("spam detection scan lease was lost before completion")
     except Exception as exc:
         store.update_scan_run(
             config,

@@ -518,20 +518,22 @@ def create_scan_run(config, source, dry_run, classifier_snapshot, policy_snapsho
         stale_runs = conn.execute(
             """
             SELECT id, uuid FROM spam_scan_run
-            WHERE status = 'running' AND started_at <= ?
+            WHERE status = 'running' AND heartbeat_at <= ?
             """,
             (stale_before,),
         ).fetchall()
         for stale_run in stale_runs:
             error = f"scan recovered after exceeding {stale_timeout} second stale timeout"
-            conn.execute(
+            recovered = conn.execute(
                 """
                 UPDATE spam_scan_run
                 SET status = 'failed', completed_at = ?, error = ?
-                WHERE id = ? AND status = 'running'
+                WHERE id = ? AND status = 'running' AND heartbeat_at <= ?
                 """,
-                (now, error, stale_run["id"]),
+                (now, error, stale_run["id"], stale_before),
             )
+            if recovered.rowcount != 1:
+                continue
             add_action_with_conn(
                 conn,
                 None,
@@ -548,14 +550,15 @@ def create_scan_run(config, source, dry_run, classifier_snapshot, policy_snapsho
             cur = conn.execute(
                 """
                 INSERT INTO spam_scan_run (
-                    uuid, source, dry_run, status, started_at, classifier_snapshot_json,
-                    policy_snapshot_json, created_by
-                ) VALUES (?, ?, ?, 'running', ?, ?, ?, ?)
+                    uuid, source, dry_run, status, started_at, heartbeat_at,
+                    classifier_snapshot_json, policy_snapshot_json, created_by
+                ) VALUES (?, ?, ?, 'running', ?, ?, ?, ?, ?)
                 """,
                 (
                     new_uuid(),
                     source,
                     1 if dry_run else 0,
+                    now,
                     now,
                     json_dumps(classifier_snapshot),
                     json_dumps(policy_snapshot),
@@ -567,6 +570,18 @@ def create_scan_run(config, source, dry_run, classifier_snapshot, policy_snapsho
         return row_to_dict(conn.execute("SELECT * FROM spam_scan_run WHERE id = ?", (cur.lastrowid,)).fetchone())
 
 
+def heartbeat_scan_run(config, run_id):
+    with connect_state_db(config) as conn:
+        cur = conn.execute(
+            """
+            UPDATE spam_scan_run SET heartbeat_at = ?
+            WHERE id = ? AND status = 'running'
+            """,
+            (utcnow(), run_id),
+        )
+        return cur.rowcount == 1
+
+
 def update_scan_run(config, run_id, **fields):
     assignments = []
     params = []
@@ -574,10 +589,15 @@ def update_scan_run(config, run_id, **fields):
         assignments.append(f"{key} = ?")
         params.append(value)
     if not assignments:
-        return
+        return False
     params.append(run_id)
     with connect_state_db(config) as conn:
-        conn.execute(f"UPDATE spam_scan_run SET {', '.join(assignments)} WHERE id = ?", tuple(params))
+        cur = conn.execute(
+            f"UPDATE spam_scan_run SET {', '.join(assignments)} "
+            "WHERE id = ? AND status = 'running'",
+            tuple(params),
+        )
+        return cur.rowcount == 1
 
 
 def add_scan_match(config, run_id, repository, score, explanation, hard_filter_results=None):

@@ -159,6 +159,7 @@ def migrate_state_db(config):
                 dry_run INTEGER NOT NULL,
                 status TEXT NOT NULL CHECK(status IN ('running', 'completed', 'failed')),
                 started_at TEXT NOT NULL,
+                heartbeat_at TEXT NOT NULL,
                 completed_at TEXT,
                 classifier_snapshot_json TEXT NOT NULL DEFAULT '{}',
                 policy_snapshot_json TEXT NOT NULL DEFAULT '{}',
@@ -173,8 +174,6 @@ def migrate_state_db(config):
 
             CREATE INDEX IF NOT EXISTS spam_scan_run_started_idx
                 ON spam_scan_run(started_at);
-            CREATE INDEX IF NOT EXISTS spam_scan_run_status_started_idx
-                ON spam_scan_run(status, started_at);
             CREATE UNIQUE INDEX IF NOT EXISTS spam_scan_run_one_running_idx
                 ON spam_scan_run(status)
                 WHERE status = 'running';
@@ -274,6 +273,16 @@ def migrate_state_db(config):
             "spam_scan_run",
             "repos_skipped_terminal",
             "INTEGER NOT NULL DEFAULT 0",
+        )
+        _ensure_column(conn, "spam_scan_run", "heartbeat_at", "TEXT")
+        conn.execute(
+            "UPDATE spam_scan_run SET heartbeat_at = started_at WHERE heartbeat_at IS NULL"
+        )
+        conn.execute(
+            """
+            CREATE INDEX IF NOT EXISTS spam_scan_run_status_heartbeat_idx
+            ON spam_scan_run(status, heartbeat_at)
+            """
         )
         _ensure_column(conn, "spam_quarantine_record", "description_fingerprint", "TEXT")
         _ensure_column(
