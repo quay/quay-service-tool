@@ -3,7 +3,7 @@ name = "quay-service-tool"
 version = "0.0.1"
 requires-python = "==3.12.*"
 dependencies = [
-    "quay @ git+https://github.com/quay/quay.git@8b7f0d36749eca82f41c9ff1bd7fb50985b9cb2a",
+    "quay @ git+https://github.com/quay/quay.git@b2dd4d271d5e39b811569569d8e795ed0f7cf55f",
     "python-keycloak>=4.0.0",
     "prometheus-flask-exporter==0.23.1",
     "psycopg2-binary>=2.9.10",
