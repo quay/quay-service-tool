@@ -257,7 +257,7 @@ export const SiteUtils: React.FunctionComponent = (props) => {
 
       {openConfirmationModal && <Modal
           variant={ModalVariant.small}
-          title=""
+          title="Delete banner"
           isOpen={openConfirmationModal}
           onClose={handleModalToggle}
           actions={[

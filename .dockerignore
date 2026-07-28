@@ -1,5 +1,8 @@
 frontend/node_modules
 **/__pycache
+backend/spam_detection_state.db
+backend/spam_detection_artifacts
+backend/config/user_learned_data*.csv
 .venv/
 .env
 venv/

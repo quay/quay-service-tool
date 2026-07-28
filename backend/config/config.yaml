@@ -3,6 +3,7 @@ DB_URI: postgresql://quay:quay@quay-db/quay
 # If service tool backend is run outside a container:
 #DB_URI: postgresql://quay:quay@0.0.0.0:5432/quay
 is_local: true
+QUAY_UI_URL: https://quay.io
 
 # Used to test authentication in local env
 test_auth: false
@@ -16,6 +17,8 @@ authentication:
     ADMIN_ROLE: 'admin-role'
     EXPORT_COMPLIANCE_ROLE: 'export-compliance-role'
     PROTECTED_ADMIN_ROLE: 'protected-admin-role'
+    SPAM_DETECTION_ROLE: 'spam-detection-role'
+    SPAM_DETECTION_REMEDIATION_ROLE: 'spam-detection-remediation-role'
   protected_namespaces:
     - openshift-release-dev
     - redhat-prod
@@ -42,3 +45,25 @@ ENTITLEMENT_RECONCILIATION_MARKETPLACE_ENDPOINT: ""
 
 ENV: development
 DEBUG: true
+
+# Quay spam detection service-tool state and DB access.
+SPAM_DETECTION_STATE_DB_URI: sqlite:///spam_detection_state.db
+# Production deployments should point this at a read-only Quay user or replica.
+SPAM_DETECTION_READONLY_DB_URI: postgresql://quay:quay@quay-db/quay
+# Only approved quarantine, restore, and redaction actions use this write-capable path.
+SPAM_DETECTION_WRITE_DB_URI: postgresql://quay:quay@quay-db/quay
+SPAM_DETECTION_ARTIFACT_DIR: spam_detection_artifacts
+SPAM_DETECTION_PROMOTED_ARTIFACT_PATH: spam_detection_artifacts/promoted/classifier.json
+SPAM_DETECTION_MAX_ARTIFACT_BYTES: 26214400
+SPAM_DETECTION_BATCH_SIZE: 200
+SPAM_DETECTION_SLEEP_BETWEEN_BATCHES: 0.5
+SPAM_DETECTION_SCAN_DRY_RUN: true
+SPAM_DETECTION_RESCAN_TERMINAL_RECORDS: false
+SPAM_DETECTION_MAX_REPOS: 0
+SPAM_DETECTION_API_SCAN_LIMIT: 10000
+SPAM_DETECTION_STALE_SCAN_TIMEOUT_SECONDS: 3600
+SPAM_DETECTION_MAX_TRAINING_TEXT_LENGTH: 10000
+SPAM_DETECTION_MIN_SPAM_EXAMPLES: 10
+SPAM_DETECTION_MIN_HAM_EXAMPLES: 10
+SPAM_DETECTION_INCLUDE_PRIVATE: false
+SPAM_DETECTION_QUARANTINE_DESCRIPTION: "This repository description was removed by Quay spam detection. To request restoration, contact Quay support with the namespace and repository name. Before requesting restore, remove promotional, deceptive, or unrelated link content. Restore requests are reviewed within the deployment's published support timeline."

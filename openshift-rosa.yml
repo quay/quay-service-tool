@@ -27,6 +27,9 @@ parameters:
 - name: REPLICAS
   value: "1"
   displayName: replicas for the deployment
+- name: SPAM_DETECTION_STORAGE_SIZE
+  value: "1Gi"
+  displayName: persistent storage for spam detection state and artifacts
 - name: SERVICE_ANNOTATIONS
   value: "{}"
   displayName: Service annotations.
@@ -56,6 +59,16 @@ parameters:
 - name: QUAY_RESOURCES_LIMITS_MEMORY
   value: "256Mi"
 objects:
+- apiVersion: v1
+  kind: PersistentVolumeClaim
+  metadata:
+    name: quayio-service-tool-spam-detection
+  spec:
+    accessModes:
+    - ReadWriteOnce
+    resources:
+      requests:
+        storage: ${SPAM_DETECTION_STORAGE_SIZE}
 - apiVersion: apps/v1
   kind: Deployment
   metadata:
@@ -82,6 +95,9 @@ objects:
         - name: config
           secret:
             secretName: ${{QUAY_SERVICE_TOOL_CONFIG_SECRET}}
+        - name: spam-detection-data
+          persistentVolumeClaim:
+            claimName: quayio-service-tool-spam-detection
         containers:
         - name: quayio-service-tool
           image: ${IMAGE}:${IMAGE_TAG}
@@ -91,6 +107,8 @@ objects:
           - name: config
             mountPath: ${{CONFIG_MOUNT_PATH}}
             readOnly: true
+          - name: spam-detection-data
+            mountPath: /var/lib/quay-service-tool/spam-detection
           ports:
           - containerPort: 5000
           resources:
@@ -102,6 +120,8 @@ objects:
           env:
           - name: CONFIG_PATH
             value: ${{CONFIG_MOUNT_PATH}}
+          - name: SPAM_DETECTION_DATA_DIR
+            value: /var/lib/quay-service-tool/spam-detection
           livenessProbe:
             httpGet:
               path: /healthcheck

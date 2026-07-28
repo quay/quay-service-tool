@@ -81,6 +81,9 @@ parameters:
 - name: REPLICAS
   value: "1"
   displayName: replicas for the deployment
+- name: SPAM_DETECTION_STORAGE_SIZE
+  value: "1Gi"
+  displayName: persistent storage for spam detection state and artifacts
   # DVO
 - name: QUAY_DISABLE_MIN_REPLICAS_CHECK
   displayName: Disable Minimum Replicas Check
@@ -101,6 +104,16 @@ parameters:
   value: "CPU limits not set to allow bursting"
   displayName: reason for disabling CPU requirements check
 objects:
+- apiVersion: v1
+  kind: PersistentVolumeClaim
+  metadata:
+    name: quayio-service-tool-spam-detection
+  spec:
+    accessModes:
+    - ReadWriteOnce
+    resources:
+      requests:
+        storage: ${SPAM_DETECTION_STORAGE_SIZE}
 - apiVersion: apps/v1
   kind: Deployment
   metadata:
@@ -127,6 +140,9 @@ objects:
         - name: config
           secret:
             secretName: ${{QUAY_SERVICE_TOOL_CONFIG_SECRET}}
+        - name: spam-detection-data
+          persistentVolumeClaim:
+            claimName: quayio-service-tool-spam-detection
         containers:
         - name: syslog-cloudwatch-bridge
           image: ${SYSLOG_IMAGE}:${SYSLOG_IMAGE_TAG}
@@ -194,6 +210,8 @@ objects:
           - name: config
             mountPath: ${{CONFIG_MOUNT_PATH}}
             readOnly: true
+          - name: spam-detection-data
+            mountPath: /var/lib/quay-service-tool/spam-detection
           ports:
           - containerPort: 5000
           resources:
@@ -206,6 +224,8 @@ objects:
           env:
           - name: CONFIG_PATH
             value: ${{CONFIG_MOUNT_PATH}}
+          - name: SPAM_DETECTION_DATA_DIR
+            value: /var/lib/quay-service-tool/spam-detection
           - name: SYSLOG_SERVER
             value: ${{SYSLOG_SERVER}}
           - name: SYSLOG_PORT
