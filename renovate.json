@@ -4,10 +4,29 @@
     "github>quay/quay-konflux-configs",
     "github>quay/quay-konflux-configs//renovate-presets/quay-uv"
   ],
+  "prConcurrentLimit": 25,
   "packageRules": [
     {
+      "description": "Automerge quay/quay updates with highest priority",
       "matchPackageNames": ["quay/quay"],
+      "automerge": true,
+      "prPriority": 20
+    },
+    {
+      "description": "Automerge all minor and patch updates after 3 day soak",
+      "matchUpdateTypes": ["minor", "patch"],
+      "automerge": true,
+      "minimumReleaseAge": "3 days"
+    },
+    {
+      "description": "Automerge all digest updates",
+      "matchUpdateTypes": ["digest"],
       "automerge": true
+    },
+    {
+      "description": "Group ALL major updates into a single PR",
+      "matchUpdateTypes": ["major"],
+      "groupName": "all-major-updates"
     }
   ]
 }
