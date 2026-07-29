@@ -19,6 +19,8 @@ from utils import *
 from util.marketplace import MarketplaceUserApi
 from data import database
 import os
+from spam_detection import DEFAULT_QUARANTINE_DESCRIPTION
+from spam_detection.config import apply_environment as apply_spam_detection_environment
 
 logging.basicConfig()
 logging.root.setLevel(logging.INFO)
@@ -38,6 +40,20 @@ with open(os.environ.get('CONFIG_PATH') + "/config.yaml") as f:
     config = yaml.load(f, Loader=yaml.FullLoader)
     app.config.update(config)
 
+apply_spam_detection_environment(app.config)
+app.config.setdefault("SPAM_DETECTION_MAX_ARTIFACT_BYTES", 25 * 1024 * 1024)
+app.config.setdefault("SPAM_DETECTION_BATCH_SIZE", 200)
+app.config.setdefault("SPAM_DETECTION_SLEEP_BETWEEN_BATCHES", 0.5)
+app.config.setdefault("SPAM_DETECTION_SCAN_DRY_RUN", True)
+app.config.setdefault("SPAM_DETECTION_MAX_REPOS", 0)
+app.config.setdefault("SPAM_DETECTION_API_SCAN_LIMIT", 10000)
+app.config.setdefault("SPAM_DETECTION_STALE_SCAN_TIMEOUT_SECONDS", 3600)
+app.config.setdefault("SPAM_DETECTION_MAX_TRAINING_TEXT_LENGTH", 10000)
+app.config.setdefault("SPAM_DETECTION_INCLUDE_PRIVATE", False)
+app.config.setdefault(
+    "SPAM_DETECTION_QUARANTINE_DESCRIPTION",
+    DEFAULT_QUARANTINE_DESCRIPTION,
+)
 
 @login_manager.request_loader
 def load_user_from_request(request):
