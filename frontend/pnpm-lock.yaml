@@ -9,7 +9,7 @@ overrides:
   js-yaml: ^3.15.0
   '@types/node': ^22.0.0
   '@types/minimatch': ~5.1.2
-  '@types/glob': ~8.0.1
+  '@types/glob': ~8.1.0
   '@types/react': ^17.0.0
   cheerio: 1.0.0-rc.12
 
@@ -76,8 +76,8 @@ importers:
         specifier: 12.1.5
         version: 12.1.5(@types/react@17.0.93)(react-dom@17.0.2(react@17.0.2))(react@17.0.2)
       '@types/enzyme':
-        specifier: 3.10.12
-        version: 3.10.12
+        specifier: 3.10.19
+        version: 3.10.19
       '@types/enzyme-adapter-react-16':
         specifier: 1.0.9
         version: 1.0.9
@@ -1732,10 +1732,6 @@ packages:
   '@types/cheerio@0.22.35':
     resolution: {integrity: sha512-yD57BchKRvTV+JD53UZ6PD8KWY5g5rvvMLRnZR3EQBCZXiDT/HR+pKpMzFGlWNhFrXlo7VPZXtKvIEwZkAWOIA==}
 
-  '@types/cheerio@1.0.0':
-    resolution: {integrity: sha512-zAaImHWoh5RY2CLgU2mvg3bl2k3F65B0N5yphuII3ythFLPmJhL7sj1RDu6gSxcgqHlETbr/lhA2OBY+WF1fXQ==}
-    deprecated: This is a stub types definition. cheerio provides its own type definitions, so you do not need this installed.
-
   '@types/connect-history-api-fallback@1.5.4':
     resolution: {integrity: sha512-n6Cr2xS1h4uAulPRdlw6Jl6s1oG8KrVilPN2yUITEs+K48EzMJJ3W1xy8K5eWuFvjp3R74AOIGSmp2UfBJ8HFw==}
 
@@ -1745,8 +1741,8 @@ packages:
   '@types/enzyme-adapter-react-16@1.0.9':
     resolution: {integrity: sha512-z24MMxGtUL8HhXdye3tWzjp+19QTsABqLaX2oOZpxMPHRJgLfahQmOeTTrEBQd9ogW20+UmPBXD9j+XOasFHvw==}
 
-  '@types/enzyme@3.10.12':
-    resolution: {integrity: sha512-xryQlOEIe1TduDWAOphR0ihfebKFSWOXpIsk+70JskCfRfW+xALdnJ0r1ZOTo85F9Qsjk6vtlU7edTYHbls9tA==}
+  '@types/enzyme@3.10.19':
+    resolution: {integrity: sha512-kIfCo6/DdpgCHgmrLgPTugjzbZ46BUK8S2IP0kYo8+62LD2l1k8mSVsc+zQYNTdjDRoh2E9Spxu6F1NnEiW38Q==}
 
   '@types/eslint-scope@3.7.7':
     resolution: {integrity: sha512-MzMFlSLBqNF2gcHWO0G1vP/YQyfvrxZ0bF+u7mzUdZ1/xK4A4sru+nraZz5i3iEIk1l1uyicaDVTB4QbbEkAYg==}
@@ -1766,8 +1762,8 @@ packages:
   '@types/express@4.17.25':
     resolution: {integrity: sha512-dVd04UKsfpINUnK0yBoYHDF3xu7xVH4BuDotC/xGuycx4CgbP48X/KF/586bcObxT0HENHXEU8Nqtu6NR+eKhw==}
 
-  '@types/glob@8.0.1':
-    resolution: {integrity: sha512-8bVUjXZvJacUFkJXHdyZ9iH1Eaj5V7I8c4NdH5sQJsdXkqT4CA5Dhb4yb4VE/3asyx4L9ayZr1NIhTsWHczmMw==}
+  '@types/glob@8.1.0':
+    resolution: {integrity: sha512-IO+MJPVhoqz+28h1qLAcBEH2+xHMK6MTyHJc7MTnnYb6wsoLR29POVGJ7LycmVXIqyy/4/2ShP5sUwTXuOwb/w==}
 
   '@types/graceful-fs@4.1.9':
     resolution: {integrity: sha512-olP3sd1qOEe5dXTSaFvQG+02VdRXcdytWLAZsAq1PecU8uqQAhkrnbli7DagjtXKW/Bl7YJbUsa8MPcuc8LHEQ==}
@@ -10831,10 +10827,6 @@ snapshots:
     dependencies:
       '@types/node': 22.20.1
 
-  '@types/cheerio@1.0.0':
-    dependencies:
-      cheerio: 1.0.0-rc.12
-
   '@types/connect-history-api-fallback@1.5.4':
     dependencies:
       '@types/express-serve-static-core': 4.19.9
@@ -10846,11 +10838,11 @@ snapshots:
 
   '@types/enzyme-adapter-react-16@1.0.9':
     dependencies:
-      '@types/enzyme': 3.10.12
+      '@types/enzyme': 3.10.19
 
-  '@types/enzyme@3.10.12':
+  '@types/enzyme@3.10.19':
     dependencies:
-      '@types/cheerio': 1.0.0
+      '@types/cheerio': 0.22.35
       '@types/react': 17.0.93
 
   '@types/eslint-scope@3.7.7':
@@ -10881,7 +10873,7 @@ snapshots:
       '@types/qs': 6.15.1
       '@types/serve-static': 1.15.10
 
-  '@types/glob@8.0.1':
+  '@types/glob@8.1.0':
     dependencies:
       '@types/minimatch': 5.1.2
       '@types/node': 22.20.1
@@ -13965,7 +13957,7 @@ snapshots:
 
   glob-promise@3.4.0(glob@7.2.3):
     dependencies:
-      '@types/glob': 8.0.1
+      '@types/glob': 8.1.0
       glob: 7.2.3
 
   glob-to-regex.js@1.2.0(tslib@2.8.1):
@@ -14025,7 +14017,7 @@ snapshots:
 
   globby@9.2.0:
     dependencies:
-      '@types/glob': 8.0.1
+      '@types/glob': 8.1.0
       array-union: 1.0.2
       dir-glob: 2.2.2
       fast-glob: 2.2.7
