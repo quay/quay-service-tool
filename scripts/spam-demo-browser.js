@@ -17,7 +17,7 @@ const containerRuntime = process.env.CONTAINER_RUNTIME || 'podman';
 const slowMo = Number(process.env.PLAYWRIGHT_SLOW_MO || 530);
 const stepDelay = Number(process.env.DEMO_STEP_DELAY || 3500);
 const clickDelay = Number(process.env.DEMO_CLICK_DELAY || 670);
-const holdSeconds = Number(process.env.HOLD_SECONDS || 600);
+const holdSeconds = Number(process.env.HOLD_SECONDS || 0);
 const downloadDir = process.env.DEMO_DOWNLOAD_DIR || path.join(os.homedir(), 'Downloads');
 const namespace = 'admin';
 const legacyRepository = `legacy-spam-review-${Date.now()}`;
@@ -41,6 +41,33 @@ function classifierArtifactPath() {
     return path.join(quayDir, 'local-dev/stack', path.basename(configuredPath));
   }
   return path.resolve(configuredPath);
+}
+
+function waitForDemoExit() {
+  return new Promise((resolve) => {
+    let timer;
+    const finish = () => {
+      if (timer) {
+        clearTimeout(timer);
+      }
+      process.off('SIGINT', finish);
+      process.off('SIGTERM', finish);
+      resolve();
+    };
+
+    process.once('SIGINT', finish);
+    process.once('SIGTERM', finish);
+
+    if (holdSeconds > 0) {
+      console.log(
+        `Keeping browser open for ${holdSeconds} seconds. Press Ctrl-C to stop earlier.`,
+      );
+      timer = setTimeout(finish, holdSeconds * 1000);
+      return;
+    }
+
+    console.log('Keeping browser open until Ctrl-C is pressed.');
+  });
 }
 
 function persistBrowserDownloads(page) {
@@ -335,7 +362,7 @@ async function runVisibleDemo(classifierName) {
     headless: false,
     slowMo,
   });
-  const context = await browser.newContext();
+  const context = await browser.newContext({viewport: null});
   const quayPage = await context.newPage();
   const serviceToolPage = await context.newPage();
   persistBrowserDownloads(serviceToolPage);
@@ -520,8 +547,7 @@ async function runVisibleDemo(classifierName) {
     await pause('Audit history records restore, reopen, and both quarantine decisions');
 
     console.log(`Opened ${quayUrl} and ${serviceToolUrl}/spam-detection`);
-    console.log(`Keeping browser open for ${holdSeconds} seconds. Press Ctrl-C to stop earlier.`);
-    await new Promise((resolve) => setTimeout(resolve, holdSeconds * 1000));
+    await waitForDemoExit();
   } finally {
     await browser.close();
   }

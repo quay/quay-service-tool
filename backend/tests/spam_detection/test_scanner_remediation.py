@@ -530,8 +530,9 @@ def test_dismiss_records_ham_feedback_for_next_training(tmp_path):
     assert dismissed["terminal_classifier_snapshot_json"]["artifact_version"] == "test-v1"
 
     trained = classifier.train_classifier(config, created["uuid"], artifact_version="test-v2")
-    assert trained["model_snapshot_json"]["training_metrics"]["example_count"] == 3
-    assert trained["model_snapshot_json"]["training_metrics"]["ham_examples"] == 2
+    trained_model = classifier.load_artifact_from_classifier(config, trained)
+    assert trained_model["training_metrics"]["example_count"] == 3
+    assert trained_model["training_metrics"]["ham_examples"] == 2
 
 
 def test_restore_records_ham_feedback_after_quarantine_spam_feedback(tmp_path):
@@ -629,7 +630,7 @@ def test_reopen_restored_record_invalidates_ham_feedback_and_allows_requarantine
     trained = classifier.train_classifier(
         config, created["uuid"], artifact_version="test-v2"
     )
-    metrics = trained["model_snapshot_json"]["training_metrics"]
+    metrics = classifier.load_artifact_from_classifier(config, trained)["training_metrics"]
     assert metrics["example_count"] == 3
     assert metrics["spam_examples"] == 2
     assert metrics["ham_examples"] == 1

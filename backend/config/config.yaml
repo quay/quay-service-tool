@@ -46,7 +46,9 @@ ENTITLEMENT_RECONCILIATION_MARKETPLACE_ENDPOINT: ""
 ENV: development
 DEBUG: true
 
-# Quay spam detection service-tool state and DB access.
+# Quay spam detection service-tool state and DB access. SQLite and filesystem
+# storage are intended for unit tests and backend-only development. Compose
+# overrides them with PostgreSQL and MinIO; production should use RDS and S3.
 SPAM_DETECTION_STATE_DB_URI: sqlite:///spam_detection_state.db
 # Production deployments should point this at a read-only Quay user or replica.
 SPAM_DETECTION_READONLY_DB_URI: postgresql://quay:quay@quay-db/quay
@@ -54,6 +56,13 @@ SPAM_DETECTION_READONLY_DB_URI: postgresql://quay:quay@quay-db/quay
 SPAM_DETECTION_WRITE_DB_URI: postgresql://quay:quay@quay-db/quay
 SPAM_DETECTION_ARTIFACT_DIR: spam_detection_artifacts
 SPAM_DETECTION_PROMOTED_ARTIFACT_PATH: spam_detection_artifacts/promoted/classifier.json
+# Production example:
+# SPAM_DETECTION_STATE_DB_URI: postgresql://service_tool:password@rds-host/service_tool
+# SPAM_DETECTION_STATE_DB_SCHEMA: spam_detection
+# SPAM_DETECTION_ARTIFACT_STORAGE: s3
+# SPAM_DETECTION_S3_BUCKET: quay-service-tool
+# SPAM_DETECTION_S3_PREFIX: spam-detection
+# SPAM_DETECTION_S3_REGION: us-east-1
 SPAM_DETECTION_MAX_ARTIFACT_BYTES: 26214400
 SPAM_DETECTION_BATCH_SIZE: 200
 SPAM_DETECTION_SLEEP_BETWEEN_BATCHES: 0.5

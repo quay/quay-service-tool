@@ -6,7 +6,8 @@ import re
 from collections import Counter
 from datetime import datetime
 
-from . import store
+from . import artifact_storage, store
+from .database import state_advisory_lock
 
 
 DEFAULT_TOKEN_PATTERN = r"[a-z0-9][a-z0-9_-]*"
@@ -218,6 +219,16 @@ def import_classifier_artifact(config, name, artifact_content, enabled=False, op
         raise ClassifierError("artifact must contain valid UTF-8 JSON") from exc
     validate_artifact(config, artifact)
 
+    with state_advisory_lock(config, f"spam-classifier-import:{artifact['version']}"):
+        return _import_classifier_artifact(
+            config, name, artifact_content, artifact, enabled=enabled, operator=operator
+        )
+
+
+def _import_classifier_artifact(
+    config, name, artifact_content, artifact, enabled=False, operator=None
+):
+
     artifact_sha256 = hashlib.sha256(artifact_content).hexdigest()
     existing = store.get_classifier_by_artifact_version(config, artifact["version"])
     if existing:
@@ -245,14 +256,18 @@ def import_classifier_artifact(config, name, artifact_content, enabled=False, op
             )
         return existing, False
 
-    path = os.path.join(artifact_dir(config), f"spam-classifier-{artifact['version']}.json")
-    write_artifact_bytes_to_path(artifact_content, path)
+    try:
+        stored = artifact_storage.get_artifact_storage(config).put_classifier(
+            artifact["version"], artifact_content
+        )
+    except artifact_storage.ArtifactStorageError as exc:
+        raise ClassifierError(str(exc)) from exc
     created = store.create_imported_classifier(
         config,
         {"name": name.strip(), "enabled": enabled},
         artifact,
-        path,
-        artifact_sha256,
+        stored.uri,
+        stored.sha256,
         operator=operator,
     )
     return created, True
@@ -274,13 +289,18 @@ def apply_ingress_policy(config, classifier, artifact, artifact_version=None):
 
 
 def train_classifier(config, classifier_uuid, artifact_version=None):
+    with state_advisory_lock(config, f"spam-classifier-train:{classifier_uuid}"):
+        return _train_classifier(config, classifier_uuid, artifact_version=artifact_version)
+
+
+def _train_classifier(config, classifier_uuid, artifact_version=None):
     classifier = store.get_classifier(config, classifier_uuid)
     if not classifier:
         raise ClassifierError("classifier not found")
 
     feature_config = validate_feature_config(classifier.get("feature_config_json") or DEFAULT_FEATURE_CONFIG)
     examples = store.list_training_examples(config, classifier["id"])
-    base_artifact = classifier.get("base_model_snapshot_json") or {}
+    base_artifact = load_base_artifact_from_classifier(config, classifier)
     if not examples and not base_artifact:
         raise ClassifierError("at least one training example is required")
 
@@ -342,10 +362,20 @@ def train_classifier(config, classifier_uuid, artifact_version=None):
 
 
 def export_artifact(config, classifier_uuid, artifact_version=None, output_path=None):
+    with state_advisory_lock(config, f"spam-classifier-train:{classifier_uuid}"):
+        return _export_artifact(
+            config,
+            classifier_uuid,
+            artifact_version=artifact_version,
+            output_path=output_path,
+        )
+
+
+def _export_artifact(config, classifier_uuid, artifact_version=None, output_path=None):
     classifier = store.get_classifier(config, classifier_uuid)
     if not classifier:
         raise ClassifierError("classifier not found")
-    artifact = load_artifact_from_classifier(classifier)
+    artifact = load_artifact_from_classifier(config, classifier)
     artifact = apply_ingress_policy(config, classifier, artifact, artifact_version)
     validate_artifact_training_metrics(config, artifact)
     if store.artifact_version_exists(config, artifact["version"], classifier["id"]):
@@ -360,17 +390,19 @@ def export_artifact(config, classifier_uuid, artifact_version=None, output_path=
 
 
 def promote_artifact(config, classifier_uuid):
-    destination = config.get("SPAM_DETECTION_PROMOTED_ARTIFACT_PATH")
-    if not destination:
-        raise ClassifierError("SPAM_DETECTION_PROMOTED_ARTIFACT_PATH is not configured")
     configured = store.get_classifier(config, classifier_uuid)
     if not configured:
         raise ClassifierError("classifier not found")
     artifact_path = configured.get("artifact_path")
-    if not artifact_path or not os.path.isfile(artifact_path):
+    if not artifact_path:
         raise ClassifierError("classifier has no generated artifact")
-    with open(artifact_path, "rb") as artifact_file:
-        content = artifact_file.read()
+    try:
+        storage = artifact_storage.get_artifact_storage_for_uri(config, artifact_path)
+        if not storage.exists(artifact_path):
+            raise ClassifierError("classifier has no generated artifact")
+        content = storage.read(artifact_path)
+    except artifact_storage.ArtifactStorageError as exc:
+        raise ClassifierError(str(exc)) from exc
     try:
         artifact = json.loads(content.decode("utf-8"))
     except (UnicodeDecodeError, json.JSONDecodeError) as exc:
@@ -379,15 +411,16 @@ def promote_artifact(config, classifier_uuid):
     actual_sha256 = hashlib.sha256(content).hexdigest()
     if configured.get("artifact_sha256") != actual_sha256:
         raise ClassifierError("classifier artifact checksum does not match stored metadata")
-    promoted_path, promoted_sha256 = write_artifact_bytes_to_path(
-        content,
-        destination,
-        overwrite=True,
-    )
+    try:
+        promoted = artifact_storage.get_artifact_storage(config).promote(
+            artifact_path, content
+        )
+    except artifact_storage.ArtifactStorageError as exc:
+        raise ClassifierError(str(exc)) from exc
     return {
         "classifier": configured,
-        "promoted_path": promoted_path,
-        "promoted_sha256": promoted_sha256,
+        "promoted_path": promoted.uri,
+        "promoted_sha256": promoted.sha256,
     }
 
 
@@ -404,10 +437,13 @@ def artifact_bytes(artifact):
 
 def write_artifact(config, artifact):
     validate_artifact_version(artifact["version"])
-    output_dir = artifact_dir(config)
-    os.makedirs(output_dir, exist_ok=True)
-    path = os.path.join(output_dir, f"spam-classifier-{artifact['version']}.json")
-    return write_artifact_to_path(artifact, path)
+    try:
+        stored = artifact_storage.get_artifact_storage(config).put_classifier(
+            artifact["version"], artifact_bytes(artifact)
+        )
+    except artifact_storage.ArtifactStorageError as exc:
+        raise ClassifierError(str(exc)) from exc
+    return stored.uri, stored.sha256
 
 
 def write_artifact_to_path(artifact, path):
@@ -473,14 +509,42 @@ def write_artifact_bytes_to_path(content, path, overwrite=False):
     return path, sha256
 
 
-def load_artifact_from_classifier(classifier):
+def _load_artifact_reference(config, artifact_path, expected_sha256=None):
+    if not artifact_path:
+        return {}
+    try:
+        content = artifact_storage.get_artifact_storage_for_uri(config, artifact_path).read(
+            artifact_path
+        )
+    except artifact_storage.ArtifactStorageError as exc:
+        raise ClassifierError(str(exc)) from exc
+    actual_sha256 = hashlib.sha256(content).hexdigest()
+    if expected_sha256 and actual_sha256 != expected_sha256:
+        raise ClassifierError("classifier artifact checksum does not match stored metadata")
+    try:
+        return json.loads(content.decode("utf-8"))
+    except (UnicodeDecodeError, json.JSONDecodeError) as exc:
+        raise ClassifierError("classifier artifact is not valid UTF-8 JSON") from exc
+
+
+def load_base_artifact_from_classifier(config, classifier):
+    artifact_path = classifier.get("base_artifact_path")
+    if artifact_path:
+        return _load_artifact_reference(
+            config, artifact_path, classifier.get("base_artifact_sha256")
+        )
+    # Backward compatibility for classifiers created before external artifact storage.
+    return classifier.get("base_model_snapshot_json") or {}
+
+
+def load_artifact_from_classifier(config, classifier):
+    artifact_path = classifier.get("artifact_path")
+    if artifact_path:
+        return _load_artifact_reference(config, artifact_path, classifier.get("artifact_sha256"))
+    # Backward compatibility for classifiers created before external artifact storage.
     artifact = classifier.get("model_snapshot_json")
     if artifact:
         return artifact
-    artifact_path = classifier.get("artifact_path")
-    if artifact_path:
-        with open(artifact_path, "r", encoding="utf-8") as artifact_file:
-            return json.load(artifact_file)
     raise ClassifierError("classifier has no trained artifact")
 
 

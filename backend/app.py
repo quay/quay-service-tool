@@ -46,6 +46,7 @@ from util.marketplace import MarketplaceUserApi
 from data import database
 import os
 from spam_detection import DEFAULT_QUARANTINE_DESCRIPTION
+from spam_detection.config import apply_environment as apply_spam_detection_environment
 
 logging.basicConfig()
 logging.root.setLevel(logging.INFO)
@@ -65,6 +66,8 @@ with open(os.environ.get('CONFIG_PATH') + "/config.yaml") as f:
     config = yaml.load(f, Loader=yaml.FullLoader)
     app.config.update(config)
 
+apply_spam_detection_environment(app.config)
+
 spam_detection_data_dir = os.environ.get("SPAM_DETECTION_DATA_DIR")
 default_state_db_uri = (
     f"sqlite:////{spam_detection_data_dir.strip('/')}/state.db"
@@ -81,11 +84,12 @@ default_promoted_artifact_path = (
     if spam_detection_data_dir
     else os.path.join(default_artifact_dir, "promoted", "classifier.json")
 )
-if spam_detection_data_dir:
+if spam_detection_data_dir and not os.environ.get("SPAM_DETECTION_STATE_DB_URI"):
     app.config["SPAM_DETECTION_STATE_DB_URI"] = default_state_db_uri
+if spam_detection_data_dir and not os.environ.get("SPAM_DETECTION_ARTIFACT_STORAGE"):
     app.config["SPAM_DETECTION_ARTIFACT_DIR"] = default_artifact_dir
     app.config["SPAM_DETECTION_PROMOTED_ARTIFACT_PATH"] = default_promoted_artifact_path
-else:
+if not spam_detection_data_dir:
     app.config.setdefault("SPAM_DETECTION_STATE_DB_URI", default_state_db_uri)
     app.config.setdefault("SPAM_DETECTION_ARTIFACT_DIR", default_artifact_dir)
     app.config.setdefault(

@@ -6,12 +6,14 @@ import yaml
 
 from spam_detection import (
     DEFAULT_QUARANTINE_DESCRIPTION,
+    artifact_storage,
     classifier,
     scanner,
     store,
     training_import,
 )
-from spam_detection.database import migrate_state_db
+from spam_detection.database import check_state_db, migrate_state_db
+from spam_detection.config import apply_environment as apply_spam_detection_environment
 from spam_detection.quay_db import check_connection
 
 
@@ -19,6 +21,7 @@ def load_config():
     config_path = os.environ.get("CONFIG_PATH", "config")
     with open(os.path.join(config_path, "config.yaml"), encoding="utf-8") as config_file:
         config = yaml.load(config_file, Loader=yaml.FullLoader)
+    apply_spam_detection_environment(config)
     data_dir = os.environ.get("SPAM_DETECTION_DATA_DIR")
     default_state_db_uri = (
         f"sqlite:////{data_dir.strip('/')}/state.db"
@@ -28,10 +31,11 @@ def load_config():
     default_artifact_dir = (
         os.path.join(data_dir, "artifacts") if data_dir else "spam_detection_artifacts"
     )
-    if data_dir:
+    if data_dir and not os.environ.get("SPAM_DETECTION_STATE_DB_URI"):
         config["SPAM_DETECTION_STATE_DB_URI"] = default_state_db_uri
+    if data_dir and not os.environ.get("SPAM_DETECTION_ARTIFACT_STORAGE"):
         config["SPAM_DETECTION_ARTIFACT_DIR"] = default_artifact_dir
-    else:
+    if not data_dir:
         config.setdefault("SPAM_DETECTION_STATE_DB_URI", default_state_db_uri)
         config.setdefault("SPAM_DETECTION_ARTIFACT_DIR", default_artifact_dir)
     config.setdefault("SPAM_DETECTION_MAX_ARTIFACT_BYTES", classifier.DEFAULT_MAX_ARTIFACT_BYTES)
@@ -99,11 +103,14 @@ def main():
 
     if args.command == "migrate":
         migrate_state_db(config)
+        check_state_db(config)
         print_json({"status": "ok"})
         return
 
     if args.command == "healthcheck":
         migrate_state_db(config)
+        check_state_db(config)
+        artifact_storage.artifact_storage_healthcheck(config)
         check_connection(config.get("SPAM_DETECTION_READONLY_DB_URI"), read_only=True)
         check_connection(config.get("SPAM_DETECTION_WRITE_DB_URI"))
         print_json({"status": "ok"})

@@ -1,10 +1,10 @@
 import hashlib
-import sqlite3
 from datetime import datetime, timedelta
 
 from .database import (
     connect_state_db,
     ensure_policy,
+    IntegrityError,
     json_dumps,
     migrate_state_db,
     new_uuid,
@@ -215,10 +215,10 @@ def create_imported_classifier(config, payload, artifact, artifact_path, artifac
             INSERT INTO spam_classifier (
                 uuid, name, enabled, training_corpus_version, artifact_version,
                 artifact_sha256, artifact_path, model_snapshot_json,
-                base_model_snapshot_json, base_artifact_version,
+                base_model_snapshot_json, base_artifact_path, base_artifact_version,
                 base_artifact_sha256, feature_config_json, scan_threshold,
                 ingress_threshold, created_at, updated_at, created_by, updated_by
-            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
             """,
             (
                 new_uuid(),
@@ -228,8 +228,9 @@ def create_imported_classifier(config, payload, artifact, artifact_path, artifac
                 artifact.get("version"),
                 artifact_sha256,
                 artifact_path,
-                json_dumps(artifact),
-                json_dumps(artifact),
+                None,
+                None,
+                artifact_path,
                 artifact.get("version"),
                 artifact_sha256,
                 json_dumps(feature_config),
@@ -384,7 +385,7 @@ def update_classifier_artifact(config, classifier_id, artifact, artifact_path, a
             """
             UPDATE spam_classifier
             SET training_corpus_version = ?, artifact_version = ?,
-                artifact_sha256 = ?, artifact_path = ?, model_snapshot_json = ?,
+                artifact_sha256 = ?, artifact_path = ?, model_snapshot_json = NULL,
                 updated_at = ?
             WHERE id = ?
             """,
@@ -393,7 +394,6 @@ def update_classifier_artifact(config, classifier_id, artifact, artifact_path, a
                 artifact.get("version"),
                 artifact_sha256,
                 artifact_path,
-                json_dumps(artifact),
                 now,
                 classifier_id,
             ),
@@ -565,7 +565,7 @@ def create_scan_run(config, source, dry_run, classifier_snapshot, policy_snapsho
                     operator,
                 ),
             )
-        except sqlite3.IntegrityError as exc:
+        except IntegrityError as exc:
             raise ValueError("a spam detection scan is already running") from exc
         return row_to_dict(conn.execute("SELECT * FROM spam_scan_run WHERE id = ?", (cur.lastrowid,)).fetchone())
 
@@ -692,7 +692,10 @@ def create_flagged_record(
                     now,
                 ),
             )
-        except sqlite3.IntegrityError:
+        except IntegrityError:
+            # PostgreSQL aborts the transaction after a constraint violation.
+            # Nothing has been written in this transaction before this insert.
+            conn.rollback()
             existing = conn.execute(
                 """
                 SELECT * FROM spam_quarantine_record
@@ -751,7 +754,7 @@ def create_manual_flagged_record(config, inspection, reason, operator=None):
                     now,
                 ),
             )
-        except sqlite3.IntegrityError as exc:
+        except IntegrityError as exc:
             raise ValueError("repository already has an active review record") from exc
 
         record = conn.execute(

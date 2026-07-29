@@ -72,7 +72,9 @@ def test_import_preserves_artifact_and_activates_classifier(tmp_path):
     assert created
     assert imported["enabled"] == 1
     assert imported["artifact_version"] == "import-v1"
-    assert imported["base_model_snapshot_json"]["version"] == "import-v1"
+    assert imported["base_model_snapshot_json"] is None
+    assert imported["model_snapshot_json"] is None
+    assert imported["base_artifact_path"] == imported["artifact_path"]
     assert store.get_policy(config)["active_classifier_id"] == imported["id"]
     with open(imported["artifact_path"], "rb") as artifact_file:
         assert artifact_file.read() == artifact_bytes
@@ -170,7 +172,8 @@ def test_retraining_imported_classifier_combines_base_with_feedback_once(tmp_pat
     second = classifier.train_classifier(config, imported["uuid"], artifact_version="import-v3")
 
     for trained in (first, second):
-        model = trained["model_snapshot_json"]
+        assert trained["model_snapshot_json"] is None
+        model = classifier.load_artifact_from_classifier(config, trained)
         assert model["token_spam_counts"]["casino"] == 3
         assert model["token_ham_counts"]["container"] == 3
         assert model["training_metrics"]["spam_examples"] == 2

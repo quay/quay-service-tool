@@ -180,7 +180,9 @@ def test_artifact_can_be_imported_activated_and_downloaded(tmp_path, monkeypatch
     assert response.status_code == 201
     imported = json.loads(response.data)["classifier"]
     assert imported["enabled"] == 1
-    assert imported["base_model_snapshot_json"]["version"] == "uploaded-v1"
+    assert imported["base_model_snapshot_json"] is None
+    assert imported["model_snapshot_json"] is None
+    assert imported["base_artifact_path"] == imported["artifact_path"]
     download = app.test_client().get(
         f"/spam-detection/classifiers/{imported['uuid']}/artifact"
     )
