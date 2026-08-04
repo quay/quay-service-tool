@@ -21,13 +21,13 @@ module.exports = merge(common('development'), {
     open: true,
     proxy: [
       {
-        pathFilter: "/auth**",
+        context: "/auth",
         target: process.env.AUTH_URL || "http://localhost:8081",
         secure: false,
         changeOrigin: false
       },
       {
-        pathFilter: "!/auth**",
+        context: pathname => !pathname.startsWith("/auth"),
         target: process.env.TARGET_URL || "http://0.0.0.0:5000",
         secure: false,
         changeOrigin: false

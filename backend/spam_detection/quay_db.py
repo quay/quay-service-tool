@@ -16,12 +16,8 @@ def _connect(uri):
 
 
 def _enable_readonly_session(db):
-    class_name = db.__class__.__name__.lower()
     try:
-        if "sqlite" in class_name:
-            db.execute_sql("PRAGMA query_only = ON")
-        elif "postgres" in class_name:
-            db.execute_sql("SET default_transaction_read_only = on")
+        db.execute_sql("SET default_transaction_read_only = on")
     except Exception as exc:
         raise QuayDBError("Unable to enable read-only Quay DB session") from exc
 

@@ -153,7 +153,8 @@ Extend `backend/config/config.yaml` and app startup handling with:
   scans, run-history enrichment, and training candidates.
 * `SPAM_DETECTION_WRITE_DB_URI`: write-capable Quay DB path for approved
   quarantine, restore, and redaction.
-* `SPAM_DETECTION_ARTIFACT_DIR`: output directory for generated JSON artifacts.
+* `SPAM_DETECTION_S3_BUCKET`: bucket for generated JSON artifacts.
+* `SPAM_DETECTION_S3_PREFIX`: key prefix for generated JSON artifacts.
 * `SPAM_DETECTION_BATCH_SIZE`: default `200`.
 * `SPAM_DETECTION_SLEEP_BETWEEN_BATCHES`: default `0.5`.
 * `SPAM_DETECTION_SCAN_DRY_RUN`: default `true`.
@@ -363,9 +364,8 @@ Training flow:
 4. Tokenize with the same configurable regex that Quay uses by default.
 5. Count spam and ham tokens.
 6. Compute spam and ham priors from example counts.
-7. Store model snapshot metadata in service-tool state.
-8. Write canonical JSON with deterministic key ordering to
-   `SPAM_DETECTION_ARTIFACT_DIR`.
+7. Store model identity, S3 URI, and checksum metadata in service-tool state.
+8. Write canonical JSON with deterministic key ordering to S3.
 9. Compute SHA256 over the exact bytes written.
 10. Record an `artifact_export` action-history row.
 
@@ -497,7 +497,7 @@ the Quay write succeeds.
 
 Add command-line entry points that can run inside the service-tool image:
 
-* `uv run python -m spam_detection_cli migrate`
+* `uv run python -m spam_detection_cli init-state-db`
 * `uv run python -m spam_detection_cli import-csv --classifier <uuid> --path <csv> --source seed_import`
 * `uv run python -m spam_detection_cli train --classifier <uuid> --artifact-version <version>`
 * `uv run python -m spam_detection_cli export-artifact --classifier <uuid>`

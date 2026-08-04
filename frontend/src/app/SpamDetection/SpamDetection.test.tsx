@@ -373,7 +373,7 @@ describe('Spam Detection', () => {
     });
 
     render(<SpamDetection />);
-    fireEvent.click(await screen.findByRole('button', { name: 'Promote' }));
+    fireEvent.click(await screen.findByRole('button', { name: 'Stage for Quay build' }));
 
     await waitFor(() => {
       expect(mocked(HttpService, true).axiosClient.post).toHaveBeenCalledWith(
@@ -381,7 +381,7 @@ describe('Spam Detection', () => {
         {}
       );
     });
-    expect(await screen.findByText('Artifact v1 promoted')).toBeTruthy();
+    expect(await screen.findByText('Artifact v1 staged for Quay build')).toBeTruthy();
   });
 
   it('uploads and activates an imported classifier artifact', async () => {

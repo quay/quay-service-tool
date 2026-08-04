@@ -290,10 +290,10 @@ export const SpamDetection: React.FunctionComponent = () => {
     HttpService.axiosClient
       .post(`/spam-detection/classifiers/${classifier.uuid}/promote-artifact`, {})
       .then((response) => {
-        showMessage(`Artifact ${response.data.classifier.artifact_version} promoted`);
+        showMessage(`Artifact ${response.data.classifier.artifact_version} staged for Quay build`);
         loadAudit();
       })
-      .catch((error) => showMessage(error.response?.data?.message || 'Unable to promote artifact'));
+      .catch((error) => showMessage(error.response?.data?.message || 'Unable to stage artifact'));
   }
 
   async function importCsv() {
@@ -762,7 +762,7 @@ export const SpamDetection: React.FunctionComponent = () => {
                     Download
                   </Button>
                   <Button variant="link" onClick={() => promoteArtifact(item)} isDisabled={!item.artifact_version}>
-                    Promote
+                    Stage for Quay build
                   </Button>
                 </div>,
               ])}

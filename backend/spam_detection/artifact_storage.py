@@ -5,7 +5,6 @@ from dataclasses import dataclass
 from urllib.parse import urlparse
 
 
-DEFAULT_ARTIFACT_DIR = "spam_detection_artifacts"
 DEFAULT_S3_REGION = "us-east-1"
 
 
@@ -17,6 +16,7 @@ class ArtifactStorageError(Exception):
 class StoredArtifact:
     uri: str
     sha256: str
+    checksum_uri: str | None = None
 
 
 def _sha256(content):
@@ -33,71 +33,6 @@ def _bool(value, default=False):
 
 def _join_key(*parts):
     return "/".join(str(part).strip("/") for part in parts if str(part).strip("/"))
-
-
-class FilesystemArtifactStorage:
-    def __init__(self, config):
-        self.artifact_dir = config.get("SPAM_DETECTION_ARTIFACT_DIR") or DEFAULT_ARTIFACT_DIR
-        self.promoted_path = config.get("SPAM_DETECTION_PROMOTED_ARTIFACT_PATH")
-
-    def classifier_uri(self, version):
-        return os.path.join(self.artifact_dir, f"spam-classifier-{version}.json")
-
-    def put_classifier(self, version, content):
-        return self._write(content, self.classifier_uri(version))
-
-    def read(self, uri):
-        try:
-            with open(uri, "rb") as artifact_file:
-                return artifact_file.read()
-        except OSError as exc:
-            raise ArtifactStorageError(f"unable to read classifier artifact: {uri}") from exc
-
-    def exists(self, uri):
-        return bool(uri) and os.path.isfile(uri)
-
-    def promote(self, source_uri, content):
-        if not self.promoted_path:
-            raise ArtifactStorageError("SPAM_DETECTION_PROMOTED_ARTIFACT_PATH is not configured")
-        return self._write(content, self.promoted_path, overwrite=True)
-
-    @staticmethod
-    def _write(content, path, overwrite=False):
-        output_dir = os.path.dirname(os.path.abspath(path))
-        if output_dir:
-            os.makedirs(output_dir, exist_ok=True)
-        if os.path.exists(path):
-            with open(path, "rb") as existing_file:
-                existing_content = existing_file.read()
-            if existing_content != content and not overwrite:
-                try:
-                    semantically_equal = json.loads(existing_content) == json.loads(content)
-                except (UnicodeDecodeError, json.JSONDecodeError):
-                    semantically_equal = False
-                if not semantically_equal:
-                    raise ArtifactStorageError("artifact path already exists with different content")
-                content = existing_content
-            write_content = existing_content != content
-        else:
-            write_content = True
-
-        if write_content:
-            tmp_path = f"{path}.tmp.{os.getpid()}"
-            with open(tmp_path, "wb") as artifact_file:
-                artifact_file.write(content)
-                artifact_file.flush()
-                os.fsync(artifact_file.fileno())
-            os.replace(tmp_path, path)
-
-        sha256 = _sha256(content)
-        sha_path = f"{path}.sha256"
-        tmp_sha_path = f"{sha_path}.tmp.{os.getpid()}"
-        with open(tmp_sha_path, "w", encoding="utf-8") as sha_file:
-            sha_file.write(f"{sha256}  {os.path.basename(path)}\n")
-            sha_file.flush()
-            os.fsync(sha_file.fileno())
-        os.replace(tmp_sha_path, sha_path)
-        return StoredArtifact(path, sha256)
 
 
 class S3ArtifactStorage:
@@ -141,6 +76,10 @@ class S3ArtifactStorage:
         key = _join_key(self.prefix, "classifiers", f"spam-classifier-{version}.json")
         return f"s3://{self.bucket}/{key}"
 
+    def promoted_uri(self):
+        key = _join_key(self.prefix, self.promoted_key)
+        return f"s3://{self.bucket}/{key}"
+
     def put_classifier(self, version, content):
         uri = self.classifier_uri(version)
         return self._put(uri, content)
@@ -166,14 +105,18 @@ class S3ArtifactStorage:
                 return False
             raise ArtifactStorageError(f"unable to inspect classifier artifact: {uri}") from exc
 
-    def promote(self, source_uri, content):
-        destination = f"s3://{self.bucket}/{_join_key(self.prefix, self.promoted_key)}"
-        return self._put(destination, content, overwrite=True)
+    def promote(self, content):
+        destination = self.promoted_uri()
+        promoted = self._put(destination, content, overwrite=True)
+        checksum_uri = f"{destination}.sha256"
+        checksum = f"{promoted.sha256}  {os.path.basename(destination)}\n".encode("utf-8")
+        self._put(checksum_uri, checksum, overwrite=True, content_type="text/plain")
+        return StoredArtifact(promoted.uri, promoted.sha256, checksum_uri)
 
     def healthcheck(self):
         self.client.head_bucket(Bucket=self.bucket)
 
-    def _put(self, uri, content, overwrite=False):
+    def _put(self, uri, content, overwrite=False, content_type="application/json"):
         bucket, key = self._location(uri)
         sha256 = _sha256(content)
         try:
@@ -205,7 +148,7 @@ class S3ArtifactStorage:
                 Bucket=bucket,
                 Key=key,
                 Body=content,
-                ContentType="application/json",
+                ContentType=content_type,
                 Metadata={"sha256": sha256},
             )
         except Exception as exc:
@@ -234,22 +177,8 @@ class S3ArtifactStorage:
 
 
 def get_artifact_storage(config):
-    backend = (config.get("SPAM_DETECTION_ARTIFACT_STORAGE") or "filesystem").lower()
-    if backend == "filesystem":
-        return FilesystemArtifactStorage(config)
-    if backend == "s3":
-        return S3ArtifactStorage(config)
-    raise ArtifactStorageError(f"unsupported classifier artifact storage backend: {backend}")
-
-
-def get_artifact_storage_for_uri(config, uri):
-    if str(uri).startswith("s3://"):
-        return S3ArtifactStorage(config)
-    return FilesystemArtifactStorage(config)
+    return S3ArtifactStorage(config)
 
 
 def artifact_storage_healthcheck(config):
-    storage = get_artifact_storage(config)
-    healthcheck = getattr(storage, "healthcheck", None)
-    if healthcheck:
-        healthcheck()
+    get_artifact_storage(config).healthcheck()

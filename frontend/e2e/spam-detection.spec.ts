@@ -370,8 +370,8 @@ test('Spam Detection operator workflow covers artifacts, labels, recovery, and c
   expect(artifactRequestResourceType).toBe('xhr');
   await closeFeedback(page);
 
-  await page.getByRole('button', { name: 'Promote' }).click();
-  await expect(page.getByText('Artifact e2e-trained promoted')).toBeVisible();
+  await page.getByRole('button', { name: 'Stage for Quay build' }).click();
+  await expect(page.getByText('Artifact e2e-trained staged for Quay build')).toBeVisible();
   expect(artifactPromoted).toBe(true);
   expect(artifactPromoteMethod).toBe('POST');
   await closeFeedback(page);

@@ -3,7 +3,7 @@ import json
 
 import pytest
 
-from spam_detection import classifier, store
+from spam_detection import artifact_storage, classifier, store
 from tasks.spam_detection import _scan_limit
 
 
@@ -22,23 +22,18 @@ def test_scan_limit_still_bounds_positive_values():
         _scan_limit(10001, 0, 10000)
 
 
-def test_generated_artifact_can_be_downloaded(tmp_path, monkeypatch):
+def test_generated_artifact_can_be_downloaded(tmp_path, monkeypatch, spam_config, quay_test_db_uri):
     monkeypatch.setenv("CONFIG_PATH", str(tmp_path))
     monkeypatch.setenv("TESTING", "true")
     (tmp_path / "config.yaml").write_text(
         "is_local: true\n"
         "test_auth: false\n"
-        f"DB_URI: sqlite:///{tmp_path / 'quay.db'}\n"
+        f"DB_URI: {quay_test_db_uri}\n"
         "DB_CONNECTION_ARGS: {}\n"
     )
     from app import app
 
-    config = {
-        "SPAM_DETECTION_STATE_DB_URI": f"sqlite:///{tmp_path / 'state.db'}",
-        "SPAM_DETECTION_ARTIFACT_DIR": str(tmp_path / "artifacts"),
-        "SPAM_DETECTION_MIN_SPAM_EXAMPLES": 1,
-        "SPAM_DETECTION_MIN_HAM_EXAMPLES": 1,
-    }
+    config = dict(spam_config)
     app.config.update(config)
     created = store.create_classifier(config, {"name": "download", "enabled": True})
     store.add_training_example(
@@ -65,27 +60,20 @@ def test_generated_artifact_can_be_downloaded(tmp_path, monkeypatch):
     assert response.json["version"] == "download-v1"
 
 
-def test_artifact_can_be_promoted_to_fixed_path_with_audit(tmp_path, monkeypatch):
+def test_artifact_can_be_promoted_to_fixed_path_with_audit(
+    tmp_path, monkeypatch, spam_config, quay_test_db_uri
+):
     monkeypatch.setenv("CONFIG_PATH", str(tmp_path))
     monkeypatch.setenv("TESTING", "true")
     (tmp_path / "config.yaml").write_text(
         "is_local: true\n"
         "test_auth: false\n"
-        f"DB_URI: sqlite:///{tmp_path / 'quay.db'}\n"
+        f"DB_URI: {quay_test_db_uri}\n"
         "DB_CONNECTION_ARGS: {}\n"
     )
     from app import app
 
-    promoted_path = tmp_path / "promoted" / "classifier.json"
-    promoted_path.parent.mkdir()
-    promoted_path.write_text("stale artifact")
-    config = {
-        "SPAM_DETECTION_STATE_DB_URI": f"sqlite:///{tmp_path / 'state.db'}",
-        "SPAM_DETECTION_ARTIFACT_DIR": str(tmp_path / "artifacts"),
-        "SPAM_DETECTION_PROMOTED_ARTIFACT_PATH": str(promoted_path),
-        "SPAM_DETECTION_MIN_SPAM_EXAMPLES": 1,
-        "SPAM_DETECTION_MIN_HAM_EXAMPLES": 1,
-    }
+    config = dict(spam_config)
     app.config.update(config)
     created = store.create_classifier(config, {"name": "promote", "enabled": True})
     store.add_training_example(
@@ -106,12 +94,21 @@ def test_artifact_can_be_promoted_to_fixed_path_with_audit(tmp_path, monkeypatch
 
     assert response.status_code == 200
     body = json.loads(response.data)
-    assert body["promoted_path"] == str(promoted_path)
+    storage = artifact_storage.get_artifact_storage(config)
+    promoted_path = storage.promoted_uri()
+    assert body["promoted_path"] == promoted_path
     assert body["promoted_sha256"] == trained["artifact_sha256"]
-    assert promoted_path.read_bytes() == (
-        tmp_path / "artifacts" / "spam-classifier-promote-v1.json"
-    ).read_bytes()
-    assert promoted_path.with_suffix(".json.sha256").is_file()
+    assert body["promoted_checksum_path"] == f"{promoted_path}.sha256"
+    assert storage.read(promoted_path) == storage.read(trained["artifact_path"])
+    assert storage.exists(f"{promoted_path}.sha256")
+    build_output = tmp_path / "quay-build" / "conf" / "spam-detection" / "classifier.json"
+    materialized = classifier.materialize_promoted_artifact(config, str(build_output))
+    assert materialized["artifact_version"] == "promote-v1"
+    assert materialized["sha256"] == trained["artifact_sha256"]
+    assert build_output.read_bytes() == storage.read(promoted_path)
+    assert build_output.with_suffix(".json.sha256").read_text().startswith(
+        trained["artifact_sha256"]
+    )
     action = next(
         item for item in store.list_audit_actions(config) if item["action"] == "artifact_promote"
     )
@@ -119,29 +116,25 @@ def test_artifact_can_be_promoted_to_fixed_path_with_audit(tmp_path, monkeypatch
         "classifier_uuid": created["uuid"],
         "artifact_version": "promote-v1",
         "artifact_sha256": trained["artifact_sha256"],
-        "destination": str(promoted_path),
+        "destination": promoted_path,
+        "checksum_destination": f"{promoted_path}.sha256",
     }
 
 
-def test_artifact_can_be_imported_activated_and_downloaded(tmp_path, monkeypatch):
+def test_artifact_can_be_imported_activated_and_downloaded(
+    tmp_path, monkeypatch, spam_config, quay_test_db_uri
+):
     monkeypatch.setenv("CONFIG_PATH", str(tmp_path))
     monkeypatch.setenv("TESTING", "true")
     (tmp_path / "config.yaml").write_text(
         "is_local: true\n"
         "test_auth: false\n"
-        f"DB_URI: sqlite:///{tmp_path / 'quay.db'}\n"
+        f"DB_URI: {quay_test_db_uri}\n"
         "DB_CONNECTION_ARGS: {}\n"
     )
     from app import app
 
-    app.config.update(
-        {
-            "SPAM_DETECTION_STATE_DB_URI": f"sqlite:///{tmp_path / 'state.db'}",
-            "SPAM_DETECTION_ARTIFACT_DIR": str(tmp_path / "artifacts"),
-            "SPAM_DETECTION_MIN_SPAM_EXAMPLES": 1,
-            "SPAM_DETECTION_MIN_HAM_EXAMPLES": 1,
-        }
-    )
+    app.config.update(spam_config)
     artifact = {
         "version": "uploaded-v1",
         "training_corpus_version": "seed-2",
@@ -180,8 +173,6 @@ def test_artifact_can_be_imported_activated_and_downloaded(tmp_path, monkeypatch
     assert response.status_code == 201
     imported = json.loads(response.data)["classifier"]
     assert imported["enabled"] == 1
-    assert imported["base_model_snapshot_json"] is None
-    assert imported["model_snapshot_json"] is None
     assert imported["base_artifact_path"] == imported["artifact_path"]
     download = app.test_client().get(
         f"/spam-detection/classifiers/{imported['uuid']}/artifact"
