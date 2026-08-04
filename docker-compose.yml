@@ -70,7 +70,6 @@ services:
       PYTHONUNBUFFERED: "True"
       CONFIG_PATH: /backend/config
       SPAM_DETECTION_STATE_DB_URI: postgresql://spam:spam-local@quay-service-tool-state-db:5432/service_tool_spam
-      SPAM_DETECTION_ARTIFACT_STORAGE: s3
       SPAM_DETECTION_S3_ENDPOINT_URL: http://quay-service-tool-s3:9000
       SPAM_DETECTION_S3_BUCKET: quay-service-tool
       SPAM_DETECTION_S3_PREFIX: spam-detection

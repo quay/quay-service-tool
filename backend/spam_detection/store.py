@@ -6,7 +6,7 @@ from .database import (
     ensure_policy,
     IntegrityError,
     json_dumps,
-    migrate_state_db,
+    initialize_state_db,
     new_uuid,
     row_to_dict,
     utcnow,
@@ -101,7 +101,7 @@ def description_fingerprint(description):
 
 
 def initialize(config):
-    migrate_state_db(config)
+    initialize_state_db(config)
 
 
 def create_classifier(config, payload, operator=None):
@@ -214,11 +214,10 @@ def create_imported_classifier(config, payload, artifact, artifact_path, artifac
             """
             INSERT INTO spam_classifier (
                 uuid, name, enabled, training_corpus_version, artifact_version,
-                artifact_sha256, artifact_path, model_snapshot_json,
-                base_model_snapshot_json, base_artifact_path, base_artifact_version,
-                base_artifact_sha256, feature_config_json, scan_threshold,
+                artifact_sha256, artifact_path, base_artifact_path,
+                base_artifact_version, base_artifact_sha256, feature_config_json, scan_threshold,
                 ingress_threshold, created_at, updated_at, created_by, updated_by
-            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
             """,
             (
                 new_uuid(),
@@ -228,8 +227,6 @@ def create_imported_classifier(config, payload, artifact, artifact_path, artifac
                 artifact.get("version"),
                 artifact_sha256,
                 artifact_path,
-                None,
-                None,
                 artifact_path,
                 artifact.get("version"),
                 artifact_sha256,
@@ -261,20 +258,6 @@ def create_imported_classifier(config, payload, artifact, artifact_path, artifac
                     policy["id"],
                 ),
             )
-        return get_classifier_by_db_id(conn, classifier_id)
-
-
-def update_classifier_base_identity(config, classifier_id, artifact_version, artifact_sha256):
-    now = utcnow()
-    with connect_state_db(config) as conn:
-        conn.execute(
-            """
-            UPDATE spam_classifier
-            SET base_artifact_version = ?, base_artifact_sha256 = ?, updated_at = ?
-            WHERE id = ?
-            """,
-            (artifact_version, artifact_sha256, now, classifier_id),
-        )
         return get_classifier_by_db_id(conn, classifier_id)
 
 
@@ -385,8 +368,7 @@ def update_classifier_artifact(config, classifier_id, artifact, artifact_path, a
             """
             UPDATE spam_classifier
             SET training_corpus_version = ?, artifact_version = ?,
-                artifact_sha256 = ?, artifact_path = ?, model_snapshot_json = NULL,
-                updated_at = ?
+                artifact_sha256 = ?, artifact_path = ?, updated_at = ?
             WHERE id = ?
             """,
             (

@@ -12,7 +12,7 @@ from spam_detection import (
     store,
     training_import,
 )
-from spam_detection.database import check_state_db, migrate_state_db
+from spam_detection.database import check_state_db, initialize_state_db
 from spam_detection.config import apply_environment as apply_spam_detection_environment
 from spam_detection.quay_db import check_connection
 
@@ -22,22 +22,6 @@ def load_config():
     with open(os.path.join(config_path, "config.yaml"), encoding="utf-8") as config_file:
         config = yaml.load(config_file, Loader=yaml.FullLoader)
     apply_spam_detection_environment(config)
-    data_dir = os.environ.get("SPAM_DETECTION_DATA_DIR")
-    default_state_db_uri = (
-        f"sqlite:////{data_dir.strip('/')}/state.db"
-        if data_dir
-        else "sqlite:///spam_detection_state.db"
-    )
-    default_artifact_dir = (
-        os.path.join(data_dir, "artifacts") if data_dir else "spam_detection_artifacts"
-    )
-    if data_dir and not os.environ.get("SPAM_DETECTION_STATE_DB_URI"):
-        config["SPAM_DETECTION_STATE_DB_URI"] = default_state_db_uri
-    if data_dir and not os.environ.get("SPAM_DETECTION_ARTIFACT_STORAGE"):
-        config["SPAM_DETECTION_ARTIFACT_DIR"] = default_artifact_dir
-    if not data_dir:
-        config.setdefault("SPAM_DETECTION_STATE_DB_URI", default_state_db_uri)
-        config.setdefault("SPAM_DETECTION_ARTIFACT_DIR", default_artifact_dir)
     config.setdefault("SPAM_DETECTION_MAX_ARTIFACT_BYTES", classifier.DEFAULT_MAX_ARTIFACT_BYTES)
     config.setdefault("SPAM_DETECTION_BATCH_SIZE", 200)
     config.setdefault("SPAM_DETECTION_SLEEP_BETWEEN_BATCHES", 0.5)
@@ -63,7 +47,7 @@ def main():
     parser = argparse.ArgumentParser(description="Quay spam detection service-tool CLI")
     subparsers = parser.add_subparsers(dest="command", required=True)
 
-    subparsers.add_parser("migrate")
+    subparsers.add_parser("init-state-db")
     subparsers.add_parser("healthcheck")
 
     create_classifier = subparsers.add_parser("create-classifier")
@@ -92,6 +76,13 @@ def main():
         help="Optional exact artifact file path for build jobs that copy the classifier into the Quay image.",
     )
 
+    materialize_promoted = subparsers.add_parser("materialize-promoted-artifact")
+    materialize_promoted.add_argument(
+        "--output-path",
+        required=True,
+        help="Exact build output path for the promoted classifier and its .sha256 sidecar.",
+    )
+
     scan = subparsers.add_parser("scan")
     scan.add_argument("--source", default="cli")
     scan.add_argument("--dry-run", action="store_true")
@@ -101,14 +92,13 @@ def main():
     args = parser.parse_args()
     config = load_config()
 
-    if args.command == "migrate":
-        migrate_state_db(config)
+    if args.command == "init-state-db":
+        initialize_state_db(config)
         check_state_db(config)
         print_json({"status": "ok"})
         return
 
     if args.command == "healthcheck":
-        migrate_state_db(config)
         check_state_db(config)
         artifact_storage.artifact_storage_healthcheck(config)
         check_connection(config.get("SPAM_DETECTION_READONLY_DB_URI"), read_only=True)
@@ -165,6 +155,11 @@ def main():
             output_path=args.output_path,
         )
         print_json({"classifier": updated})
+        return
+
+    if args.command == "materialize-promoted-artifact":
+        materialized = classifier.materialize_promoted_artifact(config, args.output_path)
+        print_json({"artifact": materialized})
         return
 
     if args.command == "scan":

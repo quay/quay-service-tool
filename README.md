@@ -29,12 +29,13 @@ Remove the `node_modules` folder under frontend (if exists)
 ## Testing
 
 ### Backend Tests
-Add the following environment variables:
-`TESTING=true` - This will prepare certain configurations such as auth and database connections for testing.
-`CONFIG_PATH=<path to repo>/backend/config` - Configuration to be used for testing.
 
-To run the tests:
-`cd backend && export CONFIG_PATH="config" TESTING=true && pytest -v`
+Backend tests require PostgreSQL and MinIO. From the repository root, start the
+Podman services and run the complete suite with:
+
+```sh
+make spam-storage-test
+```
 
 ### Frontend Tests
 
@@ -157,8 +158,23 @@ Import the initial JSON artifact from the **Classifier** tab and leave
 the persistent service-tool state. Spam and ham labels are retained as training
 feedback; **Train new version** combines that feedback with the imported base
 model and immediately updates subsequent manual scans. **Download** retrieves
-the selected S3 object without changing it. **Promote** copies it to the
-configured promoted S3 key and records an audit event.
+the selected S3 object without changing it. **Stage for Quay build** copies it
+to the configured promoted S3 key, writes a `.sha256` sidecar, and records an
+audit event.
+
+The Quay image build then materializes the promoted object into its build
+workspace. This command verifies the S3 checksum before writing both files:
+
+```sh
+cd backend
+CONFIG_PATH=/path/to/config \
+uv run python spam_detection_cli.py materialize-promoted-artifact \
+  --output-path /build/quay/conf/spam-detection/classifier.json
+```
+
+Copy `classifier.json` and `classifier.json.sha256` into the image at
+`/conf/spam-detection/`. Quay continues to load the baked artifact at startup;
+it does not call service-tool or S3 on the request path.
 
 Configure the production secret with settings equivalent to:
 
@@ -168,7 +184,7 @@ SPAM_DETECTION_STATE_DB_SCHEMA: spam_detection
 SPAM_DETECTION_STATE_DB_CREATE_SCHEMA: false
 SPAM_DETECTION_STATE_DB_POOL_MIN: 1
 SPAM_DETECTION_STATE_DB_POOL_MAX: 10
-SPAM_DETECTION_ARTIFACT_STORAGE: s3
+SPAM_DETECTION_STATE_DB_LOCK_CONNECTIONS: 1
 SPAM_DETECTION_S3_BUCKET: quay-service-tool
 SPAM_DETECTION_S3_PREFIX: spam-detection
 SPAM_DETECTION_S3_REGION: us-east-1
@@ -180,28 +196,36 @@ SPAM_DETECTION_STALE_SCAN_TIMEOUT_SECONDS: 3600
 ```
 
 Use the normal AWS SDK credential chain, preferably workload identity in the
-cluster. Do not put access keys in `config.yaml`. The database pool limit is per
-pod and must be sized together with the RDS connection limit. S3 lifecycle
-rules must retain every object referenced by PostgreSQL. Create the configured
-database schema and grant the service user access ahead of deployment; the
-`CREATE_SCHEMA` option is intended only for controlled bootstrap and local
-testing.
+cluster. Do not put access keys in `config.yaml`. The database pool maximum is
+the total per-process limit: `LOCK_CONNECTIONS` is reserved for advisory locks
+and the remainder is used by the request pool. Size it together with the RDS
+connection limit and the number of service-tool processes and pods. S3
+lifecycle rules must retain every object referenced by PostgreSQL. Create the
+configured database schema and grant the service user access ahead of
+deployment; the `CREATE_SCHEMA` option is intended only for controlled
+bootstrap and local testing.
+
+Initialize the final schema before starting the service:
+
+```sh
+cd backend
+CONFIG_PATH=/path/to/config uv run python spam_detection_cli.py init-state-db
+```
 
 ### Local PostgreSQL and S3 testing
 
-The Compose stack runs PostgreSQL and MinIO, so local development exercises the
-same database and S3 APIs as production without using RDS or AWS. Run the real
-storage integration test with:
+The Compose stack runs PostgreSQL and MinIO, so local development and every
+spam-detection backend test exercise the same database and S3 APIs as
+production without using RDS or AWS. Run the complete backend suite with:
 
 ```sh
 make spam-storage-test
 ```
 
-The test starts both containers, imports the same classifier concurrently from
-three workers, verifies that PostgreSQL creates one shared record, verifies the
-classifier body exists only in S3, trains and promotes another S3 version, and
-checks the cross-worker scan lease. The
-containers and their volumes remain available for inspection. MinIO is exposed
+The command starts both containers and runs all backend tests, including the
+three-worker import, S3 promotion, checksum materialization, and cross-worker
+scan-lease coverage. The containers and their volumes remain available for
+inspection. MinIO is exposed
 at `http://localhost:9002`, and its console is at `http://localhost:9003` with
 the local-only credentials `minioadmin` / `minioadmin`.
 

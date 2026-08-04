@@ -40,7 +40,11 @@ if ! "$CONTAINER_RUNTIME" network inspect "$QUAY_NETWORK_NAME" >/dev/null 2>&1; 
   "$CONTAINER_RUNTIME" network create "$QUAY_NETWORK_NAME" >/dev/null
 fi
 
-compose up -d quay-service-tool-state-db quay-service-tool-s3
+# The full demo may already have API/frontend containers depending on these
+# services. Reuse the storage containers so Podman Compose does not try to
+# replace them underneath those dependents; a clean CI runner still creates
+# them normally.
+compose up -d --no-recreate quay-service-tool-state-db quay-service-tool-s3
 
 for _ in {1..60}; do
   if compose exec -T quay-service-tool-state-db \
@@ -70,7 +74,8 @@ fi
   cd "$SERVICE_TOOL_DIR/backend"
   AWS_ACCESS_KEY_ID=minioadmin \
     AWS_SECRET_ACCESS_KEY=minioadmin \
-    SPAM_DETECTION_INTEGRATION_STATE_DB_URI="postgresql://spam:spam-local@localhost:${STATE_DB_PORT}/service_tool_spam" \
-    SPAM_DETECTION_INTEGRATION_S3_ENDPOINT_URL="http://localhost:${S3_PORT}" \
-    uv run --frozen pytest -q tests/spam_detection/test_postgres_s3_integration.py
+    CONFIG_PATH=config \
+    SPAM_DETECTION_TEST_STATE_DB_URI="postgresql://spam:spam-local@localhost:${STATE_DB_PORT}/service_tool_spam" \
+    SPAM_DETECTION_TEST_S3_ENDPOINT_URL="http://localhost:${S3_PORT}" \
+    uv run --frozen pytest -q
 )

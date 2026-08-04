@@ -16,11 +16,7 @@ from spam_detection import (
     store,
     training_import,
 )
-from spam_detection.database import (
-    check_state_db,
-    display_state_db_uri,
-    migrate_state_db,
-)
+from spam_detection.database import check_state_db, display_state_db_uri
 from utils import (
     log_response,
     verify_spam_detection_read_permissions,
@@ -79,7 +75,6 @@ class SpamDetectionHealthTask(Resource):
         }
         http_status = 200
         try:
-            migrate_state_db(config)
             check_state_db(config)
             status["state_db"] = "ok"
         except Exception as exc:
@@ -337,9 +332,7 @@ class SpamClassifierArtifactTask(Resource):
         if not artifact_path:
             return _json_response({"message": "classifier has no generated artifact"}, 404)
         try:
-            storage = artifact_storage.get_artifact_storage_for_uri(
-                current_app.config, artifact_path
-            )
+            storage = artifact_storage.get_artifact_storage(current_app.config)
             if not storage.exists(artifact_path):
                 return _json_response({"message": "classifier has no generated artifact"}, 404)
             content = storage.read(artifact_path)
@@ -377,6 +370,7 @@ class SpamClassifierPromoteArtifactTask(Resource):
                     "artifact_version": configured.get("artifact_version"),
                     "artifact_sha256": promoted["promoted_sha256"],
                     "destination": promoted["promoted_path"],
+                    "checksum_destination": promoted["promoted_checksum_path"],
                 },
             )
             return _json_response(promoted)

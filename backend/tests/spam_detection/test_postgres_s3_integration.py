@@ -1,20 +1,10 @@
 import json
-import os
 import uuid
 from concurrent.futures import ThreadPoolExecutor
 
 import pytest
 
 from spam_detection import artifact_storage, classifier, store
-
-
-STATE_DB_URI = os.environ.get("SPAM_DETECTION_INTEGRATION_STATE_DB_URI")
-S3_ENDPOINT = os.environ.get("SPAM_DETECTION_INTEGRATION_S3_ENDPOINT_URL")
-
-pytestmark = pytest.mark.skipif(
-    not STATE_DB_URI or not S3_ENDPOINT,
-    reason="local PostgreSQL/S3 integration services are not configured",
-)
 
 
 def _artifact(version):
@@ -44,59 +34,10 @@ def _artifact(version):
     }
 
 
-@pytest.fixture
-def shared_config():
-    suffix = uuid.uuid4().hex
-    schema = f"spam_test_{suffix}"
-    prefix = f"integration-tests/{suffix}"
-    config = {
-        "SPAM_DETECTION_STATE_DB_URI": STATE_DB_URI,
-        "SPAM_DETECTION_STATE_DB_SCHEMA": schema,
-        "SPAM_DETECTION_STATE_DB_CREATE_SCHEMA": True,
-        "SPAM_DETECTION_STATE_DB_POOL_MAX": 12,
-        "SPAM_DETECTION_ARTIFACT_STORAGE": "s3",
-        "SPAM_DETECTION_S3_ENDPOINT_URL": S3_ENDPOINT,
-        "SPAM_DETECTION_S3_BUCKET": os.environ.get(
-            "SPAM_DETECTION_INTEGRATION_S3_BUCKET", "quay-service-tool-tests"
-        ),
-        "SPAM_DETECTION_S3_PREFIX": prefix,
-        "SPAM_DETECTION_S3_REGION": "us-east-1",
-        "SPAM_DETECTION_S3_ADDRESSING_STYLE": "path",
-        "SPAM_DETECTION_S3_VERIFY_TLS": False,
-        "SPAM_DETECTION_S3_CREATE_BUCKET": True,
-        "SPAM_DETECTION_MIN_SPAM_EXAMPLES": 1,
-        "SPAM_DETECTION_MIN_HAM_EXAMPLES": 1,
-    }
-    yield config
-
-    import boto3
-    import psycopg2
-    from botocore.config import Config
-    from psycopg2 import sql
-
-    s3 = boto3.client(
-        "s3",
-        endpoint_url=S3_ENDPOINT,
-        region_name="us-east-1",
-        config=Config(s3={"addressing_style": "path"}),
-    )
-    listed = s3.list_objects_v2(
-        Bucket=config["SPAM_DETECTION_S3_BUCKET"], Prefix=f"{prefix}/"
-    )
-    objects = [{"Key": item["Key"]} for item in listed.get("Contents", [])]
-    if objects:
-        s3.delete_objects(
-            Bucket=config["SPAM_DETECTION_S3_BUCKET"], Delete={"Objects": objects}
-        )
-
-    with psycopg2.connect(STATE_DB_URI) as connection:
-        with connection.cursor() as cursor:
-            cursor.execute(
-                sql.SQL("DROP SCHEMA IF EXISTS {} CASCADE").format(sql.Identifier(schema))
-            )
-
-
-def test_postgres_state_and_s3_artifacts_are_shared_across_workers(shared_config):
+def test_postgres_state_and_s3_artifacts_are_shared_across_workers(
+    spam_config, tmp_path
+):
+    shared_config = spam_config
     artifact = _artifact(f"integration-{uuid.uuid4().hex}")
     content = json.dumps(artifact, indent=2).encode("utf-8")
 
@@ -116,8 +57,6 @@ def test_postgres_state_and_s3_artifacts_are_shared_across_workers(shared_config
     imported = results[0][0]
     persisted = store.get_classifier(dict(shared_config), imported["uuid"])
     assert persisted["artifact_path"].startswith("s3://")
-    assert persisted["model_snapshot_json"] is None
-    assert persisted["base_model_snapshot_json"] is None
     assert classifier.load_artifact_from_classifier(shared_config, persisted) == artifact
 
     storage = artifact_storage.get_artifact_storage(shared_config)
@@ -139,13 +78,25 @@ def test_postgres_state_and_s3_artifacts_are_shared_across_workers(shared_config
         persisted["uuid"],
         artifact_version=f"trained-{uuid.uuid4().hex}",
     )
-    assert trained["model_snapshot_json"] is None
     assert trained["base_artifact_path"] == persisted["base_artifact_path"]
     trained_model = classifier.load_artifact_from_classifier(shared_config, trained)
     assert trained_model["training_metrics"]["example_count"] == 4
     promoted = classifier.promote_artifact(dict(shared_config), trained["uuid"])
     assert promoted["promoted_path"].startswith("s3://")
     assert storage.read(promoted["promoted_path"]) == storage.read(trained["artifact_path"])
+    assert storage.read(promoted["promoted_checksum_path"]).decode("utf-8") == (
+        f"{trained['artifact_sha256']}  classifier.json\n"
+    )
+    build_output = tmp_path / "quay-build" / "conf" / "spam-detection" / "classifier.json"
+    materialized = classifier.materialize_promoted_artifact(
+        dict(shared_config), str(build_output)
+    )
+    assert materialized["artifact_version"] == trained["artifact_version"]
+    assert materialized["sha256"] == trained["artifact_sha256"]
+    assert build_output.read_bytes() == storage.read(trained["artifact_path"])
+    assert build_output.with_suffix(".json.sha256").read_text() == (
+        f"{trained['artifact_sha256']}  classifier.json\n"
+    )
 
     first_run = store.create_scan_run(shared_config, "integration", True, {}, {})
     with pytest.raises(ValueError, match="already running"):
