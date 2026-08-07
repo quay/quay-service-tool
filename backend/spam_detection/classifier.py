@@ -25,6 +25,7 @@ MAX_ARTIFACT_VERSION_LENGTH = 128
 DEFAULT_MIN_SPAM_EXAMPLES = 10
 DEFAULT_MIN_HAM_EXAMPLES = 10
 DEFAULT_MAX_ARTIFACT_BYTES = 25 * 1024 * 1024
+CLASSIFIER_PROMOTION_LOCK = "spam-classifier-promotion"
 REQUIRED_ARTIFACT_FIELDS = {
     "version": str,
     "training_corpus_version": str,
@@ -376,6 +377,11 @@ def _export_artifact(config, classifier_uuid, artifact_version=None, output_path
 
 
 def promote_artifact(config, classifier_uuid):
+    with state_advisory_lock(config, CLASSIFIER_PROMOTION_LOCK):
+        return _promote_artifact(config, classifier_uuid)
+
+
+def _promote_artifact(config, classifier_uuid):
     configured = store.get_classifier(config, classifier_uuid)
     if not configured:
         raise ClassifierError("classifier not found")
@@ -410,6 +416,11 @@ def promote_artifact(config, classifier_uuid):
 
 
 def materialize_promoted_artifact(config, output_path):
+    with state_advisory_lock(config, CLASSIFIER_PROMOTION_LOCK):
+        return _materialize_promoted_artifact(config, output_path)
+
+
+def _materialize_promoted_artifact(config, output_path):
     storage = artifact_storage.get_artifact_storage(config)
     try:
         promoted_path = storage.promoted_uri()
