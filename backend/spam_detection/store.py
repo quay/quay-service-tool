@@ -18,6 +18,15 @@ DEFAULT_CLASSIFICATION_WINDOW_TOKENS = 128
 DEFAULT_CLASSIFICATION_WINDOW_STRIDE = 64
 MAX_CLASSIFICATION_WINDOW_TOKENS = 4096
 MAX_TRAINING_TEXT_LENGTH = 10000
+CLASSIFIER_ACTIVATION_LOCK = "quay-service-tool-spam-classifier-activation"
+
+
+def _prepare_classifier_activation(conn):
+    conn.execute(
+        "SELECT pg_advisory_xact_lock(hashtext(?))",
+        (CLASSIFIER_ACTIVATION_LOCK,),
+    )
+    conn.execute("UPDATE spam_classifier SET enabled = 0 WHERE enabled = 1")
 
 
 def _validate_probability(value, field):
@@ -112,7 +121,7 @@ def create_classifier(config, payload, operator=None):
     ingress_threshold = _validate_probability(payload.get("ingress_threshold", 0.9), "ingress_threshold")
     with connect_state_db(config) as conn:
         if payload.get("enabled"):
-            conn.execute("UPDATE spam_classifier SET enabled = 0")
+            _prepare_classifier_activation(conn)
         cur = conn.execute(
             """
             INSERT INTO spam_classifier (
@@ -209,7 +218,7 @@ def create_imported_classifier(config, payload, artifact, artifact_path, artifac
     )
     with connect_state_db(config) as conn:
         if payload.get("enabled"):
-            conn.execute("UPDATE spam_classifier SET enabled = 0")
+            _prepare_classifier_activation(conn)
         cur = conn.execute(
             """
             INSERT INTO spam_classifier (
@@ -291,7 +300,7 @@ def update_classifier(config, classifier_uuid, payload, operator=None):
 
     with connect_state_db(config) as conn:
         if payload.get("enabled"):
-            conn.execute("UPDATE spam_classifier SET enabled = 0")
+            _prepare_classifier_activation(conn)
         conn.execute(
             f"UPDATE spam_classifier SET {', '.join(fields)} WHERE id = ?",
             tuple(params),
@@ -444,15 +453,27 @@ def update_policy(config, payload, operator=None):
         "rescan_terminal_records",
     }
     with connect_state_db(config) as conn:
-        policy = ensure_policy(conn, config)
-        fields = []
-        params = []
+        classifier = None
         if "active_classifier_uuid" in payload:
             classifier = conn.execute(
-                "SELECT * FROM spam_classifier WHERE uuid = ?", (payload["active_classifier_uuid"],)
+                "SELECT * FROM spam_classifier WHERE uuid = ?",
+                (payload["active_classifier_uuid"],),
             ).fetchone()
             if not classifier:
                 raise ValueError("active_classifier_uuid was not found")
+            _prepare_classifier_activation(conn)
+        policy = ensure_policy(conn, config)
+        fields = []
+        params = []
+        if classifier:
+            conn.execute(
+                """
+                UPDATE spam_classifier
+                SET enabled = 1, updated_at = ?, updated_by = ?
+                WHERE id = ?
+                """,
+                (now, operator, classifier["id"]),
+            )
             fields.append("active_classifier_id = ?")
             params.append(classifier["id"])
         for key in allowed:

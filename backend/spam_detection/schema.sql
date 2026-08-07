@@ -20,6 +20,8 @@ CREATE TABLE IF NOT EXISTS spam_classifier (
 );
 CREATE INDEX IF NOT EXISTS spam_classifier_enabled_updated_idx
     ON spam_classifier(enabled, updated_at);
+CREATE UNIQUE INDEX IF NOT EXISTS spam_classifier_one_enabled_idx
+    ON spam_classifier(enabled) WHERE enabled = 1;
 CREATE UNIQUE INDEX IF NOT EXISTS spam_classifier_base_artifact_version_idx
     ON spam_classifier(base_artifact_version)
     WHERE base_artifact_version IS NOT NULL;

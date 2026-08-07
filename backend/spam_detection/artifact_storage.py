@@ -128,32 +128,56 @@ class S3ArtifactStorage:
             existing = None
 
         if existing:
+            if not overwrite:
+                return self._matching_existing(uri, content, sha256, existing)
             existing_sha256 = (existing.get("Metadata") or {}).get("sha256")
             if existing_sha256 == sha256:
                 return StoredArtifact(uri, sha256)
-            if not overwrite:
-                existing_content = self.read(uri)
-                if existing_content == content:
-                    return StoredArtifact(uri, sha256)
-                try:
-                    semantically_equal = json.loads(existing_content) == json.loads(content)
-                except (UnicodeDecodeError, json.JSONDecodeError):
-                    semantically_equal = False
-                if semantically_equal:
-                    return StoredArtifact(uri, _sha256(existing_content))
-                raise ArtifactStorageError("artifact object already exists with different content")
 
+        put_args = {
+            "Bucket": bucket,
+            "Key": key,
+            "Body": content,
+            "ContentType": content_type,
+            "Metadata": {"sha256": sha256},
+        }
+        if not overwrite:
+            put_args["IfNoneMatch"] = "*"
         try:
-            self.client.put_object(
-                Bucket=bucket,
-                Key=key,
-                Body=content,
-                ContentType=content_type,
-                Metadata={"sha256": sha256},
-            )
+            self.client.put_object(**put_args)
+        except self._client_error as exc:
+            status = exc.response.get("ResponseMetadata", {}).get("HTTPStatusCode")
+            code = exc.response.get("Error", {}).get("Code")
+            if not overwrite and (
+                status in {409, 412}
+                or code in {"ConditionalRequestConflict", "PreconditionFailed"}
+            ):
+                try:
+                    existing = self.client.head_object(Bucket=bucket, Key=key)
+                except Exception as inspect_exc:
+                    raise ArtifactStorageError(
+                        f"unable to inspect classifier artifact after write conflict: {uri}"
+                    ) from inspect_exc
+                return self._matching_existing(uri, content, sha256, existing)
+            raise ArtifactStorageError(f"unable to write classifier artifact: {uri}") from exc
         except Exception as exc:
             raise ArtifactStorageError(f"unable to write classifier artifact: {uri}") from exc
         return StoredArtifact(uri, sha256)
+
+    def _matching_existing(self, uri, content, sha256, existing):
+        existing_sha256 = (existing.get("Metadata") or {}).get("sha256")
+        if existing_sha256 == sha256:
+            return StoredArtifact(uri, sha256)
+        existing_content = self.read(uri)
+        if existing_content == content:
+            return StoredArtifact(uri, sha256)
+        try:
+            semantically_equal = json.loads(existing_content) == json.loads(content)
+        except (UnicodeDecodeError, json.JSONDecodeError):
+            semantically_equal = False
+        if semantically_equal:
+            return StoredArtifact(uri, _sha256(existing_content))
+        raise ArtifactStorageError("artifact object already exists with different content")
 
     def _ensure_bucket(self):
         try:
