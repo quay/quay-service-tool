@@ -13,7 +13,7 @@ local-dev-up:
 local-dev-down:
 	$(COMPOSE) down
 
-.PHONY: spam-demo-check spam-demo spam-demo-explore spam-demo-status spam-demo-down spam-demo-clean
+.PHONY: spam-demo-check spam-demo spam-demo-explore spam-demo-status spam-demo-down spam-demo-clean spam-storage-up spam-storage-test spam-storage-down spam-storage-clean
 spam-demo-check:
 	$(SPAM_DEMO_SCRIPT) check
 
@@ -31,3 +31,15 @@ spam-demo-down:
 
 spam-demo-clean:
 	$(SPAM_DEMO_SCRIPT) clean
+
+spam-storage-up:
+	./scripts/spam-storage-local-test.sh up
+
+spam-storage-test:
+	./scripts/spam-storage-local-test.sh
+
+spam-storage-down:
+	./scripts/spam-storage-local-test.sh down
+
+spam-storage-clean:
+	./scripts/spam-storage-local-test.sh clean

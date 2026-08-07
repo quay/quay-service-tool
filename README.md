@@ -29,12 +29,13 @@ Remove the `node_modules` folder under frontend (if exists)
 ## Testing
 
 ### Backend Tests
-Add the following environment variables:
-`TESTING=true` - This will prepare certain configurations such as auth and database connections for testing.
-`CONFIG_PATH=<path to repo>/backend/config` - Configuration to be used for testing.
 
-To run the tests:
-`cd backend && export CONFIG_PATH="config" TESTING=true && pytest -v`
+Backend tests require PostgreSQL and MinIO. From the repository root, start the
+Podman services and run the complete suite with:
+
+```sh
+make spam-storage-test
+```
 
 ### Frontend Tests
 
@@ -71,7 +72,7 @@ restores or dismissals, and select **Scan all repositories** for an unbounded
 scan.
 
 Meaningful clicks and input focus are marked with an animated yellow ring. The
-browser remains open for ten minutes after the workflow completes.
+browser remains open until you press `Ctrl+C` after the workflow completes.
 
 Prerequisites:
 
@@ -135,8 +136,9 @@ make -C /absolute/path/to/quay-service-tool spam-demo
 Use `PLAYWRIGHT_SLOW_MO` to change individual browser action timing,
 `DEMO_STEP_DELAY` to change the pause between visible stages, and
 `DEMO_CLICK_DELAY` to change how long click highlighting remains visible.
-`HOLD_SECONDS` controls how long the browser remains open. For a differently
-located Quay checkout or a slower presentation:
+After the workflow finishes, the browser remains open until you press `Ctrl+C`.
+Set `HOLD_SECONDS` to a positive number to close it automatically. For a
+differently located Quay checkout or a slower presentation:
 
 ```sh
 QUAY_DIR=/path/to/quay PLAYWRIGHT_SLOW_MO=1500 DEMO_STEP_DELAY=10000 DEMO_CLICK_DELAY=2000 HOLD_SECONDS=900 make spam-demo
@@ -144,27 +146,93 @@ QUAY_DIR=/path/to/quay PLAYWRIGHT_SLOW_MO=1500 DEMO_STEP_DELAY=10000 DEMO_CLICK_
 
 ### Production classifier storage
 
-The service-tool OpenShift templates provision a 1 GiB persistent volume for
-the classifier state database and managed artifact files. Keep the deployment
-at one replica, include the volume in normal backups, and do not place
-classifier artifacts in the source repository.
+For a multi-replica deployment, use PostgreSQL for service-tool state and S3
+for classifier artifacts. PostgreSQL stores classifier identity, S3 URI,
+checksum, thresholds, policy, training feedback, scan results, reviews, and
+audit history. Classifier bodies are not duplicated into PostgreSQL. Each S3
+object is loaded once at the start of a scan or request, rather than once per
+repository.
 
 Import the initial JSON artifact from the **Classifier** tab and leave
 **Activate after import** selected. Manual scans then use that artifact from
 the persistent service-tool state. Spam and ham labels are retained as training
 feedback; **Train new version** combines that feedback with the imported base
 model and immediately updates subsequent manual scans. **Download** retrieves
-the selected artifact without changing it. **Promote** atomically copies it to
-the backend-configured Quay ingress handoff path and records an audit event.
+the selected S3 object without changing it. **Stage for Quay build** copies it
+to the configured promoted S3 key, writes a `.sha256` sidecar, and records an
+audit event.
 
-For installations that provide their own persistent volume, set:
+The Quay image build then materializes the promoted object into its build
+workspace. This command verifies the S3 checksum before writing both files:
+
+```sh
+cd backend
+CONFIG_PATH=/path/to/config \
+uv run python spam_detection_cli.py materialize-promoted-artifact \
+  --output-path /build/quay/conf/spam-detection/classifier.json
+```
+
+Copy `classifier.json` and `classifier.json.sha256` into the image at
+`/conf/spam-detection/`. Quay continues to load the baked artifact at startup;
+it does not call service-tool or S3 on the request path.
+
+Configure the production secret with settings equivalent to:
 
 ```yaml
-SPAM_DETECTION_STATE_DB_URI: sqlite:////var/lib/quay-service-tool/spam-detection/state.db
-SPAM_DETECTION_ARTIFACT_DIR: /var/lib/quay-service-tool/spam-detection/artifacts
-SPAM_DETECTION_PROMOTED_ARTIFACT_PATH: /var/lib/quay-service-tool/spam-detection/promoted/classifier.json
+SPAM_DETECTION_STATE_DB_URI: postgresql://service_tool:<password>@<rds-host>:5432/service_tool
+SPAM_DETECTION_STATE_DB_SCHEMA: spam_detection
+SPAM_DETECTION_STATE_DB_CREATE_SCHEMA: false
+SPAM_DETECTION_STATE_DB_POOL_MIN: 1
+SPAM_DETECTION_STATE_DB_POOL_MAX: 10
+SPAM_DETECTION_STATE_DB_LOCK_CONNECTIONS: 1
+SPAM_DETECTION_S3_BUCKET: quay-service-tool
+SPAM_DETECTION_S3_PREFIX: spam-detection
+SPAM_DETECTION_S3_REGION: us-east-1
+# Set only for an S3-compatible service with a custom endpoint:
+# SPAM_DETECTION_S3_ENDPOINT_URL: https://s3.example.com
+# SPAM_DETECTION_S3_ADDRESSING_STYLE: path
+SPAM_DETECTION_S3_CREATE_BUCKET: false
 SPAM_DETECTION_STALE_SCAN_TIMEOUT_SECONDS: 3600
 ```
+
+Use the normal AWS SDK credential chain, preferably workload identity in the
+cluster. Do not put access keys in `config.yaml`. The database pool maximum is
+the total per-process limit: `LOCK_CONNECTIONS` is reserved for advisory locks
+and the remainder is used by the request pool. Size it together with the RDS
+connection limit and the number of service-tool processes and pods. S3
+lifecycle rules must retain every object referenced by PostgreSQL. Create the
+configured database schema and grant the service user access ahead of
+deployment; the `CREATE_SCHEMA` option is intended only for controlled
+bootstrap and local testing.
+
+Initialize the final schema before starting the service:
+
+```sh
+cd backend
+CONFIG_PATH=/path/to/config uv run python spam_detection_cli.py init-state-db
+```
+
+### Local PostgreSQL and S3 testing
+
+The Compose stack runs PostgreSQL and MinIO, so local development and every
+spam-detection backend test exercise the same database and S3 APIs as
+production without using RDS or AWS. Run the complete backend suite with:
+
+```sh
+make spam-storage-test
+```
+
+The command starts both containers and runs all backend tests, including the
+three-worker import, S3 promotion, checksum materialization, and cross-worker
+scan-lease coverage. The containers and their volumes remain available for
+inspection. MinIO is exposed
+at `http://localhost:9002`, and its console is at `http://localhost:9003` with
+the local-only credentials `minioadmin` / `minioadmin`.
+
+Use `make spam-storage-up` to start the services without running the test,
+`make spam-storage-down` to stop them while preserving data, or
+`make spam-storage-clean` to remove the local volumes. The full `make spam-demo`
+workflow uses these same PostgreSQL and MinIO services.
 
 Stop the demo while preserving volumes, or remove its volumes completely:
 

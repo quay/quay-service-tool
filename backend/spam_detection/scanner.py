@@ -47,7 +47,7 @@ def _load_active(config, policy_override=None):
     classifier = store.get_classifier_by_id(config, classifier_id)
     if not classifier:
         raise ScanError("active classifier was not found")
-    artifact = classifier_lib.load_artifact_from_classifier(classifier)
+    artifact = classifier_lib.load_artifact_from_classifier(config, classifier)
     return classifier, artifact, policy
 
 

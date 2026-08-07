@@ -1,12 +1,12 @@
 import hashlib
-import sqlite3
 from datetime import datetime, timedelta
 
 from .database import (
     connect_state_db,
     ensure_policy,
+    IntegrityError,
     json_dumps,
-    migrate_state_db,
+    initialize_state_db,
     new_uuid,
     row_to_dict,
     utcnow,
@@ -18,6 +18,15 @@ DEFAULT_CLASSIFICATION_WINDOW_TOKENS = 128
 DEFAULT_CLASSIFICATION_WINDOW_STRIDE = 64
 MAX_CLASSIFICATION_WINDOW_TOKENS = 4096
 MAX_TRAINING_TEXT_LENGTH = 10000
+CLASSIFIER_ACTIVATION_LOCK = "quay-service-tool-spam-classifier-activation"
+
+
+def _prepare_classifier_activation(conn):
+    conn.execute(
+        "SELECT pg_advisory_xact_lock(hashtext(?))",
+        (CLASSIFIER_ACTIVATION_LOCK,),
+    )
+    conn.execute("UPDATE spam_classifier SET enabled = 0 WHERE enabled = 1")
 
 
 def _validate_probability(value, field):
@@ -101,7 +110,7 @@ def description_fingerprint(description):
 
 
 def initialize(config):
-    migrate_state_db(config)
+    initialize_state_db(config)
 
 
 def create_classifier(config, payload, operator=None):
@@ -112,7 +121,7 @@ def create_classifier(config, payload, operator=None):
     ingress_threshold = _validate_probability(payload.get("ingress_threshold", 0.9), "ingress_threshold")
     with connect_state_db(config) as conn:
         if payload.get("enabled"):
-            conn.execute("UPDATE spam_classifier SET enabled = 0")
+            _prepare_classifier_activation(conn)
         cur = conn.execute(
             """
             INSERT INTO spam_classifier (
@@ -209,16 +218,15 @@ def create_imported_classifier(config, payload, artifact, artifact_path, artifac
     )
     with connect_state_db(config) as conn:
         if payload.get("enabled"):
-            conn.execute("UPDATE spam_classifier SET enabled = 0")
+            _prepare_classifier_activation(conn)
         cur = conn.execute(
             """
             INSERT INTO spam_classifier (
                 uuid, name, enabled, training_corpus_version, artifact_version,
-                artifact_sha256, artifact_path, model_snapshot_json,
-                base_model_snapshot_json, base_artifact_version,
-                base_artifact_sha256, feature_config_json, scan_threshold,
+                artifact_sha256, artifact_path, base_artifact_path,
+                base_artifact_version, base_artifact_sha256, feature_config_json, scan_threshold,
                 ingress_threshold, created_at, updated_at, created_by, updated_by
-            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
             """,
             (
                 new_uuid(),
@@ -228,8 +236,7 @@ def create_imported_classifier(config, payload, artifact, artifact_path, artifac
                 artifact.get("version"),
                 artifact_sha256,
                 artifact_path,
-                json_dumps(artifact),
-                json_dumps(artifact),
+                artifact_path,
                 artifact.get("version"),
                 artifact_sha256,
                 json_dumps(feature_config),
@@ -263,20 +270,6 @@ def create_imported_classifier(config, payload, artifact, artifact_path, artifac
         return get_classifier_by_db_id(conn, classifier_id)
 
 
-def update_classifier_base_identity(config, classifier_id, artifact_version, artifact_sha256):
-    now = utcnow()
-    with connect_state_db(config) as conn:
-        conn.execute(
-            """
-            UPDATE spam_classifier
-            SET base_artifact_version = ?, base_artifact_sha256 = ?, updated_at = ?
-            WHERE id = ?
-            """,
-            (artifact_version, artifact_sha256, now, classifier_id),
-        )
-        return get_classifier_by_db_id(conn, classifier_id)
-
-
 def update_classifier(config, classifier_uuid, payload, operator=None):
     initialize(config)
     existing = get_classifier(config, classifier_uuid)
@@ -307,7 +300,7 @@ def update_classifier(config, classifier_uuid, payload, operator=None):
 
     with connect_state_db(config) as conn:
         if payload.get("enabled"):
-            conn.execute("UPDATE spam_classifier SET enabled = 0")
+            _prepare_classifier_activation(conn)
         conn.execute(
             f"UPDATE spam_classifier SET {', '.join(fields)} WHERE id = ?",
             tuple(params),
@@ -384,8 +377,7 @@ def update_classifier_artifact(config, classifier_id, artifact, artifact_path, a
             """
             UPDATE spam_classifier
             SET training_corpus_version = ?, artifact_version = ?,
-                artifact_sha256 = ?, artifact_path = ?, model_snapshot_json = ?,
-                updated_at = ?
+                artifact_sha256 = ?, artifact_path = ?, updated_at = ?
             WHERE id = ?
             """,
             (
@@ -393,7 +385,6 @@ def update_classifier_artifact(config, classifier_id, artifact, artifact_path, a
                 artifact.get("version"),
                 artifact_sha256,
                 artifact_path,
-                json_dumps(artifact),
                 now,
                 classifier_id,
             ),
@@ -462,15 +453,27 @@ def update_policy(config, payload, operator=None):
         "rescan_terminal_records",
     }
     with connect_state_db(config) as conn:
-        policy = ensure_policy(conn, config)
-        fields = []
-        params = []
+        classifier = None
         if "active_classifier_uuid" in payload:
             classifier = conn.execute(
-                "SELECT * FROM spam_classifier WHERE uuid = ?", (payload["active_classifier_uuid"],)
+                "SELECT * FROM spam_classifier WHERE uuid = ?",
+                (payload["active_classifier_uuid"],),
             ).fetchone()
             if not classifier:
                 raise ValueError("active_classifier_uuid was not found")
+            _prepare_classifier_activation(conn)
+        policy = ensure_policy(conn, config)
+        fields = []
+        params = []
+        if classifier:
+            conn.execute(
+                """
+                UPDATE spam_classifier
+                SET enabled = 1, updated_at = ?, updated_by = ?
+                WHERE id = ?
+                """,
+                (now, operator, classifier["id"]),
+            )
             fields.append("active_classifier_id = ?")
             params.append(classifier["id"])
         for key in allowed:
@@ -565,7 +568,7 @@ def create_scan_run(config, source, dry_run, classifier_snapshot, policy_snapsho
                     operator,
                 ),
             )
-        except sqlite3.IntegrityError as exc:
+        except IntegrityError as exc:
             raise ValueError("a spam detection scan is already running") from exc
         return row_to_dict(conn.execute("SELECT * FROM spam_scan_run WHERE id = ?", (cur.lastrowid,)).fetchone())
 
@@ -692,7 +695,10 @@ def create_flagged_record(
                     now,
                 ),
             )
-        except sqlite3.IntegrityError:
+        except IntegrityError:
+            # PostgreSQL aborts the transaction after a constraint violation.
+            # Nothing has been written in this transaction before this insert.
+            conn.rollback()
             existing = conn.execute(
                 """
                 SELECT * FROM spam_quarantine_record
@@ -751,7 +757,7 @@ def create_manual_flagged_record(config, inspection, reason, operator=None):
                     now,
                 ),
             )
-        except sqlite3.IntegrityError as exc:
+        except IntegrityError as exc:
             raise ValueError("repository already has an active review record") from exc
 
         record = conn.execute(

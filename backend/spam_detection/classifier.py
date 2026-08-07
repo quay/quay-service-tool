@@ -6,7 +6,8 @@ import re
 from collections import Counter
 from datetime import datetime
 
-from . import store
+from . import artifact_storage, store
+from .database import state_advisory_lock
 
 
 DEFAULT_TOKEN_PATTERN = r"[a-z0-9][a-z0-9_-]*"
@@ -24,6 +25,7 @@ MAX_ARTIFACT_VERSION_LENGTH = 128
 DEFAULT_MIN_SPAM_EXAMPLES = 10
 DEFAULT_MIN_HAM_EXAMPLES = 10
 DEFAULT_MAX_ARTIFACT_BYTES = 25 * 1024 * 1024
+CLASSIFIER_PROMOTION_LOCK = "spam-classifier-promotion"
 REQUIRED_ARTIFACT_FIELDS = {
     "version": str,
     "training_corpus_version": str,
@@ -44,10 +46,6 @@ REQUIRED_ARTIFACT_FIELDS = {
 
 class ClassifierError(Exception):
     pass
-
-
-def artifact_dir(config):
-    return config.get("SPAM_DETECTION_ARTIFACT_DIR") or "spam_detection_artifacts"
 
 
 def min_spam_examples(config):
@@ -218,19 +216,19 @@ def import_classifier_artifact(config, name, artifact_content, enabled=False, op
         raise ClassifierError("artifact must contain valid UTF-8 JSON") from exc
     validate_artifact(config, artifact)
 
+    with state_advisory_lock(config, f"spam-classifier-import:{artifact['version']}"):
+        return _import_classifier_artifact(
+            config, name, artifact_content, artifact, enabled=enabled, operator=operator
+        )
+
+
+def _import_classifier_artifact(
+    config, name, artifact_content, artifact, enabled=False, operator=None
+):
+
     artifact_sha256 = hashlib.sha256(artifact_content).hexdigest()
     existing = store.get_classifier_by_artifact_version(config, artifact["version"])
     if existing:
-        if (
-            not existing.get("base_artifact_sha256")
-            and existing.get("base_model_snapshot_json") == artifact
-        ):
-            existing = store.update_classifier_base_identity(
-                config,
-                existing["id"],
-                artifact["version"],
-                artifact_sha256,
-            )
         existing_sha256 = existing.get("base_artifact_sha256") or existing.get(
             "artifact_sha256"
         )
@@ -245,14 +243,18 @@ def import_classifier_artifact(config, name, artifact_content, enabled=False, op
             )
         return existing, False
 
-    path = os.path.join(artifact_dir(config), f"spam-classifier-{artifact['version']}.json")
-    write_artifact_bytes_to_path(artifact_content, path)
+    try:
+        stored = artifact_storage.get_artifact_storage(config).put_classifier(
+            artifact["version"], artifact_content
+        )
+    except artifact_storage.ArtifactStorageError as exc:
+        raise ClassifierError(str(exc)) from exc
     created = store.create_imported_classifier(
         config,
         {"name": name.strip(), "enabled": enabled},
         artifact,
-        path,
-        artifact_sha256,
+        stored.uri,
+        stored.sha256,
         operator=operator,
     )
     return created, True
@@ -274,13 +276,18 @@ def apply_ingress_policy(config, classifier, artifact, artifact_version=None):
 
 
 def train_classifier(config, classifier_uuid, artifact_version=None):
+    with state_advisory_lock(config, f"spam-classifier-train:{classifier_uuid}"):
+        return _train_classifier(config, classifier_uuid, artifact_version=artifact_version)
+
+
+def _train_classifier(config, classifier_uuid, artifact_version=None):
     classifier = store.get_classifier(config, classifier_uuid)
     if not classifier:
         raise ClassifierError("classifier not found")
 
     feature_config = validate_feature_config(classifier.get("feature_config_json") or DEFAULT_FEATURE_CONFIG)
     examples = store.list_training_examples(config, classifier["id"])
-    base_artifact = classifier.get("base_model_snapshot_json") or {}
+    base_artifact = load_base_artifact_from_classifier(config, classifier)
     if not examples and not base_artifact:
         raise ClassifierError("at least one training example is required")
 
@@ -342,10 +349,20 @@ def train_classifier(config, classifier_uuid, artifact_version=None):
 
 
 def export_artifact(config, classifier_uuid, artifact_version=None, output_path=None):
+    with state_advisory_lock(config, f"spam-classifier-train:{classifier_uuid}"):
+        return _export_artifact(
+            config,
+            classifier_uuid,
+            artifact_version=artifact_version,
+            output_path=output_path,
+        )
+
+
+def _export_artifact(config, classifier_uuid, artifact_version=None, output_path=None):
     classifier = store.get_classifier(config, classifier_uuid)
     if not classifier:
         raise ClassifierError("classifier not found")
-    artifact = load_artifact_from_classifier(classifier)
+    artifact = load_artifact_from_classifier(config, classifier)
     artifact = apply_ingress_policy(config, classifier, artifact, artifact_version)
     validate_artifact_training_metrics(config, artifact)
     if store.artifact_version_exists(config, artifact["version"], classifier["id"]):
@@ -360,17 +377,24 @@ def export_artifact(config, classifier_uuid, artifact_version=None, output_path=
 
 
 def promote_artifact(config, classifier_uuid):
-    destination = config.get("SPAM_DETECTION_PROMOTED_ARTIFACT_PATH")
-    if not destination:
-        raise ClassifierError("SPAM_DETECTION_PROMOTED_ARTIFACT_PATH is not configured")
+    with state_advisory_lock(config, CLASSIFIER_PROMOTION_LOCK):
+        return _promote_artifact(config, classifier_uuid)
+
+
+def _promote_artifact(config, classifier_uuid):
     configured = store.get_classifier(config, classifier_uuid)
     if not configured:
         raise ClassifierError("classifier not found")
     artifact_path = configured.get("artifact_path")
-    if not artifact_path or not os.path.isfile(artifact_path):
+    if not artifact_path:
         raise ClassifierError("classifier has no generated artifact")
-    with open(artifact_path, "rb") as artifact_file:
-        content = artifact_file.read()
+    try:
+        storage = artifact_storage.get_artifact_storage(config)
+        if not storage.exists(artifact_path):
+            raise ClassifierError("classifier has no generated artifact")
+        content = storage.read(artifact_path)
+    except artifact_storage.ArtifactStorageError as exc:
+        raise ClassifierError(str(exc)) from exc
     try:
         artifact = json.loads(content.decode("utf-8"))
     except (UnicodeDecodeError, json.JSONDecodeError) as exc:
@@ -379,15 +403,66 @@ def promote_artifact(config, classifier_uuid):
     actual_sha256 = hashlib.sha256(content).hexdigest()
     if configured.get("artifact_sha256") != actual_sha256:
         raise ClassifierError("classifier artifact checksum does not match stored metadata")
-    promoted_path, promoted_sha256 = write_artifact_bytes_to_path(
-        content,
-        destination,
-        overwrite=True,
-    )
+    try:
+        promoted = artifact_storage.get_artifact_storage(config).promote(content)
+    except artifact_storage.ArtifactStorageError as exc:
+        raise ClassifierError(str(exc)) from exc
     return {
         "classifier": configured,
-        "promoted_path": promoted_path,
-        "promoted_sha256": promoted_sha256,
+        "promoted_path": promoted.uri,
+        "promoted_sha256": promoted.sha256,
+        "promoted_checksum_path": promoted.checksum_uri,
+    }
+
+
+def materialize_promoted_artifact(config, output_path):
+    with state_advisory_lock(config, CLASSIFIER_PROMOTION_LOCK):
+        return _materialize_promoted_artifact(config, output_path)
+
+
+def _materialize_promoted_artifact(config, output_path):
+    storage = artifact_storage.get_artifact_storage(config)
+    try:
+        promoted_path = storage.promoted_uri()
+        checksum_path = f"{promoted_path}.sha256"
+        content = storage.read(promoted_path)
+        checksum_content = storage.read(checksum_path)
+    except artifact_storage.ArtifactStorageError as exc:
+        raise ClassifierError(str(exc)) from exc
+
+    max_bytes = int(config.get("SPAM_DETECTION_MAX_ARTIFACT_BYTES", DEFAULT_MAX_ARTIFACT_BYTES))
+    if not content:
+        raise ClassifierError("promoted classifier artifact is empty")
+    if len(content) > max_bytes:
+        raise ClassifierError(f"promoted classifier artifact must be {max_bytes} bytes or fewer")
+    try:
+        checksum_parts = checksum_content.decode("utf-8").strip().split()
+    except UnicodeDecodeError as exc:
+        raise ClassifierError("promoted classifier checksum is not valid UTF-8") from exc
+    if len(checksum_parts) != 2 or not re.fullmatch(r"[0-9a-f]{64}", checksum_parts[0]):
+        raise ClassifierError("promoted classifier checksum sidecar is invalid")
+    if checksum_parts[1] != os.path.basename(promoted_path):
+        raise ClassifierError("promoted classifier checksum filename is invalid")
+    expected_sha256 = checksum_parts[0]
+    actual_sha256 = hashlib.sha256(content).hexdigest()
+    if actual_sha256 != expected_sha256:
+        raise ClassifierError("promoted classifier checksum does not match artifact")
+
+    try:
+        artifact = json.loads(content.decode("utf-8"))
+    except (UnicodeDecodeError, json.JSONDecodeError) as exc:
+        raise ClassifierError("promoted classifier artifact is not valid UTF-8 JSON") from exc
+    validate_artifact(config, artifact)
+    materialized_path, materialized_sha256 = write_artifact_bytes_to_path(
+        content, output_path, overwrite=True
+    )
+    return {
+        "source_path": promoted_path,
+        "source_checksum_path": checksum_path,
+        "output_path": materialized_path,
+        "output_checksum_path": f"{materialized_path}.sha256",
+        "sha256": materialized_sha256,
+        "artifact_version": artifact["version"],
     }
 
 
@@ -404,10 +479,13 @@ def artifact_bytes(artifact):
 
 def write_artifact(config, artifact):
     validate_artifact_version(artifact["version"])
-    output_dir = artifact_dir(config)
-    os.makedirs(output_dir, exist_ok=True)
-    path = os.path.join(output_dir, f"spam-classifier-{artifact['version']}.json")
-    return write_artifact_to_path(artifact, path)
+    try:
+        stored = artifact_storage.get_artifact_storage(config).put_classifier(
+            artifact["version"], artifact_bytes(artifact)
+        )
+    except artifact_storage.ArtifactStorageError as exc:
+        raise ClassifierError(str(exc)) from exc
+    return stored.uri, stored.sha256
 
 
 def write_artifact_to_path(artifact, path):
@@ -473,15 +551,34 @@ def write_artifact_bytes_to_path(content, path, overwrite=False):
     return path, sha256
 
 
-def load_artifact_from_classifier(classifier):
-    artifact = classifier.get("model_snapshot_json")
-    if artifact:
-        return artifact
+def _load_artifact_reference(config, artifact_path, expected_sha256=None):
+    if not artifact_path:
+        return {}
+    try:
+        content = artifact_storage.get_artifact_storage(config).read(artifact_path)
+    except artifact_storage.ArtifactStorageError as exc:
+        raise ClassifierError(str(exc)) from exc
+    actual_sha256 = hashlib.sha256(content).hexdigest()
+    if expected_sha256 and actual_sha256 != expected_sha256:
+        raise ClassifierError("classifier artifact checksum does not match stored metadata")
+    try:
+        return json.loads(content.decode("utf-8"))
+    except (UnicodeDecodeError, json.JSONDecodeError) as exc:
+        raise ClassifierError("classifier artifact is not valid UTF-8 JSON") from exc
+
+
+def load_base_artifact_from_classifier(config, classifier):
+    artifact_path = classifier.get("base_artifact_path")
+    return _load_artifact_reference(
+        config, artifact_path, classifier.get("base_artifact_sha256")
+    )
+
+
+def load_artifact_from_classifier(config, classifier):
     artifact_path = classifier.get("artifact_path")
-    if artifact_path:
-        with open(artifact_path, "r", encoding="utf-8") as artifact_file:
-            return json.load(artifact_file)
-    raise ClassifierError("classifier has no trained artifact")
+    if not artifact_path:
+        raise ClassifierError("classifier has no trained artifact")
+    return _load_artifact_reference(config, artifact_path, classifier.get("artifact_sha256"))
 
 
 def classify_text(artifact, description, repository_name=None, visibility=None):

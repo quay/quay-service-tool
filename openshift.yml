@@ -79,24 +79,9 @@ parameters:
   value: "update_me_when_secret_changes"
   displayName: quay service tool app annotation value
 - name: REPLICAS
-  value: "1"
+  value: "3"
   displayName: replicas for the deployment
-- name: SPAM_DETECTION_STORAGE_SIZE
-  value: "1Gi"
-  displayName: persistent storage for spam detection state and artifacts
   # DVO
-- name: QUAY_DISABLE_MIN_REPLICAS_CHECK
-  displayName: Disable Minimum Replicas Check
-  value: "ignore-check.kube-linter.io/minimum-three-replicas"
-- name: QUAY_DISABLE_MIN_REPLICAS_REASON
-  displayName: Reason for Disabling Minimum Replicas Check
-  value: "Service tool only runs with one pod"
-- name: QUAY_DISABLE_ANTI_AFFINITY_CHECK
-  value: "ignore-check.kube-linter.io/no-anti-affinity"
-  displayName: disable DVO check for anti-affinity
-- name: QUAY_DISABLE_ANTI_AFFINITY_REASON
-  value: "Service tool only ones with one replica"
-  displayName: reason for disabling anti-affinity check
 - name: QUAY_DISABLE_CPU_REQUIREMENTS_CHECK
   value: "ignore-check.kube-linter.io/unset-cpu-requirements"
   displayName: disable DVO check for CPU requirements
@@ -104,16 +89,6 @@ parameters:
   value: "CPU limits not set to allow bursting"
   displayName: reason for disabling CPU requirements check
 objects:
-- apiVersion: v1
-  kind: PersistentVolumeClaim
-  metadata:
-    name: quayio-service-tool-spam-detection
-  spec:
-    accessModes:
-    - ReadWriteOnce
-    resources:
-      requests:
-        storage: ${SPAM_DETECTION_STORAGE_SIZE}
 - apiVersion: apps/v1
   kind: Deployment
   metadata:
@@ -121,8 +96,6 @@ objects:
     labels:
       app: quayio-service-tool
     annotations:
-      ${{QUAY_DISABLE_MIN_REPLICAS_CHECK}}: ${{QUAY_DISABLE_MIN_REPLICAS_REASON}}
-      ${{QUAY_DISABLE_ANTI_AFFINITY_CHECK}}: ${{QUAY_DISABLE_ANTI_AFFINITY_REASON}}
       ${{QUAY_DISABLE_CPU_REQUIREMENTS_CHECK}}: ${{QUAY_DISABLE_CPU_REQUIREMENTS_REASON}}
   spec:
     replicas: ${{REPLICAS}}
@@ -136,13 +109,19 @@ objects:
         annotations:
           ${{QUAY_APP_COMPONENT_ANNOTATIONS_KEY}}: ${{QUAY_APP_COMPONENT_ANNOTATIONS_VALUE}}
       spec:
+        affinity:
+          podAntiAffinity:
+            preferredDuringSchedulingIgnoredDuringExecution:
+            - weight: 100
+              podAffinityTerm:
+                labelSelector:
+                  matchLabels:
+                    app: quayio-service-tool
+                topologyKey: kubernetes.io/hostname
         volumes:
         - name: config
           secret:
             secretName: ${{QUAY_SERVICE_TOOL_CONFIG_SECRET}}
-        - name: spam-detection-data
-          persistentVolumeClaim:
-            claimName: quayio-service-tool-spam-detection
         containers:
         - name: syslog-cloudwatch-bridge
           image: ${SYSLOG_IMAGE}:${SYSLOG_IMAGE_TAG}
@@ -210,8 +189,6 @@ objects:
           - name: config
             mountPath: ${{CONFIG_MOUNT_PATH}}
             readOnly: true
-          - name: spam-detection-data
-            mountPath: /var/lib/quay-service-tool/spam-detection
           ports:
           - containerPort: 5000
           resources:
@@ -224,8 +201,6 @@ objects:
           env:
           - name: CONFIG_PATH
             value: ${{CONFIG_MOUNT_PATH}}
-          - name: SPAM_DETECTION_DATA_DIR
-            value: /var/lib/quay-service-tool/spam-detection
           - name: SYSLOG_SERVER
             value: ${{SYSLOG_SERVER}}
           - name: SYSLOG_PORT

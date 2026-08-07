@@ -46,14 +46,25 @@ ENTITLEMENT_RECONCILIATION_MARKETPLACE_ENDPOINT: ""
 ENV: development
 DEBUG: true
 
-# Quay spam detection service-tool state and DB access.
-SPAM_DETECTION_STATE_DB_URI: sqlite:///spam_detection_state.db
+# Quay spam detection state and artifacts always use PostgreSQL and S3. The
+# Compose development stack provides PostgreSQL and an S3-compatible MinIO.
+SPAM_DETECTION_STATE_DB_URI: postgresql://spam:spam-local@quay-service-tool-state-db:5432/service_tool_spam
+# POOL_MAX is the total per-process connection ceiling. LOCK_CONNECTIONS is
+# reserved from it for advisory-lock sessions.
+SPAM_DETECTION_STATE_DB_POOL_MIN: 1
+SPAM_DETECTION_STATE_DB_POOL_MAX: 10
+SPAM_DETECTION_STATE_DB_LOCK_CONNECTIONS: 1
 # Production deployments should point this at a read-only Quay user or replica.
 SPAM_DETECTION_READONLY_DB_URI: postgresql://quay:quay@quay-db/quay
 # Only approved quarantine, restore, and redaction actions use this write-capable path.
 SPAM_DETECTION_WRITE_DB_URI: postgresql://quay:quay@quay-db/quay
-SPAM_DETECTION_ARTIFACT_DIR: spam_detection_artifacts
-SPAM_DETECTION_PROMOTED_ARTIFACT_PATH: spam_detection_artifacts/promoted/classifier.json
+SPAM_DETECTION_S3_ENDPOINT_URL: http://quay-service-tool-s3:9000
+SPAM_DETECTION_S3_BUCKET: quay-service-tool
+SPAM_DETECTION_S3_PREFIX: spam-detection
+SPAM_DETECTION_S3_REGION: us-east-1
+SPAM_DETECTION_S3_ADDRESSING_STYLE: path
+SPAM_DETECTION_S3_VERIFY_TLS: false
+SPAM_DETECTION_S3_CREATE_BUCKET: true
 SPAM_DETECTION_MAX_ARTIFACT_BYTES: 26214400
 SPAM_DETECTION_BATCH_SIZE: 200
 SPAM_DETECTION_SLEEP_BETWEEN_BATCHES: 0.5

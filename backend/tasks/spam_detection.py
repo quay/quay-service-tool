@@ -1,13 +1,22 @@
 import json
 import logging
-import os
+import hashlib
+from io import BytesIO
 
 from flask import current_app, make_response, request, send_file
 from flask_login import current_user, login_required
 from flask_restful import Resource
 
-from spam_detection import classifier, quay_db, remediation, scanner, store, training_import
-from spam_detection.database import migrate_state_db, state_db_uri
+from spam_detection import (
+    artifact_storage,
+    classifier,
+    quay_db,
+    remediation,
+    scanner,
+    store,
+    training_import,
+)
+from spam_detection.database import check_state_db, display_state_db_uri
 from utils import (
     log_response,
     verify_spam_detection_read_permissions,
@@ -58,18 +67,27 @@ class SpamDetectionHealthTask(Resource):
     def get(self):
         config = current_app.config
         status = {
-            "state_db_uri": state_db_uri(config),
+            "state_db_uri": display_state_db_uri(config),
             "state_db": "unknown",
+            "artifact_storage": "unknown",
             "readonly_quay_db": "unknown",
             "write_quay_db": "unknown",
         }
         http_status = 200
         try:
-            migrate_state_db(config)
+            check_state_db(config)
             status["state_db"] = "ok"
         except Exception as exc:
             logger.exception("Spam detection state DB healthcheck failed")
             status["state_db"] = str(exc)
+            http_status = 503
+
+        try:
+            artifact_storage.artifact_storage_healthcheck(config)
+            status["artifact_storage"] = "ok"
+        except Exception as exc:
+            logger.exception("Spam detection artifact storage healthcheck failed")
+            status["artifact_storage"] = str(exc)
             http_status = 503
 
         for key, label in [
@@ -311,11 +329,21 @@ class SpamClassifierArtifactTask(Resource):
         if not configured:
             return _json_response({"message": "classifier not found"}, 404)
         artifact_path = configured.get("artifact_path")
-        if not artifact_path or not os.path.isfile(artifact_path):
+        if not artifact_path:
             return _json_response({"message": "classifier has no generated artifact"}, 404)
+        try:
+            storage = artifact_storage.get_artifact_storage(current_app.config)
+            if not storage.exists(artifact_path):
+                return _json_response({"message": "classifier has no generated artifact"}, 404)
+            content = storage.read(artifact_path)
+        except artifact_storage.ArtifactStorageError as exc:
+            return _json_response({"message": str(exc)}, 502)
+        expected_sha256 = configured.get("artifact_sha256")
+        if expected_sha256 and hashlib.sha256(content).hexdigest() != expected_sha256:
+            return _json_response({"message": "classifier artifact checksum mismatch"}, 500)
         version = configured.get("artifact_version") or "unversioned"
         return send_file(
-            artifact_path,
+            BytesIO(content),
             mimetype="application/json",
             as_attachment=True,
             download_name=f"quay-spam-classifier-{version}.json",
@@ -342,6 +370,7 @@ class SpamClassifierPromoteArtifactTask(Resource):
                     "artifact_version": configured.get("artifact_version"),
                     "artifact_sha256": promoted["promoted_sha256"],
                     "destination": promoted["promoted_path"],
+                    "checksum_destination": promoted["promoted_checksum_path"],
                 },
             )
             return _json_response(promoted)

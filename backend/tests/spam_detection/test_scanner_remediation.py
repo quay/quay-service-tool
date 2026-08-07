@@ -1,16 +1,16 @@
-import sqlite3
+import psycopg2
 
 import pytest
 
-from spam_detection import classifier, database, quay_db, remediation, scanner, store
+from spam_detection import classifier, quay_db, remediation, scanner, store
+from spam_detection.database import connect_state_db
 
 
-def _config(tmp_path, quay_db_path):
+def _config(spam_config, quay_db_uri):
     return {
-        "SPAM_DETECTION_STATE_DB_URI": f"sqlite:///{tmp_path / 'state.db'}",
-        "SPAM_DETECTION_ARTIFACT_DIR": str(tmp_path / "artifacts"),
-        "SPAM_DETECTION_READONLY_DB_URI": f"sqlite:///{quay_db_path}",
-        "SPAM_DETECTION_WRITE_DB_URI": f"sqlite:///{quay_db_path}",
+        **spam_config,
+        "SPAM_DETECTION_READONLY_DB_URI": quay_db_uri,
+        "SPAM_DETECTION_WRITE_DB_URI": quay_db_uri,
         "SPAM_DETECTION_SLEEP_BETWEEN_BATCHES": 0,
         "SPAM_DETECTION_BATCH_SIZE": 10,
         "SPAM_DETECTION_MIN_SPAM_EXAMPLES": 1,
@@ -18,10 +18,11 @@ def _config(tmp_path, quay_db_path):
     }
 
 
-def _create_quay_db(path):
-    conn = sqlite3.connect(path)
-    conn.executescript(
+def _create_quay_db(uri):
+    _execute(
+        uri,
         """
+        DROP TABLE IF EXISTS "tag", "repository", "visibility", "user" CASCADE;
         CREATE TABLE "user" (
             id INTEGER PRIMARY KEY,
             username TEXT NOT NULL
@@ -42,7 +43,7 @@ def _create_quay_db(path):
             id INTEGER PRIMARY KEY,
             repository_id INTEGER NOT NULL,
             lifetime_end_ms INTEGER,
-            hidden INTEGER NOT NULL DEFAULT 0
+            hidden BOOLEAN NOT NULL DEFAULT FALSE
         );
         INSERT INTO "user" (id, username) VALUES (1, 'publicns'), (2, 'privatens');
         INSERT INTO "visibility" (id, name) VALUES (1, 'public'), (2, 'private');
@@ -54,11 +55,16 @@ def _create_quay_db(path):
             (3, 1, 'ham', 1, 'container image documentation', 0),
             (4, 1, 'nonempty-spam', 1, 'casino bonus jackpot https://spam.example', 0);
         INSERT INTO "tag" (id, repository_id, lifetime_end_ms, hidden)
-        VALUES (1, 4, NULL, 0);
+        VALUES (1, 4, NULL, FALSE);
         """
     )
-    conn.commit()
-    conn.close()
+
+
+def _execute(uri, statement, params=(), fetchone=False):
+    with psycopg2.connect(uri) as connection:
+        with connection.cursor() as cursor:
+            cursor.execute(statement, params)
+            return cursor.fetchone() if fetchone else None
 
 
 def _trained_classifier(config):
@@ -81,10 +87,10 @@ def _trained_classifier(config):
     return created
 
 
-def test_preview_scans_public_repositories_by_default(tmp_path):
-    quay_db_path = tmp_path / "quay.db"
-    _create_quay_db(quay_db_path)
-    config = _config(tmp_path, quay_db_path)
+def test_preview_scans_public_repositories_by_default(tmp_path, spam_config, quay_test_db_uri):
+    quay_db_uri = quay_test_db_uri
+    _create_quay_db(quay_db_uri)
+    config = _config(spam_config, quay_db_uri)
     _trained_classifier(config)
 
     result = scanner.preview(config, limit=10)
@@ -108,48 +114,15 @@ def test_scan_threshold_preserves_zero_and_falls_back_only_for_none():
     assert scanner._scan_threshold({"scan_threshold": None}, classifier_config) == 0.9
 
 
-def test_state_migration_backfills_scan_heartbeat(tmp_path):
-    state_db_path = tmp_path / "state.db"
-    conn = sqlite3.connect(state_db_path)
-    conn.execute(
-        """
-        CREATE TABLE spam_scan_run (
-            id INTEGER PRIMARY KEY AUTOINCREMENT,
-            uuid TEXT NOT NULL UNIQUE,
-            status TEXT NOT NULL,
-            started_at TEXT NOT NULL
-        )
-        """
-    )
-    conn.execute(
-        "INSERT INTO spam_scan_run (uuid, status, started_at) VALUES (?, ?, ?)",
-        ("existing-run", "running", "2026-01-01T00:00:00"),
-    )
-    conn.commit()
-    conn.close()
-    config = {"SPAM_DETECTION_STATE_DB_URI": f"sqlite:///{state_db_path}"}
-
-    database.migrate_state_db(config)
-
-    conn = sqlite3.connect(state_db_path)
-    heartbeat_at = conn.execute(
-        "SELECT heartbeat_at FROM spam_scan_run WHERE uuid = ?", ("existing-run",)
-    ).fetchone()[0]
-    conn.close()
-    assert heartbeat_at == "2026-01-01T00:00:00"
-
-
-def test_description_without_hyperlink_is_hard_excluded(tmp_path):
-    quay_db_path = tmp_path / "quay.db"
-    _create_quay_db(quay_db_path)
-    conn = sqlite3.connect(quay_db_path)
-    conn.execute(
-        'UPDATE "repository" SET description = ? WHERE id = 1',
+def test_description_without_hyperlink_is_hard_excluded(tmp_path, spam_config, quay_test_db_uri):
+    quay_db_uri = quay_test_db_uri
+    _create_quay_db(quay_db_uri)
+    _execute(
+        quay_db_uri,
+        'UPDATE "repository" SET description = %s WHERE id = 1',
         ("casino bonus jackpot",),
     )
-    conn.commit()
-    conn.close()
-    config = _config(tmp_path, quay_db_path)
+    config = _config(spam_config, quay_db_uri)
     _trained_classifier(config)
 
     preview = scanner.preview(config, limit=10)
@@ -160,21 +133,19 @@ def test_description_without_hyperlink_is_hard_excluded(tmp_path):
     assert store.list_review(config) == []
 
 
-def test_manual_false_negative_creates_canonical_spam_review(tmp_path):
-    quay_db_path = tmp_path / "quay.db"
-    _create_quay_db(quay_db_path)
-    conn = sqlite3.connect(quay_db_path)
-    conn.execute(
+def test_manual_false_negative_creates_canonical_spam_review(tmp_path, spam_config, quay_test_db_uri):
+    quay_db_uri = quay_test_db_uri
+    _create_quay_db(quay_db_uri)
+    _execute(
+        quay_db_uri,
         """
         INSERT INTO repository
             (id, namespace_user_id, name, visibility_id, description, state)
-        VALUES (?, ?, ?, ?, ?, ?)
+        VALUES (%s, %s, %s, %s, %s, %s)
         """,
         (5, 1, "missed-spam", 1, "container repository documentation https://spam.example", 0),
     )
-    conn.commit()
-    conn.close()
-    config = _config(tmp_path, quay_db_path)
+    config = _config(spam_config, quay_db_uri)
     created = _trained_classifier(config)
     store.update_policy(config, {"scan_dry_run": False, "quarantine_description": "quarantined"})
 
@@ -215,16 +186,16 @@ def test_manual_false_negative_creates_canonical_spam_review(tmp_path):
 
     quarantined = remediation.quarantine(config, added["uuid"], operator="reviewer")
     assert quarantined["status"] == "quarantined"
-    conn = sqlite3.connect(quay_db_path)
-    description = conn.execute("SELECT description FROM repository WHERE id = 5").fetchone()[0]
-    conn.close()
+    description = _execute(
+        quay_db_uri, "SELECT description FROM repository WHERE id = 5", fetchone=True
+    )[0]
     assert description == "quarantined"
 
 
-def test_manual_false_negative_requires_hard_filters_and_reason(tmp_path):
-    quay_db_path = tmp_path / "quay.db"
-    _create_quay_db(quay_db_path)
-    config = _config(tmp_path, quay_db_path)
+def test_manual_false_negative_requires_hard_filters_and_reason(tmp_path, spam_config, quay_test_db_uri):
+    quay_db_uri = quay_test_db_uri
+    _create_quay_db(quay_db_uri)
+    config = _config(spam_config, quay_db_uri)
     _trained_classifier(config)
 
     with pytest.raises(remediation.RemediationError, match="reason is required"):
@@ -238,10 +209,10 @@ def test_manual_false_negative_requires_hard_filters_and_reason(tmp_path):
         )
 
 
-def test_non_empty_repositories_are_hard_excluded_from_scan_and_review(tmp_path):
-    quay_db_path = tmp_path / "quay.db"
-    _create_quay_db(quay_db_path)
-    config = _config(tmp_path, quay_db_path)
+def test_non_empty_repositories_are_hard_excluded_from_scan_and_review(tmp_path, spam_config, quay_test_db_uri):
+    quay_db_uri = quay_test_db_uri
+    _create_quay_db(quay_db_uri)
+    config = _config(spam_config, quay_db_uri)
     _trained_classifier(config)
     store.update_policy(
         config,
@@ -277,25 +248,25 @@ def test_non_empty_repositories_are_hard_excluded_from_scan_and_review(tmp_path)
     assert all(match["hard_filter_results"]["repository_empty"]["matched"] for match in matches)
 
 
-def test_readonly_quay_connection_rejects_repository_updates(tmp_path):
-    quay_db_path = tmp_path / "quay.db"
-    _create_quay_db(quay_db_path)
-    config = _config(tmp_path, quay_db_path)
+def test_readonly_quay_connection_rejects_repository_updates(tmp_path, spam_config, quay_test_db_uri):
+    quay_db_uri = quay_test_db_uri
+    _create_quay_db(quay_db_uri)
+    config = _config(spam_config, quay_db_uri)
 
     with quay_db.readonly_db(config) as db:
         with pytest.raises(Exception):
             quay_db.update_repository_description(db, 1, "changed")
 
-    conn = sqlite3.connect(quay_db_path)
-    description = conn.execute('SELECT description FROM "repository" WHERE id = 1').fetchone()[0]
-    conn.close()
+    description = _execute(
+        quay_db_uri, 'SELECT description FROM "repository" WHERE id = 1', fetchone=True
+    )[0]
     assert description == "casino bonus jackpot https://spam.example"
 
 
-def test_quarantine_writes_repository_description_directly(tmp_path):
-    quay_db_path = tmp_path / "quay.db"
-    _create_quay_db(quay_db_path)
-    config = _config(tmp_path, quay_db_path)
+def test_quarantine_writes_repository_description_directly(tmp_path, spam_config, quay_test_db_uri):
+    quay_db_uri = quay_test_db_uri
+    _create_quay_db(quay_db_uri)
+    config = _config(spam_config, quay_db_uri)
     _trained_classifier(config)
     store.update_policy(config, {"scan_dry_run": False, "quarantine_description": "quarantined"})
 
@@ -303,18 +274,18 @@ def test_quarantine_writes_repository_description_directly(tmp_path):
     record = store.list_review(config)[0]
     updated = remediation.quarantine(config, record["uuid"], operator="tester")
 
-    conn = sqlite3.connect(quay_db_path)
-    description = conn.execute('SELECT description FROM "repository" WHERE id = 1').fetchone()[0]
-    conn.close()
+    description = _execute(
+        quay_db_uri, 'SELECT description FROM "repository" WHERE id = 1', fetchone=True
+    )[0]
 
     assert updated["status"] == "quarantined"
     assert description == "quarantined"
 
 
-def test_default_quarantine_description_includes_restore_instructions(tmp_path):
-    quay_db_path = tmp_path / "quay.db"
-    _create_quay_db(quay_db_path)
-    config = _config(tmp_path, quay_db_path)
+def test_default_quarantine_description_includes_restore_instructions(tmp_path, spam_config, quay_test_db_uri):
+    quay_db_uri = quay_test_db_uri
+    _create_quay_db(quay_db_uri)
+    config = _config(spam_config, quay_db_uri)
     _trained_classifier(config)
     store.update_policy(config, {"scan_dry_run": False})
 
@@ -322,19 +293,19 @@ def test_default_quarantine_description_includes_restore_instructions(tmp_path):
     record = store.list_review(config)[0]
     remediation.quarantine(config, record["uuid"], operator="tester")
 
-    conn = sqlite3.connect(quay_db_path)
-    description = conn.execute('SELECT description FROM "repository" WHERE id = 1').fetchone()[0]
-    conn.close()
+    description = _execute(
+        quay_db_uri, 'SELECT description FROM "repository" WHERE id = 1', fetchone=True
+    )[0]
 
     assert "contact Quay support" in description
     assert "remove promotional, deceptive, or unrelated link content" in description
     assert "published support timeline" in description
 
 
-def test_scan_stores_compact_classifier_snapshots(tmp_path):
-    quay_db_path = tmp_path / "quay.db"
-    _create_quay_db(quay_db_path)
-    config = _config(tmp_path, quay_db_path)
+def test_scan_stores_compact_classifier_snapshots(tmp_path, spam_config, quay_test_db_uri):
+    quay_db_uri = quay_test_db_uri
+    _create_quay_db(quay_db_uri)
+    config = _config(spam_config, quay_db_uri)
     _trained_classifier(config)
     store.update_policy(config, {"scan_dry_run": False})
 
@@ -347,10 +318,10 @@ def test_scan_stores_compact_classifier_snapshots(tmp_path):
     assert "token_ham_counts" not in record["classifier_snapshot_json"]
 
 
-def test_scan_rejects_when_another_scan_is_running(tmp_path):
-    quay_db_path = tmp_path / "quay.db"
-    _create_quay_db(quay_db_path)
-    config = _config(tmp_path, quay_db_path)
+def test_scan_rejects_when_another_scan_is_running(tmp_path, spam_config, quay_test_db_uri):
+    quay_db_uri = quay_test_db_uri
+    _create_quay_db(quay_db_uri)
+    config = _config(spam_config, quay_db_uri)
     _trained_classifier(config)
     store.create_scan_run(config, "test", True, {}, {}, operator="tester")
 
@@ -358,20 +329,18 @@ def test_scan_rejects_when_another_scan_is_running(tmp_path):
         scanner.run_scan(config, dry_run=True)
 
 
-def test_scan_recovers_abandoned_running_scan(tmp_path):
-    quay_db_path = tmp_path / "quay.db"
-    _create_quay_db(quay_db_path)
-    config = _config(tmp_path, quay_db_path)
+def test_scan_recovers_abandoned_running_scan(tmp_path, spam_config, quay_test_db_uri):
+    quay_db_uri = quay_test_db_uri
+    _create_quay_db(quay_db_uri)
+    config = _config(spam_config, quay_db_uri)
     config["SPAM_DETECTION_STALE_SCAN_TIMEOUT_SECONDS"] = 60
     _trained_classifier(config)
     abandoned = store.create_scan_run(config, "test", True, {}, {}, operator="tester")
-    conn = sqlite3.connect(tmp_path / "state.db")
-    conn.execute(
-        "UPDATE spam_scan_run SET started_at = ?, heartbeat_at = ? WHERE id = ?",
-        ("2000-01-01T00:00:00", "2000-01-01T00:00:00", abandoned["id"]),
-    )
-    conn.commit()
-    conn.close()
+    with connect_state_db(config) as conn:
+        conn.execute(
+            "UPDATE spam_scan_run SET started_at = %s, heartbeat_at = %s WHERE id = %s",
+            ("2000-01-01T00:00:00", "2000-01-01T00:00:00", abandoned["id"]),
+        )
 
     completed = scanner.run_scan(config, dry_run=True, operator="recovery-tester")
 
@@ -398,20 +367,18 @@ def test_scan_recovers_abandoned_running_scan(tmp_path):
     assert store.get_run(config, abandoned["uuid"])["status"] == "failed"
 
 
-def test_scan_does_not_recover_long_running_scan_with_fresh_heartbeat(tmp_path):
-    quay_db_path = tmp_path / "quay.db"
-    _create_quay_db(quay_db_path)
-    config = _config(tmp_path, quay_db_path)
+def test_scan_does_not_recover_long_running_scan_with_fresh_heartbeat(tmp_path, spam_config, quay_test_db_uri):
+    quay_db_uri = quay_test_db_uri
+    _create_quay_db(quay_db_uri)
+    config = _config(spam_config, quay_db_uri)
     config["SPAM_DETECTION_STALE_SCAN_TIMEOUT_SECONDS"] = 60
     _trained_classifier(config)
     active = store.create_scan_run(config, "test", True, {}, {}, operator="tester")
-    conn = sqlite3.connect(tmp_path / "state.db")
-    conn.execute(
-        "UPDATE spam_scan_run SET started_at = ? WHERE id = ?",
-        ("2000-01-01T00:00:00", active["id"]),
-    )
-    conn.commit()
-    conn.close()
+    with connect_state_db(config) as conn:
+        conn.execute(
+            "UPDATE spam_scan_run SET started_at = %s WHERE id = %s",
+            ("2000-01-01T00:00:00", active["id"]),
+        )
     assert store.heartbeat_scan_run(config, active["id"])
 
     with pytest.raises(ValueError, match="already running"):
@@ -424,55 +391,57 @@ def test_scan_does_not_recover_long_running_scan_with_fresh_heartbeat(tmp_path):
     )
 
 
-def test_quarantine_preserves_latest_description_for_restore(tmp_path):
-    quay_db_path = tmp_path / "quay.db"
-    _create_quay_db(quay_db_path)
-    config = _config(tmp_path, quay_db_path)
+def test_quarantine_preserves_latest_description_for_restore(tmp_path, spam_config, quay_test_db_uri):
+    quay_db_uri = quay_test_db_uri
+    _create_quay_db(quay_db_uri)
+    config = _config(spam_config, quay_db_uri)
     _trained_classifier(config)
     store.update_policy(config, {"scan_dry_run": False, "quarantine_description": "quarantined"})
 
     scanner.run_scan(config, dry_run=False)
     record = store.list_review(config)[0]
-    conn = sqlite3.connect(quay_db_path)
-    conn.execute('UPDATE "repository" SET description = ? WHERE id = 1', ("legitimate update",))
-    conn.commit()
-    conn.close()
+    _execute(
+        quay_db_uri,
+        'UPDATE "repository" SET description = %s WHERE id = 1',
+        ("legitimate update",),
+    )
 
     quarantined = remediation.quarantine(config, record["uuid"], operator="tester")
     restored = remediation.restore(config, record["uuid"], operator="tester")
 
-    conn = sqlite3.connect(quay_db_path)
-    description = conn.execute('SELECT description FROM "repository" WHERE id = 1').fetchone()[0]
-    conn.close()
+    description = _execute(
+        quay_db_uri, 'SELECT description FROM "repository" WHERE id = 1', fetchone=True
+    )[0]
 
     assert quarantined["original_description"] == "legitimate update"
     assert restored["status"] == "restored"
     assert description == "legitimate update"
 
 
-def test_restore_rejects_when_quarantined_description_changed(tmp_path):
-    quay_db_path = tmp_path / "quay.db"
-    _create_quay_db(quay_db_path)
-    config = _config(tmp_path, quay_db_path)
+def test_restore_rejects_when_quarantined_description_changed(tmp_path, spam_config, quay_test_db_uri):
+    quay_db_uri = quay_test_db_uri
+    _create_quay_db(quay_db_uri)
+    config = _config(spam_config, quay_db_uri)
     _trained_classifier(config)
     store.update_policy(config, {"scan_dry_run": False, "quarantine_description": "quarantined"})
 
     scanner.run_scan(config, dry_run=False)
     record = store.list_review(config)[0]
     remediation.quarantine(config, record["uuid"], operator="tester")
-    conn = sqlite3.connect(quay_db_path)
-    conn.execute('UPDATE "repository" SET description = ? WHERE id = 1', ("manual moderation edit",))
-    conn.commit()
-    conn.close()
+    _execute(
+        quay_db_uri,
+        'UPDATE "repository" SET description = %s WHERE id = 1',
+        ("manual moderation edit",),
+    )
 
     with pytest.raises(remediation.RemediationError):
         remediation.restore(config, record["uuid"], operator="tester")
 
 
-def test_redact_requires_explicit_description(tmp_path):
-    quay_db_path = tmp_path / "quay.db"
-    _create_quay_db(quay_db_path)
-    config = _config(tmp_path, quay_db_path)
+def test_redact_requires_explicit_description(tmp_path, spam_config, quay_test_db_uri):
+    quay_db_uri = quay_test_db_uri
+    _create_quay_db(quay_db_uri)
+    config = _config(spam_config, quay_db_uri)
     _trained_classifier(config)
     store.update_policy(config, {"scan_dry_run": False, "quarantine_description": "quarantined"})
 
@@ -490,18 +459,18 @@ def test_redact_requires_explicit_description(tmp_path):
         operator="tester",
     )
 
-    conn = sqlite3.connect(quay_db_path)
-    description = conn.execute('SELECT description FROM "repository" WHERE id = 1').fetchone()[0]
-    conn.close()
+    description = _execute(
+        quay_db_uri, 'SELECT description FROM "repository" WHERE id = 1', fetchone=True
+    )[0]
 
     assert redacted["status"] == "redacted"
     assert description == "[redacted]"
 
 
-def test_dismiss_records_ham_feedback_for_next_training(tmp_path):
-    quay_db_path = tmp_path / "quay.db"
-    _create_quay_db(quay_db_path)
-    config = _config(tmp_path, quay_db_path)
+def test_dismiss_records_ham_feedback_for_next_training(tmp_path, spam_config, quay_test_db_uri):
+    quay_db_uri = quay_test_db_uri
+    _create_quay_db(quay_db_uri)
+    config = _config(spam_config, quay_db_uri)
     created = _trained_classifier(config)
     store.update_policy(config, {"scan_dry_run": False})
 
@@ -530,14 +499,15 @@ def test_dismiss_records_ham_feedback_for_next_training(tmp_path):
     assert dismissed["terminal_classifier_snapshot_json"]["artifact_version"] == "test-v1"
 
     trained = classifier.train_classifier(config, created["uuid"], artifact_version="test-v2")
-    assert trained["model_snapshot_json"]["training_metrics"]["example_count"] == 3
-    assert trained["model_snapshot_json"]["training_metrics"]["ham_examples"] == 2
+    trained_model = classifier.load_artifact_from_classifier(config, trained)
+    assert trained_model["training_metrics"]["example_count"] == 3
+    assert trained_model["training_metrics"]["ham_examples"] == 2
 
 
-def test_restore_records_ham_feedback_after_quarantine_spam_feedback(tmp_path):
-    quay_db_path = tmp_path / "quay.db"
-    _create_quay_db(quay_db_path)
-    config = _config(tmp_path, quay_db_path)
+def test_restore_records_ham_feedback_after_quarantine_spam_feedback(tmp_path, spam_config, quay_test_db_uri):
+    quay_db_uri = quay_test_db_uri
+    _create_quay_db(quay_db_uri)
+    config = _config(spam_config, quay_db_uri)
     created = _trained_classifier(config)
     store.update_policy(config, {"scan_dry_run": False, "quarantine_description": "quarantined"})
 
@@ -561,10 +531,10 @@ def test_restore_records_ham_feedback_after_quarantine_spam_feedback(tmp_path):
     )
 
 
-def test_reopen_restored_record_invalidates_ham_feedback_and_allows_requarantine(tmp_path):
-    quay_db_path = tmp_path / "quay.db"
-    _create_quay_db(quay_db_path)
-    config = _config(tmp_path, quay_db_path)
+def test_reopen_restored_record_invalidates_ham_feedback_and_allows_requarantine(tmp_path, spam_config, quay_test_db_uri):
+    quay_db_uri = quay_test_db_uri
+    _create_quay_db(quay_db_uri)
+    config = _config(spam_config, quay_db_uri)
     created = _trained_classifier(config)
     store.update_policy(
         config,
@@ -594,16 +564,18 @@ def test_reopen_restored_record_invalidates_ham_feedback_and_allows_requarantine
     ]
     assert feedback == []
 
-    state_conn = sqlite3.connect(tmp_path / "state.db")
-    invalidated = state_conn.execute(
-        """
-        SELECT invalidated_by, invalidation_reason
-        FROM spam_training_example
-        WHERE source = 'review_decision' AND label = 'ham'
-        """
-    ).fetchone()
-    state_conn.close()
-    assert invalidated == ("lead-reviewer", "Restore was approved in error")
+    with connect_state_db(config) as state_conn:
+        invalidated = state_conn.execute(
+            """
+            SELECT invalidated_by, invalidation_reason
+            FROM spam_training_example
+            WHERE source = 'review_decision' AND label = 'ham'
+            """
+        ).fetchone()
+    assert invalidated == {
+        "invalidated_by": "lead-reviewer",
+        "invalidation_reason": "Restore was approved in error",
+    }
 
     reopen_action = next(
         action for action in store.list_audit_actions(config) if action["action"] == "reopen"
@@ -620,25 +592,23 @@ def test_reopen_restored_record_invalidates_ham_feedback_and_allows_requarantine
         config, record["uuid"], operator="lead-reviewer"
     )
     assert requarantined["status"] == "quarantined"
-    conn = sqlite3.connect(quay_db_path)
-    description = conn.execute(
-        'SELECT description FROM "repository" WHERE id = 1'
-    ).fetchone()[0]
-    conn.close()
+    description = _execute(
+        quay_db_uri, 'SELECT description FROM "repository" WHERE id = 1', fetchone=True
+    )[0]
     assert description == "quarantined"
     trained = classifier.train_classifier(
         config, created["uuid"], artifact_version="test-v2"
     )
-    metrics = trained["model_snapshot_json"]["training_metrics"]
+    metrics = classifier.load_artifact_from_classifier(config, trained)["training_metrics"]
     assert metrics["example_count"] == 3
     assert metrics["spam_examples"] == 2
     assert metrics["ham_examples"] == 1
 
 
-def test_reopen_dismissed_record_invalidates_ham_feedback(tmp_path):
-    quay_db_path = tmp_path / "quay.db"
-    _create_quay_db(quay_db_path)
-    config = _config(tmp_path, quay_db_path)
+def test_reopen_dismissed_record_invalidates_ham_feedback(tmp_path, spam_config, quay_test_db_uri):
+    quay_db_uri = quay_test_db_uri
+    _create_quay_db(quay_db_uri)
+    config = _config(spam_config, quay_db_uri)
     created = _trained_classifier(config)
     store.update_policy(config, {"scan_dry_run": False})
 
@@ -669,10 +639,10 @@ def test_reopen_dismissed_record_invalidates_ham_feedback(tmp_path):
     }
 
 
-def test_review_match_can_be_reclassified_for_training(tmp_path):
-    quay_db_path = tmp_path / "quay.db"
-    _create_quay_db(quay_db_path)
-    config = _config(tmp_path, quay_db_path)
+def test_review_match_can_be_reclassified_for_training(tmp_path, spam_config, quay_test_db_uri):
+    quay_db_uri = quay_test_db_uri
+    _create_quay_db(quay_db_uri)
+    config = _config(spam_config, quay_db_uri)
     created = _trained_classifier(config)
     store.update_policy(config, {"scan_dry_run": False})
 
@@ -701,10 +671,10 @@ def test_review_match_can_be_reclassified_for_training(tmp_path):
     }
 
 
-def test_explicit_label_is_rejected_after_remediation_decision(tmp_path):
-    quay_db_path = tmp_path / "quay.db"
-    _create_quay_db(quay_db_path)
-    config = _config(tmp_path, quay_db_path)
+def test_explicit_label_is_rejected_after_remediation_decision(tmp_path, spam_config, quay_test_db_uri):
+    quay_db_uri = quay_test_db_uri
+    _create_quay_db(quay_db_uri)
+    config = _config(spam_config, quay_db_uri)
     _trained_classifier(config)
     store.update_policy(
         config,
@@ -726,10 +696,10 @@ def test_explicit_label_is_rejected_after_remediation_decision(tmp_path):
     assert reviewed["review_label"] == "spam"
 
 
-def test_reopen_requires_reason_and_empty_repository(tmp_path):
-    quay_db_path = tmp_path / "quay.db"
-    _create_quay_db(quay_db_path)
-    config = _config(tmp_path, quay_db_path)
+def test_reopen_requires_reason_and_empty_repository(tmp_path, spam_config, quay_test_db_uri):
+    quay_db_uri = quay_test_db_uri
+    _create_quay_db(quay_db_uri)
+    config = _config(spam_config, quay_db_uri)
     _trained_classifier(config)
     store.update_policy(
         config,
@@ -744,13 +714,11 @@ def test_reopen_requires_reason_and_empty_repository(tmp_path):
     with pytest.raises(remediation.RemediationError, match="reason is required"):
         remediation.reopen(config, record["uuid"], reason=" ", operator="reviewer")
 
-    conn = sqlite3.connect(quay_db_path)
-    conn.execute(
-        'INSERT INTO "tag" (id, repository_id, lifetime_end_ms, hidden) VALUES (?, ?, ?, ?)',
-        (2, 1, None, 0),
+    _execute(
+        quay_db_uri,
+        'INSERT INTO "tag" (id, repository_id, lifetime_end_ms, hidden) VALUES (%s, %s, %s, %s)',
+        (2, 1, None, False),
     )
-    conn.commit()
-    conn.close()
 
     with pytest.raises(remediation.RemediationError, match="only empty repositories"):
         remediation.reopen(
@@ -761,10 +729,10 @@ def test_reopen_requires_reason_and_empty_repository(tmp_path):
         )
 
 
-def test_quarantine_rechecks_empty_repository_after_reopen(tmp_path):
-    quay_db_path = tmp_path / "quay.db"
-    _create_quay_db(quay_db_path)
-    config = _config(tmp_path, quay_db_path)
+def test_quarantine_rechecks_empty_repository_after_reopen(tmp_path, spam_config, quay_test_db_uri):
+    quay_db_uri = quay_test_db_uri
+    _create_quay_db(quay_db_uri)
+    config = _config(spam_config, quay_db_uri)
     _trained_classifier(config)
     store.update_policy(
         config,
@@ -781,22 +749,20 @@ def test_quarantine_rechecks_empty_repository_after_reopen(tmp_path):
         reason="Restore was approved in error",
         operator="reviewer",
     )
-    conn = sqlite3.connect(quay_db_path)
-    conn.execute(
-        'INSERT INTO "tag" (id, repository_id, lifetime_end_ms, hidden) VALUES (?, ?, ?, ?)',
-        (2, 1, None, 0),
+    _execute(
+        quay_db_uri,
+        'INSERT INTO "tag" (id, repository_id, lifetime_end_ms, hidden) VALUES (%s, %s, %s, %s)',
+        (2, 1, None, False),
     )
-    conn.commit()
-    conn.close()
 
     with pytest.raises(remediation.RemediationError, match="only empty repositories"):
         remediation.quarantine(config, record["uuid"], operator="reviewer")
 
 
-def test_unchanged_terminal_record_is_not_reopened(tmp_path):
-    quay_db_path = tmp_path / "quay.db"
-    _create_quay_db(quay_db_path)
-    config = _config(tmp_path, quay_db_path)
+def test_unchanged_terminal_record_is_not_reopened(tmp_path, spam_config, quay_test_db_uri):
+    quay_db_uri = quay_test_db_uri
+    _create_quay_db(quay_db_uri)
+    config = _config(spam_config, quay_db_uri)
     _trained_classifier(config)
     store.update_policy(config, {"scan_dry_run": False})
 
@@ -812,23 +778,21 @@ def test_unchanged_terminal_record_is_not_reopened(tmp_path):
     assert store.list_review(config) == []
 
 
-def test_changed_description_reopens_terminal_record(tmp_path):
-    quay_db_path = tmp_path / "quay.db"
-    _create_quay_db(quay_db_path)
-    config = _config(tmp_path, quay_db_path)
+def test_changed_description_reopens_terminal_record(tmp_path, spam_config, quay_test_db_uri):
+    quay_db_uri = quay_test_db_uri
+    _create_quay_db(quay_db_uri)
+    config = _config(spam_config, quay_db_uri)
     _trained_classifier(config)
     store.update_policy(config, {"scan_dry_run": False})
 
     scanner.run_scan(config, dry_run=False)
     record = store.list_review(config)[0]
     remediation.dismiss(config, record["uuid"], operator="reviewer")
-    conn = sqlite3.connect(quay_db_path)
-    conn.execute(
-        'UPDATE "repository" SET description = ? WHERE id = 1',
+    _execute(
+        quay_db_uri,
+        'UPDATE "repository" SET description = %s WHERE id = 1',
         ("casino bonus jackpot offer https://spam.example",),
     )
-    conn.commit()
-    conn.close()
 
     run = scanner.run_scan(config, dry_run=False)
 
@@ -839,10 +803,10 @@ def test_changed_description_reopens_terminal_record(tmp_path):
     )
 
 
-def test_new_classifier_artifact_reopens_terminal_record(tmp_path):
-    quay_db_path = tmp_path / "quay.db"
-    _create_quay_db(quay_db_path)
-    config = _config(tmp_path, quay_db_path)
+def test_new_classifier_artifact_reopens_terminal_record(tmp_path, spam_config, quay_test_db_uri):
+    quay_db_uri = quay_test_db_uri
+    _create_quay_db(quay_db_uri)
+    config = _config(spam_config, quay_db_uri)
     created = _trained_classifier(config)
     store.update_policy(config, {"scan_dry_run": False})
 
@@ -857,10 +821,10 @@ def test_new_classifier_artifact_reopens_terminal_record(tmp_path):
     assert run["repos_skipped_terminal"] == 0
 
 
-def test_terminal_record_captures_classifier_active_at_review_time(tmp_path):
-    quay_db_path = tmp_path / "quay.db"
-    _create_quay_db(quay_db_path)
-    config = _config(tmp_path, quay_db_path)
+def test_terminal_record_captures_classifier_active_at_review_time(tmp_path, spam_config, quay_test_db_uri):
+    quay_db_uri = quay_test_db_uri
+    _create_quay_db(quay_db_uri)
+    config = _config(spam_config, quay_db_uri)
     created = _trained_classifier(config)
     store.update_policy(config, {"scan_dry_run": False})
 
@@ -876,10 +840,10 @@ def test_terminal_record_captures_classifier_active_at_review_time(tmp_path):
     assert run["repos_skipped_terminal"] == 1
 
 
-def test_terminal_rescan_policy_reopens_unchanged_record(tmp_path):
-    quay_db_path = tmp_path / "quay.db"
-    _create_quay_db(quay_db_path)
-    config = _config(tmp_path, quay_db_path)
+def test_terminal_rescan_policy_reopens_unchanged_record(tmp_path, spam_config, quay_test_db_uri):
+    quay_db_uri = quay_test_db_uri
+    _create_quay_db(quay_db_uri)
+    config = _config(spam_config, quay_db_uri)
     _trained_classifier(config)
     store.update_policy(config, {"scan_dry_run": False})
 

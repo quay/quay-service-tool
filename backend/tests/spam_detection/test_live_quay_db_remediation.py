@@ -19,11 +19,10 @@ QUARANTINE_DESCRIPTION = "quarantined by live spam remediation test"
 REDACTED_DESCRIPTION = "[redacted by live spam remediation test]"
 
 
-def _config(tmp_path):
+def _config(spam_config):
     live_db_uri = os.environ["SPAM_DETECTION_LIVE_QUAY_DB_URI"]
     return {
-        "SPAM_DETECTION_STATE_DB_URI": f"sqlite:///{tmp_path / 'state.db'}",
-        "SPAM_DETECTION_ARTIFACT_DIR": str(tmp_path / "artifacts"),
+        **spam_config,
         "SPAM_DETECTION_READONLY_DB_URI": os.environ.get(
             "SPAM_DETECTION_LIVE_QUAY_READONLY_DB_URI", live_db_uri
         ),
@@ -175,14 +174,14 @@ def _review_record(config, namespace, repository):
 def _action_count(config, action):
     with connect_state_db(config) as conn:
         row = conn.execute(
-            "SELECT COUNT(*) FROM spam_action_history WHERE action = ?",
+            "SELECT COUNT(*) AS count FROM spam_action_history WHERE action = ?",
             (action,),
         ).fetchone()
-    return row[0]
+    return row["count"]
 
 
-def test_live_quay_db_scan_quarantine_restore_and_redact(tmp_path):
-    config = _config(tmp_path)
+def test_live_quay_db_scan_quarantine_restore_and_redact(spam_config):
+    config = _config(spam_config)
     seeded = _seed_namespace_and_repos(config)
     try:
         _trained_classifier(config)
