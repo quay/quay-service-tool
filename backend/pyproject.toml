@@ -21,6 +21,7 @@ override-dependencies = [
     "jwcrypto>=1.5.7",
     "supervisor==4.3.0",
     "prometheus-client>=0.13.1",
+    "soupsieve>=2.8.4",
 ]
 
 [dependency-groups]
