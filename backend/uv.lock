@@ -1778,7 +1778,7 @@ wheels = [
 [[package]]
 name = "quay"
 version = "3.13"
-source = { git = "https://github.com/quay/quay.git?rev=95f2713467cd96d90315dc2d67866d0983e75cd5#95f2713467cd96d90315dc2d67866d0983e75cd5" }
+source = { git = "https://github.com/quay/quay.git?rev=05d9c05cfd7f54117523e5470ea64a6bf503c4cf#05d9c05cfd7f54117523e5470ea64a6bf503c4cf" }
 dependencies = [
     { name = "akamai-edgeauth" },
     { name = "alembic" },
@@ -1980,7 +1980,7 @@ requires-dist = [
     { name = "psycopg2-binary", specifier = ">=2.9.10" },
     { name = "python-keycloak", specifier = ">=4.0.0" },
     { name = "python-redis-lock", specifier = ">=4.0.0" },
-    { name = "quay", git = "https://github.com/quay/quay.git?rev=95f2713467cd96d90315dc2d67866d0983e75cd5" },
+    { name = "quay", git = "https://github.com/quay/quay.git?rev=05d9c05cfd7f54117523e5470ea64a6bf503c4cf" },
     { name = "supervisor", specifier = "==4.3.0" },
 ]
 
