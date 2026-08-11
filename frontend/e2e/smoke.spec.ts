@@ -1,11 +1,5 @@
 import { test, expect } from "@playwright/test";
 
-test.beforeEach(async ({ page }) => {
-  await page.route("**/banner", async (route) => {
-    await route.fulfill({ json: { messages: [] } });
-  });
-});
-
 test("app renders with header and sidebar", async ({ page }) => {
   await page.goto("/");
   await expect(page.locator("header")).toBeVisible();
@@ -14,7 +8,7 @@ test("app renders with header and sidebar", async ({ page }) => {
 
 test("Site Utils page shows Add Site Banner card", async ({ page }) => {
   await page.goto("/");
-  await expect(page.getByText(/add site banner/i)).toBeVisible();
+  await expect(page.getByText("Add Site Banner")).toBeVisible();
 });
 
 test("navigation to User Utils works", async ({ page }) => {
