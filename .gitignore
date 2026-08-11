@@ -9,6 +9,3 @@ storybook-static
 .env
 **/__pycache__
 **/venv
-backend/spam_detection_state.db
-backend/spam_detection_artifacts
-backend/spam_detection_data
