@@ -350,3 +350,14 @@ def test_duplicate_artifact_version_is_rejected_before_overwrite(tmp_path, spam_
 
     with pytest.raises(classifier.ClassifierError):
         classifier.train_classifier(config, second["uuid"], artifact_version="test-v1")
+
+
+def test_active_classifier_cannot_be_disabled(spam_config):
+    config = _config(spam_config)
+    active = store.create_classifier(config, {"name": "active", "enabled": True})
+
+    with pytest.raises(ValueError, match="active classifier cannot be disabled"):
+        store.update_classifier(config, active["uuid"], {"enabled": False})
+
+    assert store.get_classifier(config, active["uuid"])["enabled"] == 1
+    assert store.get_policy(config)["active_classifier_id"] == active["id"]

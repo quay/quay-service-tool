@@ -21,11 +21,15 @@ MAX_TRAINING_TEXT_LENGTH = 10000
 CLASSIFIER_ACTIVATION_LOCK = "quay-service-tool-spam-classifier-activation"
 
 
-def _prepare_classifier_activation(conn):
+def _lock_classifier_activation(conn):
     conn.execute(
         "SELECT pg_advisory_xact_lock(hashtext(?))",
         (CLASSIFIER_ACTIVATION_LOCK,),
     )
+
+
+def _prepare_classifier_activation(conn):
+    _lock_classifier_activation(conn)
     conn.execute("UPDATE spam_classifier SET enabled = 0 WHERE enabled = 1")
 
 
@@ -275,6 +279,11 @@ def update_classifier(config, classifier_uuid, payload, operator=None):
     existing = get_classifier(config, classifier_uuid)
     if not existing:
         return None
+
+    enabled = payload.get("enabled")
+    if "enabled" in payload and not isinstance(enabled, bool):
+        raise ValueError("enabled must be a boolean")
+
     now = utcnow()
     fields = []
     params = []
@@ -291,7 +300,7 @@ def update_classifier(config, classifier_uuid, payload, operator=None):
             params.append(_validate_probability(payload[key], key))
     if "enabled" in payload:
         fields.append("enabled = ?")
-        params.append(1 if payload["enabled"] else 0)
+        params.append(1 if enabled else 0)
     if "feature_config" in payload:
         fields.append("feature_config_json = ?")
         params.append(json_dumps(_validate_feature_config(payload["feature_config"])))
@@ -299,13 +308,22 @@ def update_classifier(config, classifier_uuid, payload, operator=None):
     params.extend([now, operator, existing["id"]])
 
     with connect_state_db(config) as conn:
-        if payload.get("enabled"):
+        if enabled:
             _prepare_classifier_activation(conn)
+        elif "enabled" in payload:
+            _lock_classifier_activation(conn)
+            policy = ensure_policy(conn, config)
+            if policy["active_classifier_id"] == existing["id"]:
+                raise ValueError(
+                    "active classifier cannot be disabled; "
+                    "activate another classifier first"
+                )
+
         conn.execute(
             f"UPDATE spam_classifier SET {', '.join(fields)} WHERE id = ?",
             tuple(params),
         )
-        if payload.get("enabled"):
+        if enabled:
             policy = ensure_policy(conn, config)
             conn.execute(
                 """
