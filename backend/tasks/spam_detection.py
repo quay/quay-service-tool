@@ -31,6 +31,25 @@ def _operator():
     return getattr(current_user, "email", None) or getattr(current_user, "username", None)
 
 
+def _check_protected_namespace(namespace):
+    config = current_app.config
+    if config.get('is_local') and not config.get('test_auth'):
+        return None
+    protected = config.get('authentication', {}).get('protected_namespaces', [])
+    if not namespace or namespace.lower() not in [ns.lower() for ns in protected]:
+        return None
+    if not current_user or not current_user.realm_access:
+        return _json_response(
+            {"message": f"Namespace '{namespace}' is protected. Requires PROTECTED_ADMIN_ROLE."}, 403
+        )
+    role = config.get('authentication', {}).get('roles', {}).get('PROTECTED_ADMIN_ROLE')
+    if role not in current_user.realm_access.get('roles', []):
+        return _json_response(
+            {"message": f"Namespace '{namespace}' is protected. Requires PROTECTED_ADMIN_ROLE."}, 403
+        )
+    return None
+
+
 def _json_response(payload, status=200):
     return make_response(json.dumps(payload), status)
 
@@ -526,6 +545,9 @@ class SpamReviewManualTask(Resource):
     @login_required
     def post(self):
         payload = _body()
+        denied = _check_protected_namespace(payload.get("namespace"))
+        if denied:
+            return denied
         try:
             record = remediation.add_false_negative(
                 current_app.config,
@@ -559,6 +581,12 @@ class SpamReviewQuarantineTask(Resource):
     @login_required
     def post(self, record_uuid):
         try:
+            record = store.get_quarantine_record(current_app.config, record_uuid)
+            if not record:
+                return _json_response({"message": "quarantine record not found"}, 404)
+            denied = _check_protected_namespace(record.get("namespace_name"))
+            if denied:
+                return denied
             return _json_response({"record": remediation.quarantine(current_app.config, record_uuid, _operator())})
         except remediation.RemediationError as exc:
             return _json_response({"message": str(exc)}, 400)
@@ -570,6 +598,12 @@ class SpamReviewRestoreTask(Resource):
     @login_required
     def post(self, record_uuid):
         try:
+            record = store.get_quarantine_record(current_app.config, record_uuid)
+            if not record:
+                return _json_response({"message": "quarantine record not found"}, 404)
+            denied = _check_protected_namespace(record.get("namespace_name"))
+            if denied:
+                return denied
             return _json_response({"record": remediation.restore(current_app.config, record_uuid, _operator())})
         except remediation.RemediationError as exc:
             return _json_response({"message": str(exc)}, 400)
@@ -581,6 +615,12 @@ class SpamReviewReopenTask(Resource):
     @login_required
     def post(self, record_uuid):
         try:
+            record = store.get_quarantine_record(current_app.config, record_uuid)
+            if not record:
+                return _json_response({"message": "quarantine record not found"}, 404)
+            denied = _check_protected_namespace(record.get("namespace_name"))
+            if denied:
+                return denied
             return _json_response(
                 {
                     "record": remediation.reopen(
@@ -601,6 +641,12 @@ class SpamReviewDismissTask(Resource):
     @login_required
     def post(self, record_uuid):
         try:
+            record = store.get_quarantine_record(current_app.config, record_uuid)
+            if not record:
+                return _json_response({"message": "quarantine record not found"}, 404)
+            denied = _check_protected_namespace(record.get("namespace_name"))
+            if denied:
+                return denied
             return _json_response({"record": remediation.dismiss(current_app.config, record_uuid, _operator())})
         except remediation.RemediationError as exc:
             return _json_response({"message": str(exc)}, 400)
@@ -612,6 +658,12 @@ class SpamReviewClassifyTask(Resource):
     @login_required
     def post(self, record_uuid):
         try:
+            record = store.get_quarantine_record(current_app.config, record_uuid)
+            if not record:
+                return _json_response({"message": "quarantine record not found"}, 404)
+            denied = _check_protected_namespace(record.get("namespace_name"))
+            if denied:
+                return denied
             return _json_response(
                 {
                     "record": remediation.classify(
@@ -632,6 +684,12 @@ class SpamReviewRedactTask(Resource):
     @login_required
     def post(self, record_uuid):
         try:
+            record = store.get_quarantine_record(current_app.config, record_uuid)
+            if not record:
+                return _json_response({"message": "quarantine record not found"}, 404)
+            denied = _check_protected_namespace(record.get("namespace_name"))
+            if denied:
+                return denied
             return _json_response(
                 {
                     "record": remediation.redact(
