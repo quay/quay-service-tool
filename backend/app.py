@@ -13,12 +13,40 @@ from tasks.banner import BannerTask
 from tasks.username import UsernameTask
 from tasks.federateduser import FederatedUserTask
 from tasks.user import UserTask, FetchUserFromEmailTask, FetchUserFromNameTask, UpdateEmailTask, FetchUserFromStripeID
+from tasks.spam_detection import (
+    SpamAuditTask,
+    SpamClassifierArtifactTask,
+    SpamClassifierImportArtifactTask,
+    SpamClassifierImportCsvTask,
+    SpamClassifierListTask,
+    SpamClassifierPromoteArtifactTask,
+    SpamClassifierTask,
+    SpamClassifierExportArtifactTask,
+    SpamClassifierTrainTask,
+    SpamDetectionHealthTask,
+    SpamPolicyTask,
+    SpamPreviewTask,
+    SpamReviewDismissTask,
+    SpamReviewClassifyTask,
+    SpamReviewManualInspectTask,
+    SpamReviewManualTask,
+    SpamReviewQuarantineTask,
+    SpamReviewRedactTask,
+    SpamReviewReopenTask,
+    SpamReviewRestoreTask,
+    SpamReviewTask,
+    SpamRunMatchesTask,
+    SpamRunsTask,
+    SpamTrainingExamplesTask,
+)
 import yaml
 import logging
 from utils import *
 from util.marketplace import MarketplaceUserApi
 from data import database
 import os
+from spam_detection import DEFAULT_QUARANTINE_DESCRIPTION
+from spam_detection.config import apply_environment as apply_spam_detection_environment
 
 logging.basicConfig()
 logging.root.setLevel(logging.INFO)
@@ -38,6 +66,20 @@ with open(os.environ.get('CONFIG_PATH') + "/config.yaml") as f:
     config = yaml.load(f, Loader=yaml.FullLoader)
     app.config.update(config)
 
+apply_spam_detection_environment(app.config)
+app.config.setdefault("SPAM_DETECTION_MAX_ARTIFACT_BYTES", 25 * 1024 * 1024)
+app.config.setdefault("SPAM_DETECTION_BATCH_SIZE", 200)
+app.config.setdefault("SPAM_DETECTION_SLEEP_BETWEEN_BATCHES", 0.5)
+app.config.setdefault("SPAM_DETECTION_SCAN_DRY_RUN", True)
+app.config.setdefault("SPAM_DETECTION_MAX_REPOS", 0)
+app.config.setdefault("SPAM_DETECTION_API_SCAN_LIMIT", 10000)
+app.config.setdefault("SPAM_DETECTION_STALE_SCAN_TIMEOUT_SECONDS", 3600)
+app.config.setdefault("SPAM_DETECTION_MAX_TRAINING_TEXT_LENGTH", 10000)
+app.config.setdefault("SPAM_DETECTION_INCLUDE_PRIVATE", False)
+app.config.setdefault(
+    "SPAM_DETECTION_QUARANTINE_DESCRIPTION",
+    DEFAULT_QUARANTINE_DESCRIPTION,
+)
 
 @login_manager.request_loader
 def load_user_from_request(request):
@@ -134,6 +176,30 @@ api.add_resource(FederatedUserTask, '/federateduser/<username>')
 api.add_resource(UpdateEmailTask, '/user/email')
 api.add_resource(RobotTokenTask, '/robot/token')
 api.add_resource(AddOrgOwnerTask, '/org/owner')
+api.add_resource(SpamDetectionHealthTask, '/spam-detection/health')
+api.add_resource(SpamClassifierListTask, '/spam-detection/classifiers')
+api.add_resource(SpamClassifierImportArtifactTask, '/spam-detection/classifiers/import-artifact')
+api.add_resource(SpamClassifierTask, '/spam-detection/classifiers/<classifier_uuid>')
+api.add_resource(SpamTrainingExamplesTask, '/spam-detection/classifiers/<classifier_uuid>/training-examples')
+api.add_resource(SpamClassifierImportCsvTask, '/spam-detection/classifiers/<classifier_uuid>/import-csv')
+api.add_resource(SpamClassifierTrainTask, '/spam-detection/classifiers/<classifier_uuid>/train')
+api.add_resource(SpamClassifierExportArtifactTask, '/spam-detection/classifiers/<classifier_uuid>/export-artifact')
+api.add_resource(SpamClassifierArtifactTask, '/spam-detection/classifiers/<classifier_uuid>/artifact')
+api.add_resource(SpamClassifierPromoteArtifactTask, '/spam-detection/classifiers/<classifier_uuid>/promote-artifact')
+api.add_resource(SpamPolicyTask, '/spam-detection/policy')
+api.add_resource(SpamPreviewTask, '/spam-detection/preview')
+api.add_resource(SpamRunsTask, '/spam-detection/runs')
+api.add_resource(SpamRunMatchesTask, '/spam-detection/runs/<run_uuid>/matches')
+api.add_resource(SpamReviewTask, '/spam-detection/review')
+api.add_resource(SpamReviewManualInspectTask, '/spam-detection/review/manual/inspect')
+api.add_resource(SpamReviewManualTask, '/spam-detection/review/manual')
+api.add_resource(SpamAuditTask, '/spam-detection/audit')
+api.add_resource(SpamReviewQuarantineTask, '/spam-detection/review/<record_uuid>/quarantine')
+api.add_resource(SpamReviewRestoreTask, '/spam-detection/review/<record_uuid>/restore')
+api.add_resource(SpamReviewReopenTask, '/spam-detection/review/<record_uuid>/reopen')
+api.add_resource(SpamReviewDismissTask, '/spam-detection/review/<record_uuid>/dismiss')
+api.add_resource(SpamReviewClassifyTask, '/spam-detection/review/<record_uuid>/classify')
+api.add_resource(SpamReviewRedactTask, '/spam-detection/review/<record_uuid>/redact')
 
 if __name__ == '__main__':
     app.run(debug=True, host="0.0.0.0")

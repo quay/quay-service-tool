@@ -4,6 +4,39 @@ networks:
     name: quay_default
 
 services:
+  quay-service-tool-state-db:
+    image: docker.io/library/postgres:16-alpine
+    environment:
+      POSTGRES_DB: service_tool_spam
+      POSTGRES_USER: spam
+      POSTGRES_PASSWORD: spam-local
+    volumes:
+      - spam-detection-postgres:/var/lib/postgresql/data
+    ports:
+      - '${SERVICE_TOOL_STATE_DB_PORT:-55432}:5432'
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U spam -d service_tool_spam"]
+      interval: 2s
+      timeout: 3s
+      retries: 30
+
+  quay-service-tool-s3:
+    image: quay.io/minio/minio:RELEASE.2025-04-22T22-12-26Z
+    command: server /data --console-address :9001
+    environment:
+      MINIO_ROOT_USER: minioadmin
+      MINIO_ROOT_PASSWORD: minioadmin
+    volumes:
+      - spam-detection-s3:/data
+    ports:
+      - '${SERVICE_TOOL_S3_PORT:-9002}:9000'
+      - '${SERVICE_TOOL_S3_CONSOLE_PORT:-9003}:9001'
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:9000/minio/health/live"]
+      interval: 2s
+      timeout: 3s
+      retries: 30
+
 #  Not needed for local development
 #  quay-service-tool-auth:
 #    container_name: "quay-service-tool-auth"
@@ -36,7 +69,22 @@ services:
       DEBUG: "True"
       PYTHONUNBUFFERED: "True"
       CONFIG_PATH: /backend/config
+      SPAM_DETECTION_STATE_DB_URI: postgresql://spam:spam-local@quay-service-tool-state-db:5432/service_tool_spam
+      SPAM_DETECTION_S3_ENDPOINT_URL: http://quay-service-tool-s3:9000
+      SPAM_DETECTION_S3_BUCKET: quay-service-tool
+      SPAM_DETECTION_S3_PREFIX: spam-detection
+      SPAM_DETECTION_S3_REGION: us-east-1
+      SPAM_DETECTION_S3_ADDRESSING_STYLE: path
+      SPAM_DETECTION_S3_VERIFY_TLS: "false"
+      SPAM_DETECTION_S3_CREATE_BUCKET: "true"
+      AWS_ACCESS_KEY_ID: minioadmin
+      AWS_SECRET_ACCESS_KEY: minioadmin
       IS_LOCAL: "True"
+    depends_on:
+      quay-service-tool-state-db:
+        condition: service_healthy
+      quay-service-tool-s3:
+        condition: service_healthy
 
   quay-service-tool-client:
     container_name: "quay-service-tool-client"
@@ -56,3 +104,7 @@ services:
     environment:
       NODE_ENV: development
       TARGET_URL: http://quay-service-tool-api:5000
+
+volumes:
+  spam-detection-postgres:
+  spam-detection-s3:
