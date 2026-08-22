@@ -1,7 +1,7 @@
 [project]
 name = "quay-service-tool"
 version = "0.0.1"
-requires-python = "==3.12.*"
+requires-python = "==3.14.*"
 dependencies = [
     "boto3>=1.35,<2",
     "quay @ git+https://github.com/quay/quay.git@ffba0c70e2d8d522290a4fbbaa704dbf2fc37f34",
