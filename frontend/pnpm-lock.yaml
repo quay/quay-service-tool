@@ -26,15 +26,12 @@ importers:
       '@patternfly/react-styles':
         specifier: ^4.7.22
         version: 4.92.8
-      '@react-keycloak/web':
-        specifier: ^3.4.0
-        version: 3.4.0(keycloak-js@15.1.1)(react-dom@17.0.2(react@17.0.2))(react@17.0.2)(typescript@4.9.5)
       axios:
         specifier: ^1.8.0
         version: 1.19.0(debug@4.4.3(supports-color@8.1.1))(supports-color@8.1.1)
       keycloak-js:
-        specifier: ^15.0.2
-        version: 15.1.1
+        specifier: ^26.0.0
+        version: 26.2.4
       react:
         specifier: ^17.0.1
         version: 17.0.2
@@ -1386,22 +1383,6 @@ packages:
       react: 15.x || 16.x || 16.4.0-alpha.0911da3
       react-dom: 15.x || 16.x || 16.4.0-alpha.0911da3
 
-  '@react-keycloak/core@3.2.0':
-    resolution: {integrity: sha512-1yzU7gQzs+6E1v6hGqxy0Q+kpMHg9sEcke2yxZR29WoU8KNE8E50xS6UbI8N7rWsgyYw8r9W1cUPCOF48MYjzw==}
-    peerDependencies:
-      react: '>=16'
-
-  '@react-keycloak/web@3.4.0':
-    resolution: {integrity: sha512-yKKSCyqBtn7dt+VckYOW1IM5NW999pPkxDZOXqJ6dfXPXstYhOQCkTZqh8l7UL14PkpsoaHDh7hSJH8whah01g==}
-    peerDependencies:
-      keycloak-js: '>=9.0.2'
-      react: '>=16.8'
-      react-dom: '>=16.8'
-      typescript: '>=3.8'
-    peerDependenciesMeta:
-      typescript:
-        optional: true
-
   '@sec-ant/readable-stream@0.4.1':
     resolution: {integrity: sha512-831qok9r2t8AlxLko40y2ebgSDhenenCatLVeW/uBtnHPyhHOvG0C7TvfgecV+wHzIm5KUICgzmVpWS+IMEAeg==}
 
@@ -2526,9 +2507,6 @@ packages:
   balanced-match@4.0.4:
     resolution: {integrity: sha512-BLrgEcRTwX2o6gGxGOCNyMvGSp35YofuYzw9h1IMTRmKqttAZZVU67bdb9Pr2vUHA8+j3i2tJfjO6C6+4myGTA==}
     engines: {node: 18 || 20 || >=22}
-
-  base64-js@1.3.1:
-    resolution: {integrity: sha512-mLQ4i2QO1ytvGWFWmcngKO//JXAQueZvwEKtjgQFM4jIK0kU+ytMfplL8j+n5mspOfjHwoAg+9yhb7BwAHm36g==}
 
   base64-js@1.5.1:
     resolution: {integrity: sha512-AKpaYlHn8t4SVbOHCy+b5+KKgvR4vrsD8vbvrbiQJps7fKDTkjkDry6ji0rUJjC0kzbNePLwzxq8iypo41qeWA==}
@@ -4988,9 +4966,6 @@ packages:
     engines: {node: '>= 10.14.2'}
     hasBin: true
 
-  js-sha256@0.9.0:
-    resolution: {integrity: sha512-sga3MHh9sgQN2+pJ9VYZ+1LPwXOxuBJBA5nrR5/ofPfuiJBE2hnjsaN8se8JznOmGLN2p49Pe5U/ttafcs/apA==}
-
   js-string-escape@1.0.1:
     resolution: {integrity: sha512-Smw4xcfIQ5LVjAOuJCvN/zIodzA/BBSsluuoSykP+lUvScIi4U6RJLfwHet5cxFnCswUjISV8oAXaqaJDY3chg==}
     engines: {node: '>= 0.8'}
@@ -5058,8 +5033,8 @@ packages:
     resolution: {integrity: sha512-Qush0uP+G8ZScpGMZvHUiRfI0YBWuB3gVBYlI0v0vvOJt5FLicco+IkP0a50LqTTQhmts/m6tP5SWE+USyIvcQ==}
     engines: {node: '>=12.20'}
 
-  keycloak-js@15.1.1:
-    resolution: {integrity: sha512-PPu70WfSI2CWX7GoF5AQ4HkqYJLTAOV/25wDG//9S5SUOhqIDxKjAv6P54hy8nKt2+rIZF2kqpv7FNEmBN2W4g==}
+  keycloak-js@26.2.4:
+    resolution: {integrity: sha512-PnXpR3ubETGOt0B/Qt2lxmPbkZr5bc3vlQsOqDoTPPQsZRp7JjhTKxlJ187uWh8qJhvBab6Gsjb06a8ayOPfuw==}
 
   keyv@4.5.4:
     resolution: {integrity: sha512-oxVHkHR/EJf2CNXnWxRLW6mg7JyCCUcG0DtEGmL2ctUo1PNTin1PUil+r/+4r5MpVgC/fn1kjsx7mjSujKqIpw==}
@@ -9917,22 +9892,6 @@ snapshots:
       react-dom: 17.0.2(react@17.0.2)
       react-lifecycles-compat: 3.0.4
 
-  '@react-keycloak/core@3.2.0(react@17.0.2)':
-    dependencies:
-      react: 17.0.2
-      react-fast-compare: 3.2.2
-
-  '@react-keycloak/web@3.4.0(keycloak-js@15.1.1)(react-dom@17.0.2(react@17.0.2))(react@17.0.2)(typescript@4.9.5)':
-    dependencies:
-      '@babel/runtime': 7.29.7
-      '@react-keycloak/core': 3.2.0(react@17.0.2)
-      hoist-non-react-statics: 3.3.2
-      keycloak-js: 15.1.1
-      react: 17.0.2
-      react-dom: 17.0.2(react@17.0.2)
-    optionalDependencies:
-      typescript: 4.9.5
-
   '@sec-ant/readable-stream@0.4.1': {}
 
   '@sindresorhus/is@6.3.1': {}
@@ -11912,8 +11871,6 @@ snapshots:
   balanced-match@1.0.2: {}
 
   balanced-match@4.0.4: {}
-
-  base64-js@1.3.1: {}
 
   base64-js@1.5.1: {}
 
@@ -15207,8 +15164,6 @@ snapshots:
       - ts-node
       - utf-8-validate
 
-  js-sha256@0.9.0: {}
-
   js-string-escape@1.0.1: {}
 
   js-tokens@4.0.0: {}
@@ -15289,10 +15244,7 @@ snapshots:
 
   junk@4.0.1: {}
 
-  keycloak-js@15.1.1:
-    dependencies:
-      base64-js: 1.3.1
-      js-sha256: 0.9.0
+  keycloak-js@26.2.4: {}
 
   keyv@4.5.4:
     dependencies:
