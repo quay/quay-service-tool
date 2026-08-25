@@ -22,6 +22,12 @@ const initKeycloak = (onAuthenticatedCallback) => {
         login();
       }
     })
+    .catch((error) => {
+      // Silent SSO can reject (e.g. 3rd-party cookie check timeout) leaving
+      // the app stuck on a blank page with no recovery path otherwise.
+      console.error('Keycloak initialization failed:', error);
+      login();
+    });
 };
 
 const login = KeycloakInstance.login;
