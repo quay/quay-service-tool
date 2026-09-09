@@ -48,6 +48,29 @@ AUTH_CONFIG = {
 }
 
 
+def test_spam_detection_route_renders_configured_roles(client, monkeypatch):
+    monkeypatch.setitem(
+        app.config,
+        'authentication',
+        {
+            **AUTH_CONFIG,
+            'roles': {
+                **AUTH_CONFIG['roles'],
+                'SPAM_DETECTION_ROLE': 'spam-detection-reader',
+                'SPAM_DETECTION_REMEDIATION_ROLE': 'spam-detection-remediator',
+            },
+        },
+    )
+    monkeypatch.setitem(app.config, 'QUAY_UI_URL', 'https://quay.example.com')
+
+    response = client.get('/spam-detection')
+
+    assert response.status_code == 200
+    assert b"var SPAM_DETECTION_ROLE = 'spam-detection-reader';" in response.data
+    assert b"var SPAM_DETECTION_REMEDIATION_ROLE = 'spam-detection-remediator';" in response.data
+    assert b"var QUAY_UI_URL = 'https://quay.example.com';" in response.data
+
+
 class TestKeycloakAuth:
 
     @patch('app.KeycloakOpenID')
