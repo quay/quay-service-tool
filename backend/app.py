@@ -156,14 +156,29 @@ def healthcheck():
 
 
 @app.route("/")
+@app.route("/spam-detection")
+@app.route("/spam-detection/")
 def main():
     AUTH_URL = app.config.get('authentication', {}).get('url')
     AUTH_REALM = app.config.get('authentication', {}).get('realm')
     AUTH_CLIENTID = app.config.get('authentication', {}).get('clientid')
-    ADMIN_ROLE = app.config.get('authentication', {}).get('roles', {}).get('ADMIN_ROLE')
-    EXPORT_COMPLIANCE_ROLE = app.config.get('authentication', {}).get('roles', {}).get('EXPORT_COMPLIANCE_ROLE')
-    return render_template('index.html', AUTH_URL=AUTH_URL,  AUTH_REALM=AUTH_REALM, AUTH_CLIENTID=AUTH_CLIENTID,
-                           ADMIN_ROLE=ADMIN_ROLE, EXPORT_COMPLIANCE_ROLE=EXPORT_COMPLIANCE_ROLE,)
+    roles = app.config.get('authentication', {}).get('roles', {})
+    ADMIN_ROLE = roles.get('ADMIN_ROLE')
+    EXPORT_COMPLIANCE_ROLE = roles.get('EXPORT_COMPLIANCE_ROLE')
+    SPAM_DETECTION_ROLE = roles.get('SPAM_DETECTION_ROLE')
+    SPAM_DETECTION_REMEDIATION_ROLE = roles.get('SPAM_DETECTION_REMEDIATION_ROLE')
+    QUAY_UI_URL = app.config.get('QUAY_UI_URL')
+    return render_template(
+        'index.html',
+        AUTH_URL=AUTH_URL,
+        AUTH_REALM=AUTH_REALM,
+        AUTH_CLIENTID=AUTH_CLIENTID,
+        ADMIN_ROLE=ADMIN_ROLE,
+        EXPORT_COMPLIANCE_ROLE=EXPORT_COMPLIANCE_ROLE,
+        SPAM_DETECTION_ROLE=SPAM_DETECTION_ROLE,
+        SPAM_DETECTION_REMEDIATION_ROLE=SPAM_DETECTION_REMEDIATION_ROLE,
+        QUAY_UI_URL=QUAY_UI_URL,
+    )
 
 
 api.add_resource(BannerTask, '/banner', '/banner/<int:id>', endpoint='banner')
