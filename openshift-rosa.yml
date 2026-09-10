@@ -18,6 +18,9 @@ parameters:
 - name: CONFIG_MOUNT_PATH
   value: "/config"
   required: true
+- name: SPAM_DETECTION_S3_ACCESS_SECRET
+  value: "service-tool-spam-s3-access"
+  required: true
 - name: QUAY_APP_COMPONENT_ANNOTATIONS_KEY
   value: "quay-service-tool-app-deployment"
   displayName: quay service tool app annotation
@@ -97,6 +100,18 @@ objects:
           env:
           - name: CONFIG_PATH
             value: ${{CONFIG_MOUNT_PATH}}
+          - name: AWS_ACCESS_KEY_ID
+            valueFrom:
+              secretKeyRef:
+                name: ${{SPAM_DETECTION_S3_ACCESS_SECRET}}
+                key: aws_access_key_id
+                optional: true
+          - name: AWS_SECRET_ACCESS_KEY
+            valueFrom:
+              secretKeyRef:
+                name: ${{SPAM_DETECTION_S3_ACCESS_SECRET}}
+                key: aws_secret_access_key
+                optional: true
           livenessProbe:
             httpGet:
               path: /healthcheck
