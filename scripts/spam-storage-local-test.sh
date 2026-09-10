@@ -44,7 +44,7 @@ fi
 # services. Reuse the storage containers so Podman Compose does not try to
 # replace them underneath those dependents; a clean CI runner still creates
 # them normally.
-compose up -d --no-recreate quay-service-tool-state-db quay-service-tool-s3
+compose up -d --wait --wait-timeout 120 --no-recreate quay-service-tool-state-db quay-service-tool-s3
 
 for _ in {1..60}; do
   if compose exec -T quay-service-tool-state-db \
