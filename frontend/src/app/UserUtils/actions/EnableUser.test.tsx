@@ -29,8 +29,8 @@ async function typeAndSubmitUsername(view, username){
     await act(async () => {
         view.find('button#enable-user-submit').simulate('click');
         await flushPromises(); // Pauses execution of tests until promises in the component have been resolved
-        view.update(); // Sync enzyme component tree with the react component tree
     });
+    view.update(); // Sync enzyme component tree with the react component tree
 }
 
 describe('Enable users tests', ()=>{
@@ -75,8 +75,8 @@ describe('Enable users tests', ()=>{
         await act(async () => {
             view.find('button#enable-user-confirm').simulate('click');
             await flushPromises(); 
-            view.update();
         });
+        view.update();
         expect(view.find('Alert#enable-user-alert').props()).toHaveProperty('variant', 'success');
         expect(view.find('Alert#enable-user-alert').text().includes(`User ${username} enabled`)).toBe(true);
         expect(view.find('Modal').exists()).toBe(false);
