@@ -33,8 +33,8 @@ async function asyncClickButton(view, button){
     await act(async () => {
         button.simulate('click');
         await flushPromises(); // Pauses execution of tests until promises in the component have been resolved
-        view.update(); // Sync enzyme component tree with the react component tree
     });
+    view.update(); // Sync enzyme component tree with the react component tree
 }
 
 describe('Disable users tests', ()=>{
