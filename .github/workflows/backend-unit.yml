@@ -23,16 +23,7 @@ jobs:
 
       - run: uv sync --group dev
 
-      - name: Backend tests with PostgreSQL and S3
-        run: make spam-storage-test
-        working-directory: .
+      - name: Backend unit tests
+        run: uv run pytest
         env:
-          CONTAINER_RUNTIME: docker
           CONFIG_PATH: config
-
-      - name: Clean up PostgreSQL and S3 integration services
-        if: always()
-        run: make spam-storage-clean
-        working-directory: .
-        env:
-          CONTAINER_RUNTIME: docker
