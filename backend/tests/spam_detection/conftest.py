@@ -17,9 +17,9 @@ S3_ENDPOINT = os.environ.get("SPAM_DETECTION_TEST_S3_ENDPOINT_URL")
 
 def _require_storage_config():
     if not STATE_DB_URI or not S3_ENDPOINT:
-        pytest.fail(
-            "spam tests require PostgreSQL and MinIO; run `make spam-storage-test` "
-            "from the repository root"
+        pytest.skip(
+            "spam integration tests require PostgreSQL and MinIO; run "
+            "`make spam-storage-test` from the repository root"
         )
 
 
@@ -44,12 +44,20 @@ def quay_test_db_uri():
     database_name = f"quay_test_{uuid.uuid4().hex}"
     parsed = urlsplit(STATE_DB_URI)
     test_uri = urlunsplit(
-        (parsed.scheme, parsed.netloc, f"/{database_name}", parsed.query, parsed.fragment)
+        (
+            parsed.scheme,
+            parsed.netloc,
+            f"/{database_name}",
+            parsed.query,
+            parsed.fragment,
+        )
     )
     connection = psycopg2.connect(STATE_DB_URI)
     connection.autocommit = True
     with connection.cursor() as cursor:
-        cursor.execute(sql.SQL("CREATE DATABASE {}").format(sql.Identifier(database_name)))
+        cursor.execute(
+            sql.SQL("CREATE DATABASE {}").format(sql.Identifier(database_name))
+        )
     connection.close()
 
     yield test_uri
@@ -62,7 +70,9 @@ def quay_test_db_uri():
             "WHERE datname = %s AND pid <> pg_backend_pid()",
             (database_name,),
         )
-        cursor.execute(sql.SQL("DROP DATABASE {}").format(sql.Identifier(database_name)))
+        cursor.execute(
+            sql.SQL("DROP DATABASE {}").format(sql.Identifier(database_name))
+        )
     connection.close()
 
 
