@@ -1,6 +1,6 @@
 ### --- Frontend build --- ###
 
-FROM registry.redhat.io/ubi9/nodejs-22@sha256:6d86fecb222cfc477376a582665e55741cf403240a83bee2b59331c77a4dce96 AS frontend-base
+FROM registry.redhat.io/ubi9/nodejs-22@sha256:99cef5d0a64011463c411db508b1570f9edc37219dd38eabbf90bb8c0e45ccc3 AS frontend-base
 
 ENV APP_ROOT=/frontend \
     HOME=/frontend \
@@ -26,7 +26,7 @@ RUN pnpm build
 
 ### --- Backend --- ###
 
-FROM registry.access.redhat.com/ubi9/python-312:latest@sha256:608649675c344ac80d58842b883515f39a2232398386805bc6a741f823340a4e AS backend-base
+FROM registry.access.redhat.com/ubi9/python-312:latest@sha256:e6a10c3150624fbfd33dbd7721ef99ce7a1001b417d64427ad58515ab8044121 AS backend-base
 
 ENV SERVICETOOLDIR=/backend
 
