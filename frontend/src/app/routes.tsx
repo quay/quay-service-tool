@@ -1,5 +1,5 @@
 import * as React from 'react';
-import { Route, RouteComponentProps, Switch } from 'react-router-dom';
+import { Route, Routes } from 'react-router-dom';
 import { accessibleRouteChangeHandler } from '@app/utils/utils';
 import UserService from "src/services/UserService";
 import { SiteUtils } from '@app/SiteUtils/SiteUtils';
@@ -8,14 +8,12 @@ import { ExportCompliance } from '@app/ExportCompliance/ExportCompliance';
 import { SpamDetection } from '@app/SpamDetection/SpamDetection';
 import { NotFound } from '@app/NotFound/NotFound';
 import { useDocumentTitle } from '@app/utils/useDocumentTitle';
-import { LastLocationProvider, useLastLocation } from 'react-router-last-location';
+import { LastLocationProvider, useLastLocation } from '@app/LastLocation';
 
 let routeFocusTimer: number;
 export interface IAppRoute {
   label?: string; // Excluding the label will exclude the route from the nav sidebar in AppLayout
-  /* eslint-disable @typescript-eslint/no-explicit-any */
-  component: React.ComponentType<RouteComponentProps<any>> | React.ComponentType<any>;
-  /* eslint-enable @typescript-eslint/no-explicit-any */
+  component: React.ComponentType;
   exact?: boolean;
   path: string;
   title: string;
@@ -88,20 +86,16 @@ const useA11yRouteChange = (isAsync: boolean) => {
   }, [isAsync, lastNavigation]);
 };
 
-const RouteWithTitleUpdates = ({ component: Component, isAsync = false, title, ...rest }: IAppRoute) => {
+const RouteWithTitleUpdates = ({ component: Component, exact: _exact, isAsync = false, title, ...rest }: IAppRoute) => {
   useA11yRouteChange(isAsync);
   useDocumentTitle(title);
 
-  function routeWithTitle(routeProps: RouteComponentProps) {
-    return <Component {...rest} {...routeProps} />;
-  }
-
-  return <Route {...rest} render={routeWithTitle} />;
+  return <Component />;
 };
 
 const PageNotFound = ({ title }: { title: string }) => {
   useDocumentTitle(title);
-  return <Route component={NotFound} />;
+  return <NotFound />;
 };
 
 const flattenedRoutes: IAppRoute[] = routes.reduce(
@@ -114,19 +108,16 @@ const AppRoutes = (): React.ReactElement => {
 
   return (
     <LastLocationProvider>
-      <Switch>
-        {flattenedRoutes.map(({ path, exact, component, title, isAsync }, idx) => (
-          <RouteWithTitleUpdates
+      <Routes>
+        {flattenedRoutes.map(({ path, component, title, isAsync }, idx) => (
+          <Route
             path={path}
-            exact={exact}
-            component={component}
             key={idx}
-            title={title}
-            isAsync={isAsync}
+            element={<RouteWithTitleUpdates component={component} title={title} isAsync={isAsync} path={path} />}
           />
         ))}
-        <PageNotFound title="404 Page Not Found" />
-      </Switch>
+        <Route path="*" element={<PageNotFound title="404 Page Not Found" />} />
+      </Routes>
     </LastLocationProvider>
   );
 };

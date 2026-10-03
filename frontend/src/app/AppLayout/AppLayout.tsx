@@ -1,5 +1,5 @@
 import * as React from 'react';
-import { NavLink, useLocation, useHistory } from 'react-router-dom';
+import { NavLink, useLocation, useNavigate } from 'react-router-dom';
 import {
   Nav,
   NavList,
@@ -35,9 +35,9 @@ const AppLayout: React.FunctionComponent<IAppLayout> = ({ children }) => {
   };
 
   function LogoImg() {
-    const history = useHistory();
+    const navigate = useNavigate();
     function handleClick() {
-      history.push('/');
+      navigate('/');
     }
     return (
       <img src={logo} onClick={handleClick} alt="PatternFly Logo" />
@@ -80,7 +80,11 @@ const AppLayout: React.FunctionComponent<IAppLayout> = ({ children }) => {
     const canView = route.permission ? UserService.hasRealmRole(route.permission) : true
     return canView ? (
       <NavItem key={`${route.label}-${index}`} id={`${route.label}-${index}`}>
-        <NavLink exact to={route.path} activeClassName="pf-m-current">
+        <NavLink
+          end
+          to={route.path}
+          className={({ isActive }) => (isActive ? 'pf-m-current' : undefined)}
+        >
           {route.label}
         </NavLink>
       </NavItem>
