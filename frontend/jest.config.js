@@ -23,7 +23,8 @@ module.exports = {
     "\\.(jpg|jpeg|png|gif|eot|otf|webp|svg|ttf|woff|woff2|mp4|webm|wav|mp3|m4a|aac|oga)$": "<rootDir>/__mocks__/fileMock.js",
     "@app/(.*)": '<rootDir>/src/app/$1',
     "^src/(.*)": '<rootDir>/src/$1',
-    "^keycloak-js$": "<rootDir>/__mocks__/keycloak-js.js"
+    "^keycloak-js$": "<rootDir>/__mocks__/keycloak-js.js",
+    "^react-router/dom$": "<rootDir>/node_modules/react-router/dist/development/dom-export.js"
   },
 
   // A preset that is used as a base for Jest's configuration

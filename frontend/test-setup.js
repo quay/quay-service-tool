@@ -1,5 +1,6 @@
+import { TextDecoder, TextEncoder } from 'util';
 import { configure } from 'enzyme';
-// import ReactSixteenAdapter from 'enzyme-adapter-react-16';
-import ReactSeventeenAdapter from '@wojtekmaj/enzyme-adapter-react-17';
+import ReactEighteenAdapter from '@cfaester/enzyme-adapter-react-18';
 
-configure({ adapter: new ReactSeventeenAdapter() });
+Object.assign(global, { TextDecoder, TextEncoder });
+configure({ adapter: new ReactEighteenAdapter() });
