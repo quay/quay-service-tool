@@ -27,6 +27,17 @@
       "description": "Group ALL major updates into a single PR",
       "matchUpdateTypes": ["major"],
       "groupName": "all-major-updates"
+    },
+    {
+      "description": "Automerge lock file maintenance after required checks pass",
+      "matchUpdateTypes": ["lockFileMaintenance"],
+      "automerge": true
+    },
+    {
+      "description": "Temporarily skip Python lock file maintenance while retaining dependency updates",
+      "matchManagers": ["pep621"],
+      "matchUpdateTypes": ["lockFileMaintenance"],
+      "enabled": false
     }
   ]
 }
