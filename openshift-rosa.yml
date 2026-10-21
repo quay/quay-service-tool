@@ -34,12 +34,21 @@ parameters:
   value: "{}"
   displayName: Service annotations.
   description: Service annotations.
-- name: QUAY_DISABLE_CPU_REQUIREMENTS_CHECK
+- name: DVO_CPU_REQUIREMENTS_CHECK
   value: "ignore-check.kube-linter.io/unset-cpu-requirements"
   displayName: disable DVO check for CPU requirements
-- name: QUAY_DISABLE_CPU_REQUIREMENTS_REASON
+- name: DVO_CPU_REQUIREMENTS_REASON
   value: "CPU limits not set to allow bursting"
   displayName: reason for disabling CPU requirements check
+- name: DVO_MIN_REPLICAS_CHECK
+  value: "min-replicas-check-not-disabled"
+- name: DVO_MIN_REPLICAS_CHECK_DISABLE_REASON
+  value: ""
+- name: DVO_ANTI_AFFINITY_CHECK
+  value: "anti-affinity-check-not-disabled"
+- name: DVO_ANTI_AFFINITY_CHECK_DISABLE_REASON
+  value: ""
+
 - name: QUAY_RESOURCES_REQUESTS_CPU
   value: "100m"
 - name: QUAY_RESOURCES_REQUESTS_MEMORY
@@ -54,7 +63,9 @@ objects:
     labels:
       app: quayio-service-tool
     annotations:
-      ${{QUAY_DISABLE_CPU_REQUIREMENTS_CHECK}}: ${{QUAY_DISABLE_CPU_REQUIREMENTS_REASON}}
+      ${{DVO_CPU_REQUIREMENTS_CHECK}}: ${{DVO_CPU_REQUIREMENTS_REASON}}
+      ${{DVO_MIN_REPLICAS_CHECK}}: ${{DVO_MIN_REPLICAS_CHECK_DISABLE_REASON}}
+      ${{DVO_ANTI_AFFINITY_CHECK}}: ${{DVO_ANTI_AFFINITY_CHECK_DISABLE_REASON}}
   spec:
     replicas: ${{REPLICAS}}
     selector:
