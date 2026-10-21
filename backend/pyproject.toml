@@ -4,7 +4,7 @@ version = "0.0.1"
 requires-python = "==3.12.*"
 dependencies = [
     "boto3>=1.35,<2",
-    "quay @ git+https://github.com/quay/quay.git@44ad19ec207bd3d81ba696137a283ddad06c510c",
+    "quay @ git+https://github.com/quay/quay.git@ada8067ee43cbb2750f68f83170c4ef1b281d087",
     "python-keycloak>=4.0.0",
     "prometheus-flask-exporter==0.23.1",
     "psycopg2-binary>=2.9.10",
