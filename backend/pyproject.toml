@@ -22,7 +22,8 @@ override-dependencies = [
     "jwcrypto>=1.5.7",
     "supervisor==4.3.0",
     "prometheus-client>=0.13.1",
-    "authlib>=1.9.0", # CVE-2026-96760: JWS signature verification bypass, fixed in 1.9.0
+    "authlib>=1.9.0",
+    "pyasn1>=0.6.5",
 ]
 
 [dependency-groups]
