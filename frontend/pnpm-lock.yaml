@@ -7951,8 +7951,8 @@ packages:
   watchpack@1.7.5:
     resolution: {integrity: sha512-9P3MWk6SrKjHsGkLT2KHXdQ/9SNkyoJbabxnKOoJepsvJjJG8uYTR3yTPxPQvNDI3w4Nz1xnE0TLHK4RIVe/MQ==}
 
-  watchpack@2.6.3:
-    resolution: {integrity: sha512-s3NZy0QpTY9qGqzc0wtz4qI28z3+5qKbbAec4MV4G9N3CfgZ9wgvQRr0cl2jh/tqkWG1NWHkmVMHZpCamev5Wg==}
+  watchpack@2.6.4:
+    resolution: {integrity: sha512-5H3Tce2GfzWbcr9VnSqyak2whFaONw4BdmI5BDnMXold4qSlCFd64XaMQESRh2vkDKmdUkv6rUo17UvZ9f9nXw==}
     engines: {node: '>=10.13.0'}
 
   wbuf@1.7.3:
@@ -10417,7 +10417,7 @@ snapshots:
       telejson: 6.0.8
       ts-dedent: 2.3.0
       util-deprecate: 1.0.2
-      watchpack: 2.6.3
+      watchpack: 2.6.4
       webpack: 4.47.0(supports-color@8.1.1)(webpack-cli@5.1.4)
       ws: 8.22.1
       x-default-browser: 0.4.0
@@ -18537,7 +18537,7 @@ snapshots:
     transitivePeerDependencies:
       - supports-color
 
-  watchpack@2.6.3:
+  watchpack@2.6.4:
     dependencies:
       graceful-fs: 4.2.11
 
@@ -18740,7 +18740,7 @@ snapshots:
       minimizer-webpack-plugin: 5.14.0(clean-css@5.3.3)(cssnano@5.1.15(postcss@8.5.32))(csso@4.2.0)(html-minifier-terser@6.1.0)(imagemin@9.0.1)(postcss@8.5.32)(svgo@2.8.4)(uglify-js@3.19.3)(webpack@5.112.2)
       schema-utils: 4.8.3(webpack@5.112.2)
       tapable: 2.3.3
-      watchpack: 2.6.3
+      watchpack: 2.6.4
       webpack-sources: 3.7.0
     optionalDependencies:
       webpack-cli: 5.1.4(webpack-bundle-analyzer@4.10.2)(webpack-dev-server@5.2.7)(webpack@5.112.2)
