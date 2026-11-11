@@ -24,6 +24,7 @@ override-dependencies = [
     "prometheus-client>=0.13.1",
     "authlib>=1.9.0",
     "pyasn1>=0.6.5",
+    "certifi>=2026.10.19", # GHSA-6q48-6c7w-9gw2: distrust eMudhra intermediate CAs, fixed in 2026.10.19
 ]
 
 [dependency-groups]
