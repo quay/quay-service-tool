@@ -298,6 +298,7 @@ def test_default_quarantine_description_includes_restore_instructions(tmp_path, 
     )[0]
 
     assert "contact Quay support" in description
+    assert "https://access.redhat.com/articles/quayio-help" in description
     assert "remove promotional, deceptive, or unrelated link content" in description
     assert "published support timeline" in description
 
