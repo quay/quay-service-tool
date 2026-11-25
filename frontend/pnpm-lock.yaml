@@ -17,6 +17,7 @@ overrides:
   brace-expansion@>=5: 5.0.13
   decode-uri-component: '>=0.5.0'
   open: '>=11.0.0'
+  websocket-driver: '>=0.8.0'
 
 importers:
 
@@ -8074,9 +8075,9 @@ packages:
       webpack-cli:
         optional: true
 
-  websocket-driver@0.7.5:
-    resolution: {integrity: sha512-ZL2+3c7kMBdIRCMz6l8jQMHyGVxj+UL+xVk74Ombiciboca8rHa15L86B19E5oh1pL9Ii/uj54gtsIrZGMo6zA==}
-    engines: {node: '>=0.8.0'}
+  websocket-driver@0.8.0:
+    resolution: {integrity: sha512-upjjWCo/1ZysdZ3rMvXXUDk9PmbYne+wSD1t78HAvIvjmR+avda0MsLWhtkn5PW8Ht34EXhhWF6OseWJ8nTGlg==}
+    engines: {node: '>=0.10.0'}
 
   websocket-extensions@0.2.0:
     resolution: {integrity: sha512-vQaTTgDDgwlrreIJAprknlnvEtZMMxfLqoxyQYnWO8dgcz2qIzQNysCpwOekz8kqLvzrZ0dcaL9hejZ+2AszCA==}
@@ -13649,7 +13650,7 @@ snapshots:
 
   faye-websocket@0.11.4:
     dependencies:
-      websocket-driver: 0.7.5
+      websocket-driver: 0.8.0
 
   fb-watchman@2.0.4:
     dependencies:
@@ -17583,7 +17584,7 @@ snapshots:
     dependencies:
       faye-websocket: 0.11.4
       uuid: 8.3.2
-      websocket-driver: 0.7.5
+      websocket-driver: 0.8.0
 
   source-list-map@2.0.1: {}
 
@@ -18748,7 +18749,7 @@ snapshots:
       - svgo
       - uglify-js
 
-  websocket-driver@0.7.5:
+  websocket-driver@0.8.0:
     dependencies:
       http-parser-js: 0.5.10
       safe-buffer: 5.2.1
